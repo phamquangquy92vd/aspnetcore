@@ -1,17 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Collections.Generic;
-using System.IO;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Buffers;
 
 /// <summary>
 /// A <see cref="IViewBufferScope"/> that uses pooled memory.
 /// </summary>
-internal class MemoryPoolViewBufferScope : IViewBufferScope, IDisposable
+internal sealed class MemoryPoolViewBufferScope : IViewBufferScope, IDisposable
 {
     public const int MinimumSize = 16;
     private readonly ArrayPool<ViewBufferValue> _viewBufferPool;
@@ -38,15 +35,8 @@ internal class MemoryPoolViewBufferScope : IViewBufferScope, IDisposable
     /// <inheritdoc />
     public ViewBufferValue[] GetPage(int pageSize)
     {
-        if (pageSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(pageSize));
-        }
-
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(typeof(MemoryPoolViewBufferScope).FullName);
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
         if (_leased == null)
         {
@@ -80,10 +70,7 @@ internal class MemoryPoolViewBufferScope : IViewBufferScope, IDisposable
     /// <inheritdoc />
     public void ReturnSegment(ViewBufferValue[] segment)
     {
-        if (segment == null)
-        {
-            throw new ArgumentNullException(nameof(segment));
-        }
+        ArgumentNullException.ThrowIfNull(segment);
 
         Array.Clear(segment, 0, segment.Length);
 
@@ -98,10 +85,7 @@ internal class MemoryPoolViewBufferScope : IViewBufferScope, IDisposable
     /// <inheritdoc />
     public TextWriter CreateWriter(TextWriter writer)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
 
         return new PagedBufferedTextWriter(_charPool, writer);
     }

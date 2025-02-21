@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net.Http;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection;
@@ -32,8 +31,10 @@ public class OpenIdConnectPostConfigureOptions : IPostConfigureOptions<OpenIdCon
     /// </summary>
     /// <param name="name">The name of the options instance being configured.</param>
     /// <param name="options">The options instance to configure.</param>
-    public void PostConfigure(string name, OpenIdConnectOptions options)
+    public void PostConfigure(string? name, OpenIdConnectOptions options)
     {
+        ArgumentNullException.ThrowIfNull(name);
+
         options.DataProtectionProvider = options.DataProtectionProvider ?? _dp;
 
         if (string.IsNullOrEmpty(options.SignOutScheme))
@@ -83,7 +84,7 @@ public class OpenIdConnectPostConfigureOptions : IPostConfigureOptions<OpenIdCon
                 if (string.IsNullOrEmpty(options.MetadataAddress) && !string.IsNullOrEmpty(options.Authority))
                 {
                     options.MetadataAddress = options.Authority;
-                    if (!options.MetadataAddress.EndsWith("/", StringComparison.Ordinal))
+                    if (!options.MetadataAddress.EndsWith('/'))
                     {
                         options.MetadataAddress += "/";
                     }
@@ -106,7 +107,7 @@ public class OpenIdConnectPostConfigureOptions : IPostConfigureOptions<OpenIdCon
         }
     }
 
-    private class StringSerializer : IDataSerializer<string>
+    private sealed class StringSerializer : IDataSerializer<string>
     {
         public string Deserialize(byte[] data)
         {

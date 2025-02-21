@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 
 namespace Microsoft.AspNetCore.Routing;
@@ -18,7 +16,11 @@ namespace Microsoft.AspNetCore.Routing;
 ///
 /// strings are compared using <see cref="StringComparison.OrdinalIgnoreCase"/>.
 /// </remarks>
+#if !COMPONENTS
 public class RouteValueEqualityComparer : IEqualityComparer<object?>
+#else
+internal class RouteValueEqualityComparer : IEqualityComparer<object?>
+#endif
 {
     /// <summary>
     /// A default instance of the <see cref="RouteValueEqualityComparer"/>.

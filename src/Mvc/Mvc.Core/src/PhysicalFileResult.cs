@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
@@ -27,10 +25,7 @@ public class PhysicalFileResult : FileResult
     public PhysicalFileResult(string fileName, string contentType)
         : this(fileName, MediaTypeHeaderValue.Parse(contentType))
     {
-        if (fileName == null)
-        {
-            throw new ArgumentNullException(nameof(fileName));
-        }
+        ArgumentNullException.ThrowIfNull(fileName);
     }
 
     /// <summary>
@@ -58,10 +53,7 @@ public class PhysicalFileResult : FileResult
     /// <inheritdoc />
     public override Task ExecuteResultAsync(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var executor = context.HttpContext.RequestServices.GetRequiredService<IActionResultExecutor<PhysicalFileResult>>();
         return executor.ExecuteAsync(context, this);

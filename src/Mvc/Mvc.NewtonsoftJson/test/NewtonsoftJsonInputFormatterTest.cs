@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
@@ -18,7 +14,6 @@ using Moq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters;
 
@@ -211,6 +206,12 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
         return base.JsonFormatter_EscapedKeys_Bracket();
     }
 
+    [Fact(Skip = "https://github.com/dotnet/aspnetcore/issues/39069")]
+    public override Task JsonFormatter_EscapedKeys_SingleQuote()
+    {
+        return base.JsonFormatter_EscapedKeys_SingleQuote();
+    }
+
     [Theory]
     [InlineData(" ", true, true)]
     [InlineData(" ", false, false)]
@@ -384,7 +385,7 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
             new MvcOptions(),
             new MvcNewtonsoftJsonOptions());
 
-        var contentBytes = Encoding.UTF8.GetBytes("{\"shortValue\":\"32768\"}");
+        var contentBytes = Encoding.UTF8.GetBytes("{\"ShortValue\":\"32768\"}");
         var httpContext = GetHttpContext(contentBytes);
 
         var formatterContext = CreateInputFormatterContext(typeof(TypeWithPrimitives), httpContext);
@@ -398,7 +399,38 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
 
         var modelError = Assert.Single(formatterContext.ModelState["shortValue"].Errors);
         Assert.Null(modelError.Exception);
-        Assert.Equal("The supplied value is invalid.", modelError.ErrorMessage);
+        Assert.Equal("The supplied value is invalid for ShortValue.", modelError.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ReadAsync_HasCorrectModelErrorWithNestedType()
+    {
+        // Arrange
+        _serializerSettings.Converters.Add(new IsoDateTimeConverter());
+
+        var formatter = new NewtonsoftJsonInputFormatter(
+            GetLogger(),
+            _serializerSettings,
+            ArrayPool<char>.Shared,
+            _objectPoolProvider,
+            new MvcOptions(),
+            new MvcNewtonsoftJsonOptions());
+
+        var contentBytes = Encoding.UTF8.GetBytes("{ \"Complex\": { \"WithPrimitives\": [ { \"ShortValue\":\"32768\" } ] } }");
+        var httpContext = GetHttpContext(contentBytes);
+
+        var formatterContext = CreateInputFormatterContext(typeof(TypeWithNestedComplex), httpContext);
+
+        // Act
+        var result = await formatter.ReadAsync(formatterContext);
+
+        // Assert
+        Assert.True(result.HasError);
+        Assert.False(formatterContext.ModelState.IsValid);
+
+        var modelError = Assert.Single(formatterContext.ModelState["Complex.WithPrimitives[0].shortValue"].Errors);
+        Assert.Null(modelError.Exception);
+        Assert.Equal("The supplied value is invalid for ShortValue.", modelError.ErrorMessage);
     }
 
     [Fact]
@@ -413,11 +445,14 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
             new MvcOptions(),
             new MvcNewtonsoftJsonOptions());
         var httpContext = new Mock<HttpContext>();
+        var features = new Mock<IFeatureCollection>();
+        httpContext.SetupGet(c => c.Features).Returns(features.Object);
         IDisposable registerForDispose = null;
 
         var content = Encoding.UTF8.GetBytes("\"Hello world\"");
         httpContext.Setup(h => h.Request.Body).Returns(new NonSeekableReadStream(content, allowSyncReads: false));
         httpContext.Setup(h => h.Request.ContentType).Returns("application/json");
+        httpContext.Setup(h => h.Request.ContentLength).Returns(content.Length);
         httpContext.Setup(h => h.Response.RegisterForDispose(It.IsAny<IDisposable>()))
             .Callback((IDisposable disposable) => registerForDispose = disposable)
             .Verifiable();
@@ -487,6 +522,44 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
         }
     }
 
+    [Fact]
+    public async Task ReadAsync_AllowUserCodeToHandleDeserializationErrors()
+    {
+        // Arrange
+        var serializerSettings = new JsonSerializerSettings
+        {
+            Error = (sender, eventArgs) =>
+            {
+                eventArgs.ErrorContext.Handled = true;
+            }
+        };
+        var formatter = new NewtonsoftJsonInputFormatter(
+            GetLogger(),
+            serializerSettings,
+            ArrayPool<char>.Shared,
+            _objectPoolProvider,
+            new MvcOptions(),
+            new MvcNewtonsoftJsonOptions());
+
+        var content = $"{{'id': 'should be integer', 'name': 'test location'}}";
+        var contentBytes = Encoding.UTF8.GetBytes(content);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Features.Set<IHttpResponseFeature>(new TestResponseFeature());
+        httpContext.Request.Body = new NonSeekableReadStream(contentBytes, allowSyncReads: false);
+        httpContext.Request.ContentType = "application/json";
+
+        var formatterContext = CreateInputFormatterContext(typeof(Location), httpContext);
+
+        // Act
+        var result = await formatter.ReadAsync(formatterContext);
+
+        // Assert
+        Assert.False(result.HasError);
+        var location = (Location)result.Model;
+        Assert.Equal(0, location?.Id);
+        Assert.Equal("test location", location?.Name);
+    }
+
     private class TestableJsonInputFormatter : NewtonsoftJsonInputFormatter
     {
         public TestableJsonInputFormatter(JsonSerializerSettings settings, ObjectPoolProvider objectPoolProvider)
@@ -523,13 +596,17 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
 
     internal override string JsonFormatter_EscapedKeys_Expected => "[0]['It\"s a key']";
 
-    internal override string JsonFormatter_EscapedKeys_Bracket_Expected => "[0][\'It[s a key\']";
+    internal override string JsonFormatter_EscapedKeys_Bracket_Expected => "[0]['It[s a key']";
+
+    internal override string JsonFormatter_EscapedKeys_SingleQuote_Expected => "[0]['It\\'s a key']";
 
     internal override string ReadAsync_AddsModelValidationErrorsToModelState_Expected => "Age";
 
     internal override string ReadAsync_ArrayOfObjects_HasCorrectKey_Expected => "[2].Age";
 
     internal override string ReadAsync_ComplexPoco_Expected => "Person.Numbers[2]";
+
+    internal override string ReadAsync_NestedParseError_Expected => "b.c.d";
 
     internal override string ReadAsync_InvalidComplexArray_AddsOverflowErrorsToModelState_Expected => "names[1].Small";
 
@@ -576,6 +653,16 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase
 
         [JsonConverter(typeof(IncorrectShortConverter))]
         public short ShortValue { get; set; }
+    }
+
+    public class TypeWithComplex
+    {
+        public TypeWithPrimitives[] WithPrimitives { get; set; }
+    }
+
+    public class TypeWithNestedComplex
+    {
+        public TypeWithComplex Complex { get; set; }
     }
 
     private class IncorrectShortConverter : JsonConverter<short>

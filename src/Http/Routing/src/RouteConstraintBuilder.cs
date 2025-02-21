@@ -1,12 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Routing.Constraints;
+#if COMPONENTS
+using Microsoft.AspNetCore.Components.Routing;
+#endif
 
 namespace Microsoft.AspNetCore.Routing;
 
+#if !COMPONENTS
 /// <summary>
 /// A builder for produding a mapping of keys to see <see cref="IRouteConstraint"/>.
 /// </summary>
@@ -15,6 +17,9 @@ namespace Microsoft.AspNetCore.Routing;
 /// merge multiple entries for the same key.
 /// </remarks>
 public class RouteConstraintBuilder
+#else
+internal class RouteConstraintBuilder
+#endif
 {
     private readonly IInlineConstraintResolver _inlineConstraintResolver;
     private readonly string _displayName;
@@ -30,15 +35,8 @@ public class RouteConstraintBuilder
         IInlineConstraintResolver inlineConstraintResolver,
         string displayName)
     {
-        if (inlineConstraintResolver == null)
-        {
-            throw new ArgumentNullException(nameof(inlineConstraintResolver));
-        }
-
-        if (displayName == null)
-        {
-            throw new ArgumentNullException(nameof(displayName));
-        }
+        ArgumentNullException.ThrowIfNull(inlineConstraintResolver);
+        ArgumentNullException.ThrowIfNull(displayName);
 
         _inlineConstraintResolver = inlineConstraintResolver;
         _displayName = displayName;
@@ -80,6 +78,7 @@ public class RouteConstraintBuilder
         return constraints;
     }
 
+#if !COMPONENTS
     /// <summary>
     /// Adds a constraint instance for the given key.
     /// </summary>
@@ -95,15 +94,8 @@ public class RouteConstraintBuilder
     /// </remarks>
     public void AddConstraint(string key, object value)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
 
         var constraint = value as IRouteConstraint;
         if (constraint == null)
@@ -125,6 +117,7 @@ public class RouteConstraintBuilder
 
         Add(key, constraint);
     }
+#endif
 
     /// <summary>
     /// Adds a constraint for the given key, resolved by the <see cref="IInlineConstraintResolver"/>.
@@ -138,15 +131,8 @@ public class RouteConstraintBuilder
     /// </remarks>
     public void AddResolvedConstraint(string key, string constraintText)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (constraintText == null)
-        {
-            throw new ArgumentNullException(nameof(constraintText));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(constraintText);
 
         var constraint = _inlineConstraintResolver.ResolveConstraint(constraintText);
         if (constraint == null)
@@ -173,10 +159,7 @@ public class RouteConstraintBuilder
     /// <param name="key">The key.</param>
     public void SetOptional(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         _optionalParameters.Add(key);
     }

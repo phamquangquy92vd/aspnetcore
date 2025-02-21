@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.NodeServices.Npm;
 using Microsoft.AspNetCore.NodeServices.Util;
@@ -35,11 +31,7 @@ internal static class AngularCliMiddleware
         {
             throw new ArgumentException("Property 'SourcePath' cannot be null or empty", nameof(spaBuilder));
         }
-
-        if (string.IsNullOrEmpty(scriptName))
-        {
-            throw new ArgumentException("Cannot be null or empty", nameof(scriptName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(scriptName);
 
         // Start Angular CLI and attach to middleware pipeline
         var appBuilder = spaBuilder.ApplicationBuilder;
@@ -50,9 +42,9 @@ internal static class AngularCliMiddleware
 
         SpaProxyingExtensions.UseProxyToSpaDevelopmentServer(spaBuilder, () =>
         {
-                // On each request, we create a separate startup task with its own timeout. That way, even if
-                // the first request times out, subsequent requests could still work.
-                var timeout = spaBuilder.Options.StartupTimeout;
+            // On each request, we create a separate startup task with its own timeout. That way, even if
+            // the first request times out, subsequent requests could still work.
+            var timeout = spaBuilder.Options.StartupTimeout;
             return angularCliServerInfoTask.WithTimeout(timeout,
                 $"The Angular CLI process did not start listening for requests " +
                 $"within the timeout period of {timeout.TotalSeconds} seconds. " +
@@ -67,7 +59,10 @@ internal static class AngularCliMiddleware
         {
             portNumber = TcpPortFinder.FindAvailablePort();
         }
-        logger.LogInformation($"Starting @angular/cli on port {portNumber}...");
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation($"Starting @angular/cli on port {portNumber}...");
+        }
 
         var scriptRunner = new NodeScriptRunner(
             sourcePath, scriptName, $"--port {portNumber}", null, pkgManagerCommand, diagnosticSource, applicationStoppingToken);
@@ -114,9 +109,10 @@ internal static class AngularCliMiddleware
                 try
                 {
                     // If we get any HTTP response, the CLI server is ready
+                    using var cancellationTokenSource = new CancellationTokenSource(timeoutMilliseconds);
                     await client.SendAsync(
                         new HttpRequestMessage(HttpMethod.Head, cliServerUri),
-                        new CancellationTokenSource(timeoutMilliseconds).Token);
+                        cancellationTokenSource.Token);
                     return;
                 }
                 catch (Exception)

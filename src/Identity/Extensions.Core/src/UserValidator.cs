@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Identity;
 
@@ -19,7 +20,7 @@ public class UserValidator<TUser> : IUserValidator<TUser> where TUser : class
     /// Creates a new instance of <see cref="UserValidator{TUser}"/>.
     /// </summary>
     /// <param name="errors">The <see cref="IdentityErrorDescriber"/> used to provider error messages.</param>
-    public UserValidator(IdentityErrorDescriber errors = null)
+    public UserValidator(IdentityErrorDescriber? errors = null)
     {
         Describer = errors ?? new IdentityErrorDescriber();
     }
@@ -38,65 +39,68 @@ public class UserValidator<TUser> : IUserValidator<TUser> where TUser : class
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the <see cref="IdentityResult"/> of the validation operation.</returns>
     public virtual async Task<IdentityResult> ValidateAsync(UserManager<TUser> manager, TUser user)
     {
-        if (manager == null)
-        {
-            throw new ArgumentNullException(nameof(manager));
-        }
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        var errors = new List<IdentityError>();
-        await ValidateUserName(manager, user, errors);
+        ArgumentNullThrowHelper.ThrowIfNull(manager);
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        var errors = await ValidateUserName(manager, user).ConfigureAwait(false);
         if (manager.Options.User.RequireUniqueEmail)
         {
-            await ValidateEmail(manager, user, errors);
+            errors = await ValidateEmail(manager, user, errors).ConfigureAwait(false);
         }
-        return errors.Count > 0 ? IdentityResult.Failed(errors.ToArray()) : IdentityResult.Success;
+        return errors?.Count > 0 ? IdentityResult.Failed(errors) : IdentityResult.Success;
     }
 
-    private async Task ValidateUserName(UserManager<TUser> manager, TUser user, ICollection<IdentityError> errors)
+    private async Task<List<IdentityError>?> ValidateUserName(UserManager<TUser> manager, TUser user)
     {
-        var userName = await manager.GetUserNameAsync(user);
+        List<IdentityError>? errors = null;
+        var userName = await manager.GetUserNameAsync(user).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(userName))
         {
+            errors ??= new List<IdentityError>();
             errors.Add(Describer.InvalidUserName(userName));
         }
         else if (!string.IsNullOrEmpty(manager.Options.User.AllowedUserNameCharacters) &&
             userName.Any(c => !manager.Options.User.AllowedUserNameCharacters.Contains(c)))
         {
+            errors ??= new List<IdentityError>();
             errors.Add(Describer.InvalidUserName(userName));
         }
         else
         {
-            var owner = await manager.FindByNameAsync(userName);
+            var owner = await manager.FindByNameAsync(userName).ConfigureAwait(false);
             if (owner != null &&
-                !string.Equals(await manager.GetUserIdAsync(owner), await manager.GetUserIdAsync(user)))
+                !string.Equals(await manager.GetUserIdAsync(owner).ConfigureAwait(false), await manager.GetUserIdAsync(user).ConfigureAwait(false)))
             {
+                errors ??= new List<IdentityError>();
                 errors.Add(Describer.DuplicateUserName(userName));
             }
         }
+
+        return errors;
     }
 
     // make sure email is not empty, valid, and unique
-    private async Task ValidateEmail(UserManager<TUser> manager, TUser user, List<IdentityError> errors)
+    private async Task<List<IdentityError>?> ValidateEmail(UserManager<TUser> manager, TUser user, List<IdentityError>? errors)
     {
-        var email = await manager.GetEmailAsync(user);
+        var email = await manager.GetEmailAsync(user).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(email))
         {
+            errors ??= new List<IdentityError>();
             errors.Add(Describer.InvalidEmail(email));
-            return;
+            return errors;
         }
         if (!new EmailAddressAttribute().IsValid(email))
         {
+            errors ??= new List<IdentityError>();
             errors.Add(Describer.InvalidEmail(email));
-            return;
+            return errors;
         }
-        var owner = await manager.FindByEmailAsync(email);
+        var owner = await manager.FindByEmailAsync(email).ConfigureAwait(false);
         if (owner != null &&
-            !string.Equals(await manager.GetUserIdAsync(owner), await manager.GetUserIdAsync(user)))
+            !string.Equals(await manager.GetUserIdAsync(owner).ConfigureAwait(false), await manager.GetUserIdAsync(user).ConfigureAwait(false)))
         {
+            errors ??= new List<IdentityError>();
             errors.Add(Describer.DuplicateEmail(email));
         }
+        return errors;
     }
 }

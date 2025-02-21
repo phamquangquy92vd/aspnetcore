@@ -1,10 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-
 
 using System;
 using System.Collections.Immutable;
 using System.Linq;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -21,23 +21,23 @@ public class TopLevelParameterNameAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(compilationStartAnalysisContext =>
+        context.RegisterCompilationStartAction(context =>
         {
-            if (!SymbolCache.TryCreate(compilationStartAnalysisContext.Compilation, out var typeCache))
+            if (!SymbolCache.TryCreate(context.Compilation, out var typeCache))
             {
-                    // No-op if we can't find types we care about.
-                    return;
+                // No-op if we can't find types we care about.
+                return;
             }
 
-            InitializeWorker(compilationStartAnalysisContext, typeCache);
+            InitializeWorker(context, typeCache);
         });
     }
 
-    private void InitializeWorker(CompilationStartAnalysisContext compilationStartAnalysisContext, SymbolCache symbolCache)
+    private static void InitializeWorker(CompilationStartAnalysisContext context, SymbolCache symbolCache)
     {
-        compilationStartAnalysisContext.RegisterSymbolAction(symbolAnalysisContext =>
+        context.RegisterSymbolAction(context =>
         {
-            var method = (IMethodSymbol)symbolAnalysisContext.Symbol;
+            var method = (IMethodSymbol)context.Symbol;
             if (method.MethodKind != MethodKind.Ordinary)
             {
                 return;
@@ -56,9 +56,9 @@ public class TopLevelParameterNameAnalyzer : DiagnosticAnalyzer
 
             if (method.ContainingType.HasAttribute(symbolCache.IApiBehaviorMetadata, inherit: true))
             {
-                    // The issue of parameter name collision with properties affects complex model-bound types
-                    // and not input formatting. Ignore ApiController instances since they default to formatting.
-                    return;
+                // The issue of parameter name collision with properties affects complex model-bound types
+                // and not input formatting. Ignore ApiController instances since they default to formatting.
+                return;
             }
 
             for (var i = 0; i < method.Parameters.Length; i++)
@@ -70,7 +70,7 @@ public class TopLevelParameterNameAnalyzer : DiagnosticAnalyzer
                         parameter.Locations[0] :
                         Location.None;
 
-                    symbolAnalysisContext.ReportDiagnostic(
+                    context.ReportDiagnostic(
                         Diagnostic.Create(
                             DiagnosticDescriptors.MVC1004_ParameterNameCollidesWithTopLevelProperty,
                             location,
@@ -239,12 +239,10 @@ public class TopLevelParameterNameAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
-
             if (!TryGetType(SymbolNames.ControllerAttribute, out var controllerAttribute))
             {
                 return false;
             }
-
 
             if (!TryGetType(SymbolNames.FromBodyAttribute, out var fromBodyAttribute))
             {

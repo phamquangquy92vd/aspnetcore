@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.WebView;
 
@@ -50,10 +45,7 @@ public class StaticContentProviderTests
     {
         public InMemoryFileProvider(IDictionary<string, string> filePathsAndContents)
         {
-            if (filePathsAndContents is null)
-            {
-                throw new ArgumentNullException(nameof(filePathsAndContents));
-            }
+            ArgumentNullException.ThrowIfNull(filePathsAndContents);
 
             FilePathsAndContents = filePathsAndContents;
         }

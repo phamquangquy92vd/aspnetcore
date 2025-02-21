@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.ActionConstraints;
@@ -21,10 +19,7 @@ public readonly struct ActionSelectorCandidate
     /// </param>
     public ActionSelectorCandidate(ActionDescriptor action, IReadOnlyList<IActionConstraint>? constraints)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ArgumentNullException.ThrowIfNull(action);
 
         Action = action;
         Constraints = constraints;

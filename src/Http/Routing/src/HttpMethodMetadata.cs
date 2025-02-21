@@ -1,10 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Microsoft.AspNetCore.Shared;
 using static Microsoft.AspNetCore.Http.HttpMethods;
 
 namespace Microsoft.AspNetCore.Routing;
@@ -12,7 +11,7 @@ namespace Microsoft.AspNetCore.Routing;
 /// <summary>
 /// Represents HTTP method metadata used during routing.
 /// </summary>
-[DebuggerDisplay("{DebuggerToString(),nq}")]
+[DebuggerDisplay("{ToString(),nq}")]
 public sealed class HttpMethodMetadata : IHttpMethodMetadata
 {
     /// <summary>
@@ -37,10 +36,7 @@ public sealed class HttpMethodMetadata : IHttpMethodMetadata
     /// <param name="acceptCorsPreflight">A value indicating whether routing accepts CORS preflight requests.</param>
     public HttpMethodMetadata(IEnumerable<string> httpMethods, bool acceptCorsPreflight)
     {
-        if (httpMethods == null)
-        {
-            throw new ArgumentNullException(nameof(httpMethods));
-        }
+        ArgumentNullException.ThrowIfNull(httpMethods);
 
         HttpMethods = httpMethods.Select(GetCanonicalizedValue).ToArray();
         AcceptCorsPreflight = acceptCorsPreflight;
@@ -49,7 +45,7 @@ public sealed class HttpMethodMetadata : IHttpMethodMetadata
     /// <summary>
     /// Returns a value indicating whether the associated endpoint should accept CORS preflight requests.
     /// </summary>
-    public bool AcceptCorsPreflight { get; }
+    public bool AcceptCorsPreflight { get; set; }
 
     /// <summary>
     /// Returns a read-only collection of HTTP methods used during routing.
@@ -57,8 +53,9 @@ public sealed class HttpMethodMetadata : IHttpMethodMetadata
     /// </summary>
     public IReadOnlyList<string> HttpMethods { get; }
 
-    private string DebuggerToString()
+    /// <inheritdoc/>
+    public override string ToString()
     {
-        return $"HttpMethods: {string.Join(",", HttpMethods)} - Cors: {AcceptCorsPreflight}";
+        return DebuggerHelpers.GetDebugText(nameof(HttpMethods), HttpMethods, "Cors", AcceptCorsPreflight);
     }
 }

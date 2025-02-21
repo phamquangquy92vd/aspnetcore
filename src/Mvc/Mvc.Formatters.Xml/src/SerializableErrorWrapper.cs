@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Xml;
 using System.Xml.Schema;
 using System.Xml.Serialization;
@@ -33,10 +32,7 @@ public sealed class SerializableErrorWrapper : IXmlSerializable, IUnwrappable
     /// <param name="error">The <see cref="SerializableError"/> object that needs to be wrapped.</param>
     public SerializableErrorWrapper(SerializableError error)
     {
-        if (error == null)
-        {
-            throw new ArgumentNullException(nameof(error));
-        }
+        ArgumentNullException.ThrowIfNull(error);
 
         SerializableError = error;
     }
@@ -110,10 +106,7 @@ public sealed class SerializableErrorWrapper : IXmlSerializable, IUnwrappable
     /// <inheritdoc />
     public object Unwrap(Type declaredType)
     {
-        if (declaredType == null)
-        {
-            throw new ArgumentNullException(nameof(declaredType));
-        }
+        ArgumentNullException.ThrowIfNull(declaredType);
 
         return SerializableError;
     }

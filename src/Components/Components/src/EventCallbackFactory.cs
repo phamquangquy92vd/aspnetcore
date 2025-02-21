@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.ComponentModel;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.Components;
 
@@ -22,10 +20,7 @@ public sealed class EventCallbackFactory
     [EditorBrowsable(EditorBrowsableState.Never)]
     public EventCallback Create(object receiver, EventCallback callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return callback;
     }
@@ -39,10 +34,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback Create(object receiver, Action callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore(receiver, callback);
     }
@@ -56,10 +48,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback Create(object receiver, Action<object> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore(receiver, callback);
     }
@@ -73,10 +62,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback Create(object receiver, Func<Task> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore(receiver, callback);
     }
@@ -90,10 +76,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback Create(object receiver, Func<object, Task> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore(receiver, callback);
     }
@@ -107,10 +90,7 @@ public sealed class EventCallbackFactory
     [EditorBrowsable(EditorBrowsableState.Never)]
     public EventCallback<TValue> Create<TValue>(object receiver, EventCallback callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return new EventCallback<TValue>(callback.Receiver, callback.Delegate);
     }
@@ -124,10 +104,7 @@ public sealed class EventCallbackFactory
     [EditorBrowsable(EditorBrowsableState.Never)]
     public EventCallback<TValue> Create<TValue>(object receiver, EventCallback<TValue> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return callback;
     }
@@ -141,10 +118,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback<TValue> Create<TValue>(object receiver, Action callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore<TValue>(receiver, callback);
     }
@@ -158,10 +132,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback<TValue> Create<TValue>(object receiver, Action<TValue> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore<TValue>(receiver, callback);
     }
@@ -175,10 +146,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback<TValue> Create<TValue>(object receiver, Func<Task> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore<TValue>(receiver, callback);
     }
@@ -192,10 +160,7 @@ public sealed class EventCallbackFactory
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public EventCallback<TValue> Create<TValue>(object receiver, Func<TValue, Task> callback)
     {
-        if (receiver == null)
-        {
-            throw new ArgumentNullException(nameof(receiver));
-        }
+        ArgumentNullException.ThrowIfNull(receiver);
 
         return CreateCore<TValue>(receiver, callback);
     }
@@ -228,12 +193,12 @@ public sealed class EventCallbackFactory
         return Create(receiver, callback);
     }
 
-    private EventCallback CreateCore(object receiver, MulticastDelegate callback)
+    private static EventCallback CreateCore(object receiver, MulticastDelegate callback)
     {
         return new EventCallback(callback?.Target as IHandleEvent ?? receiver as IHandleEvent, callback);
     }
 
-    private EventCallback<TValue> CreateCore<TValue>(object receiver, MulticastDelegate callback)
+    private static EventCallback<TValue> CreateCore<TValue>(object receiver, MulticastDelegate callback)
     {
         return new EventCallback<TValue>(callback?.Target as IHandleEvent ?? receiver as IHandleEvent, callback);
     }

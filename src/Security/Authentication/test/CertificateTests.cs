@@ -1,23 +1,22 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
-using System.Threading.Tasks;
 using System.Xml.Linq;
+using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Xunit;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Microsoft.AspNetCore.Authentication.Certificate.Test;
 
@@ -27,7 +26,7 @@ public class ClientCertificateAuthenticationTests
     [Fact]
     public async Task VerifySchemeDefaults()
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().ConfigureAuthTestServices();
         services.AddAuthentication().AddCertificate();
         var sp = services.BuildServiceProvider();
         var schemeProvider = sp.GetRequiredService<IAuthenticationSchemeProvider>();
@@ -156,7 +155,8 @@ public class ClientCertificateAuthenticationTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
+    [ConditionalFact]
+    [SkipOnHelix("https://github.com/dotnet/aspnetcore/issues/32813", Queues = $"All.Ubuntu;{HelixConstants.AlmaLinuxAmd64}")]
     public async Task VerifyExpiredSelfSignedFails()
     {
         using var host = await CreateHost(
@@ -191,7 +191,7 @@ public class ClientCertificateAuthenticationTests
     }
 
     [ConditionalFact]
-    [SkipOnHelix("https://github.com/dotnet/aspnetcore/issues/32813")]
+    [SkipOnHelix("https://github.com/dotnet/aspnetcore/issues/32813", Queues = $"All.Ubuntu;{HelixConstants.AlmaLinuxAmd64}")]
     public async Task VerifyNotYetValidSelfSignedFails()
     {
         using var host = await CreateHost(
@@ -327,7 +327,7 @@ public class ClientCertificateAuthenticationTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Skip = "https://github.com/dotnet/aspnetcore/issues/39669")]
     public async Task VerifyValidClientCertWithTrustedChainAuthenticates()
     {
         using var host = await CreateHost(
@@ -344,7 +344,7 @@ public class ClientCertificateAuthenticationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
-    [Fact]
+    [Fact(Skip = "https://github.com/dotnet/aspnetcore/issues/39669")]
     public async Task VerifyValidClientCertWithAdditionalCertificatesAuthenticates()
     {
         using var host = await CreateHost(
@@ -575,8 +575,8 @@ public class ClientCertificateAuthenticationTests
                     {
                         validationCount++;
 
-                            // Make sure we get the validated principal
-                            Assert.NotNull(context.Principal);
+                        // Make sure we get the validated principal
+                        Assert.NotNull(context.Principal);
 
                         var claims = new[]
                         {
@@ -647,8 +647,8 @@ public class ClientCertificateAuthenticationTests
                 {
                     OnCertificateValidated = context =>
                     {
-                            // Make sure we get the validated principal
-                            Assert.NotNull(context.Principal);
+                        // Make sure we get the validated principal
+                        Assert.NotNull(context.Principal);
                         var claims = new[]
                         {
                                 new Claim(ClaimTypes.Name, Expected, ClaimValueTypes.String, context.Options.ClaimsIssuer)
@@ -682,6 +682,108 @@ public class ClientCertificateAuthenticationTests
         Assert.Single(responseAsXml.Elements("claim"));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VerifyValidationResultNeverCachedAfter30Min(bool cache)
+    {
+        const string Expected = "John Doe";
+        var validationCount = 0;
+        // The test certs are generated based off UtcNow.
+        var timeProvider = new FakeTimeProvider(TimeProvider.System.GetUtcNow());
+
+        using var host = await CreateHost(
+            new CertificateAuthenticationOptions
+            {
+                AllowedCertificateTypes = CertificateTypes.SelfSigned,
+                Events = new CertificateAuthenticationEvents
+                {
+                    OnCertificateValidated = context =>
+                    {
+                        validationCount++;
+
+                        // Make sure we get the validated principal
+                        Assert.NotNull(context.Principal);
+
+                        var claims = new[]
+                        {
+                            new Claim(ClaimTypes.Name, Expected, ClaimValueTypes.String, context.Options.ClaimsIssuer),
+                            new Claim("ValidationCount", validationCount.ToString(CultureInfo.InvariantCulture), ClaimValueTypes.String, context.Options.ClaimsIssuer)
+                        };
+
+                        context.Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, context.Scheme.Name));
+                        context.Success();
+                        return Task.CompletedTask;
+                    }
+                }
+            },
+            Certificates.SelfSignedValidWithNoEku, null, null, false, "", cache, timeProvider);
+
+        using var server = host.GetTestServer();
+        var response = await server.CreateClient().GetAsync("https://example.com/");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        XElement responseAsXml = null;
+        if (response.Content != null &&
+            response.Content.Headers.ContentType != null &&
+            response.Content.Headers.ContentType.MediaType == "text/xml")
+        {
+            var responseContent = await response.Content.ReadAsStringAsync();
+            responseAsXml = XElement.Parse(responseContent);
+        }
+
+        Assert.NotNull(responseAsXml);
+        var name = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == ClaimTypes.Name);
+        Assert.Single(name);
+        Assert.Equal(Expected, name.First().Value);
+        var count = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == "ValidationCount");
+        Assert.Single(count);
+        Assert.Equal("1", count.First().Value);
+
+        // Second request should not trigger validation if caching
+        response = await server.CreateClient().GetAsync("https://example.com/");
+        responseAsXml = null;
+        if (response.Content != null &&
+            response.Content.Headers.ContentType != null &&
+            response.Content.Headers.ContentType.MediaType == "text/xml")
+        {
+            var responseContent = await response.Content.ReadAsStringAsync();
+            responseAsXml = XElement.Parse(responseContent);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        name = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == ClaimTypes.Name);
+        Assert.Single(name);
+        Assert.Equal(Expected, name.First().Value);
+        count = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == "ValidationCount");
+        Assert.Single(count);
+        var expected = cache ? "1" : "2";
+        Assert.Equal(expected, count.First().Value);
+
+        timeProvider.Advance(TimeSpan.FromMinutes(31));
+
+        // Third request should always trigger validation even if caching
+        response = await server.CreateClient().GetAsync("https://example.com/");
+        responseAsXml = null;
+        if (response.Content != null &&
+            response.Content.Headers.ContentType != null &&
+            response.Content.Headers.ContentType.MediaType == "text/xml")
+        {
+            var responseContent = await response.Content.ReadAsStringAsync();
+            responseAsXml = XElement.Parse(responseContent);
+        }
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        name = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == ClaimTypes.Name);
+        Assert.Single(name);
+        Assert.Equal(Expected, name.First().Value);
+        count = responseAsXml.Elements("claim").Where(claim => claim.Attribute("Type").Value == "ValidationCount");
+        Assert.Single(count);
+
+        var laterExpected = cache ? "2" : "3";
+        Assert.Equal(laterExpected, count.First().Value);
+    }
+
     private static async Task<IHost> CreateHost(
         CertificateAuthenticationOptions configureOptions,
         X509Certificate2 clientCertificate = null,
@@ -689,7 +791,8 @@ public class ClientCertificateAuthenticationTests
         Uri baseAddress = null,
         bool wireUpHeaderMiddleware = false,
         string headerName = "",
-        bool useCache = false)
+        bool useCache = false,
+        TimeProvider timeProvider = null)
     {
         var host = new HostBuilder()
             .ConfigureWebHost(builder =>
@@ -704,7 +807,6 @@ public class ClientCertificateAuthenticationTests
                             }
                             return next(context);
                         });
-
 
                         if (wireUpHeaderMiddleware)
                         {
@@ -743,7 +845,7 @@ public class ClientCertificateAuthenticationTests
                     AuthenticationBuilder authBuilder;
                     if (configureOptions != null)
                     {
-                        authBuilder = services.AddAuthentication(CertificateAuthenticationDefaults.AuthenticationScheme).AddCertificate(options =>
+                        authBuilder = services.AddAuthentication().AddCertificate(options =>
                         {
                             options.CustomTrustStore = configureOptions.CustomTrustStore;
                             options.ChainTrustValidationMode = configureOptions.ChainTrustValidationMode;
@@ -754,15 +856,34 @@ public class ClientCertificateAuthenticationTests
                             options.RevocationMode = configureOptions.RevocationMode;
                             options.ValidateValidityPeriod = configureOptions.ValidateValidityPeriod;
                             options.AdditionalChainCertificates = configureOptions.AdditionalChainCertificates;
+                            options.TimeProvider = configureOptions.TimeProvider;
+
+                            if (timeProvider != null)
+                            {
+                                options.TimeProvider = timeProvider;
+                            }
                         });
                     }
                     else
                     {
-                        authBuilder = services.AddAuthentication(CertificateAuthenticationDefaults.AuthenticationScheme).AddCertificate();
+                        authBuilder = services.AddAuthentication().AddCertificate(options =>
+                        {
+                            if (timeProvider != null)
+                            {
+                                options.TimeProvider = timeProvider;
+                            }
+                        });
                     }
                     if (useCache)
                     {
-                        authBuilder.AddCertificateCache();
+                        if (timeProvider != null)
+                        {
+                            services.AddSingleton<ICertificateValidationCache>(new CertificateValidationCache(Options.Create(new CertificateValidationCacheOptions()), timeProvider));
+                        }
+                        else
+                        {
+                            authBuilder.AddCertificateCache();
+                        }
                     }
 
                     if (wireUpHeaderMiddleware && !string.IsNullOrEmpty(headerName))
@@ -814,42 +935,5 @@ public class ClientCertificateAuthenticationTests
             return Task.CompletedTask;
         }
     };
-
-    private static class Certificates
-    {
-        public static X509Certificate2 SelfSignedPrimaryRoot { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSelfSignedPrimaryRootCertificate.cer"));
-
-        public static X509Certificate2 SignedSecondaryRoot { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSignedSecondaryRootCertificate.cer"));
-
-        public static X509Certificate2 SignedClient { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSignedClientCertificate.cer"));
-
-        public static X509Certificate2 SelfSignedValidWithClientEku { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSelfSignedClientEkuCertificate.cer"));
-
-        public static X509Certificate2 SelfSignedValidWithNoEku { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSelfSignedNoEkuCertificate.cer"));
-
-        public static X509Certificate2 SelfSignedValidWithServerEku { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("validSelfSignedServerEkuCertificate.cer"));
-
-        public static X509Certificate2 SelfSignedNotYetValid { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("selfSignedNoEkuCertificateNotValidYet.cer"));
-
-        public static X509Certificate2 SelfSignedExpired { get; private set; } =
-            new X509Certificate2(GetFullyQualifiedFilePath("selfSignedNoEkuCertificateExpired.cer"));
-
-        private static string GetFullyQualifiedFilePath(string filename)
-        {
-            var filePath = Path.Combine(AppContext.BaseDirectory, filename);
-            if (!File.Exists(filePath))
-            {
-                throw new FileNotFoundException(filePath);
-            }
-            return filePath;
-        }
-    }
 }
 

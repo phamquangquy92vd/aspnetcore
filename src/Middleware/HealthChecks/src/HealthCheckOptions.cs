@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -52,7 +49,7 @@ public class HealthCheckOptions
 
     private static IDictionary<HealthStatus, int> ValidateStatusCodesMapping(IDictionary<HealthStatus, int> mapping)
     {
-        var missingHealthStatus = ((HealthStatus[])Enum.GetValues(typeof(HealthStatus))).Except(mapping.Keys).ToList();
+        var missingHealthStatus = Enum.GetValues<HealthStatus>().Except(mapping.Keys).ToList();
         if (missingHealthStatus.Count > 0)
         {
             var missing = string.Join(", ", missingHealthStatus.Select(status => $"{nameof(HealthStatus)}.{status}"));

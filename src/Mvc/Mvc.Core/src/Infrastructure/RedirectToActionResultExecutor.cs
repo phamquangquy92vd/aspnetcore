@@ -1,21 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
 /// <summary>
 /// A <see cref="IActionResultExecutor{RedirectToActionResult}"/> for <see cref="RedirectToActionResult"/>.
 /// </summary>
-public class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToActionResult>
+public partial class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToActionResult>
 {
     private readonly ILogger _logger;
     private readonly IUrlHelperFactory _urlHelperFactory;
@@ -27,15 +23,8 @@ public class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToAc
     /// <param name="urlHelperFactory">The factory used to create url helpers.</param>
     public RedirectToActionResultExecutor(ILoggerFactory loggerFactory, IUrlHelperFactory urlHelperFactory)
     {
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
-
-        if (urlHelperFactory == null)
-        {
-            throw new ArgumentNullException(nameof(urlHelperFactory));
-        }
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(urlHelperFactory);
 
         _logger = loggerFactory.CreateLogger<RedirectToActionResult>();
         _urlHelperFactory = urlHelperFactory;
@@ -44,15 +33,8 @@ public class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToAc
     /// <inheritdoc />
     public virtual Task ExecuteAsync(ActionContext context, RedirectToActionResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         var urlHelper = result.UrlHelper ?? _urlHelperFactory.GetUrlHelper(context);
 
@@ -68,7 +50,7 @@ public class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToAc
             throw new InvalidOperationException(Resources.NoRoutesMatched);
         }
 
-        _logger.RedirectToActionResultExecuting(destinationUrl);
+        Log.RedirectToActionResultExecuting(_logger, destinationUrl);
 
         if (result.PreserveMethod)
         {
@@ -82,5 +64,11 @@ public class RedirectToActionResultExecutor : IActionResultExecutor<RedirectToAc
         }
 
         return Task.CompletedTask;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Information, "Executing RedirectResult, redirecting to {Destination}.", EventName = "RedirectToActionResultExecuting")]
+        public static partial void RedirectToActionResultExecuting(ILogger logger, string destination);
     }
 }

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 
@@ -31,15 +29,8 @@ public class PageHandlerExecutingContext : FilterContext
         object handlerInstance)
         : base(pageContext, filters)
     {
-        if (handlerArguments == null)
-        {
-            throw new ArgumentNullException(nameof(handlerArguments));
-        }
-
-        if (handlerInstance == null)
-        {
-            throw new ArgumentNullException(nameof(handlerInstance));
-        }
+        ArgumentNullException.ThrowIfNull(handlerArguments);
+        ArgumentNullException.ThrowIfNull(handlerInstance);
 
         HandlerMethod = handlerMethod;
         HandlerArguments = handlerArguments;

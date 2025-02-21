@@ -3,9 +3,8 @@
 
 #nullable enable
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +17,8 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Routing;
 
+[DebuggerDisplay("Endpoints = {Endpoints.Count}")]
+[DebuggerTypeProxy(typeof(DefaultLinkGeneratorDebugView))]
 internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
 {
     private readonly TemplateBinderFactory _binderFactory;
@@ -35,7 +36,6 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
     private readonly Func<RouteEndpoint, TemplateBinder> _createTemplateBinder;
 
     public DefaultLinkGenerator(
-        ParameterPolicyFactory parameterPolicyFactory,
         TemplateBinderFactory binderFactory,
         EndpointDataSource dataSource,
         IOptions<RouteOptions> routeOptions,
@@ -50,9 +50,9 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
         // that cache is the endpoints change so that we don't allow unbounded memory growth.
         _cache = new DataSourceDependentCache<ConcurrentDictionary<RouteEndpoint, TemplateBinder>>(dataSource, (_) =>
         {
-                // We don't eagerly fill this cache because there's no real reason to. Unlike URL matching, we don't
-                // need to build a big data structure up front to be correct.
-                return new ConcurrentDictionary<RouteEndpoint, TemplateBinder>();
+            // We don't eagerly fill this cache because there's no real reason to. Unlike URL matching, we don't
+            // need to build a big data structure up front to be correct.
+            return new ConcurrentDictionary<RouteEndpoint, TemplateBinder>();
         });
 
         // Cached to avoid per-call allocation of a delegate on lookup.
@@ -75,10 +75,7 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
         FragmentString fragment = default,
         LinkOptions? options = null)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
 
         var endpoints = GetEndpoints(address);
         if (endpoints.Count == 0)
@@ -130,10 +127,7 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
         FragmentString fragment = default,
         LinkOptions? options = null)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
 
         var endpoints = GetEndpoints(address);
         if (endpoints.Count == 0)
@@ -155,16 +149,13 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
     public override string? GetUriByAddress<TAddress>(
         TAddress address,
         RouteValueDictionary values,
-        string? scheme,
+        string scheme,
         HostString host,
         PathString pathBase = default,
         FragmentString fragment = default,
         LinkOptions? options = null)
     {
-        if (string.IsNullOrEmpty(scheme))
-        {
-            throw new ArgumentException("A scheme must be provided.", nameof(scheme));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(scheme);
 
         if (!host.HasValue)
         {
@@ -331,6 +322,16 @@ internal sealed partial class DefaultLinkGenerator : LinkGenerator, IDisposable
     public void Dispose()
     {
         _cache.Dispose();
+    }
+
+    private IReadOnlyList<Endpoint> Endpoints => _serviceProvider.GetRequiredService<EndpointDataSource>().Endpoints;
+
+    private sealed class DefaultLinkGeneratorDebugView(DefaultLinkGenerator generator)
+    {
+        private readonly DefaultLinkGenerator _generator = generator;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public Endpoint[] Items => _generator.Endpoints.ToArray();
     }
 
     private static partial class Log

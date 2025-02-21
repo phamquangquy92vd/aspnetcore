@@ -1,10 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
 using AngleSharp.Dom.Html;
 using AngleSharp.Parser.Html;
 using Xunit.Sdk;
@@ -51,28 +49,6 @@ public static class HttpClientExtensions
             // No-op
         }
 
-        throw new StatusCodeMismatchException
-        {
-            ExpectedStatusCode = expectedStatusCode,
-            ActualStatusCode = response.StatusCode,
-            ResponseContent = responseContent,
-        };
-    }
-
-    private class StatusCodeMismatchException : XunitException
-    {
-        public HttpStatusCode ExpectedStatusCode { get; set; }
-
-        public HttpStatusCode ActualStatusCode { get; set; }
-
-        public string ResponseContent { get; set; }
-
-        public override string Message
-        {
-            get
-            {
-                return $"Excepted status code {ExpectedStatusCode}. Actual {ActualStatusCode}. Response Content:" + Environment.NewLine + ResponseContent;
-            }
-        }
+        throw EqualException.ForMismatchedValues(expectedStatusCode, response.StatusCode, $"Expected status code {expectedStatusCode}. Actual {response.StatusCode}. Response Content:" + Environment.NewLine + responseContent);
     }
 }

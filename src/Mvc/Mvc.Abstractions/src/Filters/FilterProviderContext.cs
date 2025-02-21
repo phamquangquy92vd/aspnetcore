@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.Filters;
 
 /// <summary>
@@ -20,15 +17,8 @@ public class FilterProviderContext
     /// </param>
     public FilterProviderContext(ActionContext actionContext, IList<FilterItem> items)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(items);
 
         ActionContext = actionContext;
         Results = items;

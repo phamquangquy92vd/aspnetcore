@@ -4,7 +4,6 @@
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
@@ -27,9 +26,9 @@ public abstract class ServerTestBase<TServerFixture>
         _serverFixture = serverFixture;
     }
 
-    public void Navigate(string relativeUrl, bool noReload = false)
+    public void Navigate(string relativeUrl)
     {
-        Browser.Navigate(_serverFixture.RootUri, relativeUrl, noReload);
+        Browser.Navigate(_serverFixture.RootUri, relativeUrl);
     }
 
     protected override void InitializeAsyncCore()

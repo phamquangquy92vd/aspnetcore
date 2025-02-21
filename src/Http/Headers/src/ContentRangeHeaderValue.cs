@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Globalization;
@@ -35,14 +34,17 @@ public class ContentRangeHeaderValue
     {
         // Scenario: "Content-Range: bytes 12-34/5678"
 
-        if (length < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(length));
-        }
-        if ((to < 0) || (to > length))
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+
+        // "To" is inclusive. Per RFC 7233:
+        // A Content-Range field value is invalid if it contains a byte-range-resp that has a
+        // last-byte-pos value less than its first-byte-pos value, or a complete-length value
+        // less than or equal to its last-byte-pos value.
+        if ((to < 0) || (length <= to))
         {
             throw new ArgumentOutOfRangeException(nameof(to));
         }
+
         if ((from < 0) || (from > to))
         {
             throw new ArgumentOutOfRangeException(nameof(from));
@@ -62,10 +64,7 @@ public class ContentRangeHeaderValue
     {
         // Scenario: "Content-Range: bytes */1234"
 
-        if (length < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(length));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
 
         Length = length;
         _unit = HeaderUtilities.BytesUnit;
@@ -80,10 +79,7 @@ public class ContentRangeHeaderValue
     {
         // Scenario: "Content-Range: bytes 12-34/*"
 
-        if (to < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(to));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(to);
         if ((from < 0) || (from > to))
         {
             throw new ArgumentOutOfRangeException(nameof(@from));
@@ -222,10 +218,10 @@ public class ContentRangeHeaderValue
     /// <param name="input">The value to parse.</param>
     /// <param name="parsedValue">The parsed value.</param>
     /// <returns><see langword="true"/> if input is a valid <see cref="ContentRangeHeaderValue"/>, otherwise <see langword="false"/>.</returns>
-    public static bool TryParse(StringSegment input, [NotNullWhen(true)] out ContentRangeHeaderValue parsedValue)
+    public static bool TryParse(StringSegment input, [NotNullWhen(true)] out ContentRangeHeaderValue? parsedValue)
     {
         var index = 0;
-        return Parser.TryParseValue(input, ref index, out parsedValue!);
+        return Parser.TryParseValue(input, ref index, out parsedValue);
     }
 
     private static int GetContentRangeLength(StringSegment input, int startIndex, out ContentRangeHeaderValue? parsedValue)
@@ -265,10 +261,7 @@ public class ContentRangeHeaderValue
 
         // Read range values <from> and <to> in '<unit> <from>-<to>/<length>'
         var fromStartIndex = current;
-        var fromLength = 0;
-        var toStartIndex = 0;
-        var toLength = 0;
-        if (!TryGetRangeLength(input, ref current, out fromLength, out toStartIndex, out toLength))
+        if (!TryGetRangeLength(input, ref current, out var fromLength, out var toStartIndex, out var toLength))
         {
             return 0;
         }
@@ -289,8 +282,7 @@ public class ContentRangeHeaderValue
 
         // We may not have a length (e.g. 'bytes 1-2/*'). But if we do, parse the length now.
         var lengthStartIndex = current;
-        var lengthLength = 0;
-        if (!TryGetLengthLength(input, ref current, out lengthLength))
+        if (!TryGetLengthLength(input, ref current, out var lengthLength))
         {
             return 0;
         }

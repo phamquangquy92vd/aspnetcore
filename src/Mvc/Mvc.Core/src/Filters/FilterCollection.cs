@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.ObjectModel;
 using Microsoft.AspNetCore.Mvc.Core;
 
@@ -41,10 +40,7 @@ public class FilterCollection : Collection<IFilterMetadata>
     /// </remarks>
     public IFilterMetadata Add(Type filterType)
     {
-        if (filterType == null)
-        {
-            throw new ArgumentNullException(nameof(filterType));
-        }
+        ArgumentNullException.ThrowIfNull(filterType);
 
         return Add(filterType, order: 0);
     }
@@ -78,10 +74,7 @@ public class FilterCollection : Collection<IFilterMetadata>
     /// </remarks>
     public IFilterMetadata Add(Type filterType, int order)
     {
-        if (filterType == null)
-        {
-            throw new ArgumentNullException(nameof(filterType));
-        }
+        ArgumentNullException.ThrowIfNull(filterType);
 
         if (!typeof(IFilterMetadata).IsAssignableFrom(filterType))
         {
@@ -125,10 +118,7 @@ public class FilterCollection : Collection<IFilterMetadata>
     /// </remarks>
     public IFilterMetadata AddService(Type filterType)
     {
-        if (filterType == null)
-        {
-            throw new ArgumentNullException(nameof(filterType));
-        }
+        ArgumentNullException.ThrowIfNull(filterType);
 
         return AddService(filterType, order: 0);
     }
@@ -162,10 +152,7 @@ public class FilterCollection : Collection<IFilterMetadata>
     /// </remarks>
     public IFilterMetadata AddService(Type filterType, int order)
     {
-        if (filterType == null)
-        {
-            throw new ArgumentNullException(nameof(filterType));
-        }
+        ArgumentNullException.ThrowIfNull(filterType);
 
         if (!typeof(IFilterMetadata).IsAssignableFrom(filterType))
         {

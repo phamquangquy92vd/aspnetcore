@@ -1,19 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.SignalR.Internal;
 
-internal class UserProxy<THub> : IClientProxy where THub : Hub
+internal sealed class UserProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly string _userId;
     private readonly HubLifetimeManager<THub> _lifetimeManager;
 
     public UserProxy(HubLifetimeManager<THub> lifetimeManager, string userId)
     {
+        ArgumentNullException.ThrowIfNull(userId);
+
         _lifetimeManager = lifetimeManager;
         _userId = userId;
     }
@@ -24,7 +22,7 @@ internal class UserProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class MultipleUserProxy<THub> : IClientProxy where THub : Hub
+internal sealed class MultipleUserProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly IReadOnlyList<string> _userIds;
     private readonly HubLifetimeManager<THub> _lifetimeManager;
@@ -41,13 +39,15 @@ internal class MultipleUserProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class GroupProxy<THub> : IClientProxy where THub : Hub
+internal sealed class GroupProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly string _groupName;
     private readonly HubLifetimeManager<THub> _lifetimeManager;
 
     public GroupProxy(HubLifetimeManager<THub> lifetimeManager, string groupName)
     {
+        ArgumentNullException.ThrowIfNull(groupName);
+
         _lifetimeManager = lifetimeManager;
         _groupName = groupName;
     }
@@ -58,7 +58,7 @@ internal class GroupProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class MultipleGroupProxy<THub> : IClientProxy where THub : Hub
+internal sealed class MultipleGroupProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly HubLifetimeManager<THub> _lifetimeManager;
     private readonly IReadOnlyList<string> _groupNames;
@@ -75,7 +75,7 @@ internal class MultipleGroupProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class GroupExceptProxy<THub> : IClientProxy where THub : Hub
+internal sealed class GroupExceptProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly string _groupName;
     private readonly HubLifetimeManager<THub> _lifetimeManager;
@@ -83,6 +83,8 @@ internal class GroupExceptProxy<THub> : IClientProxy where THub : Hub
 
     public GroupExceptProxy(HubLifetimeManager<THub> lifetimeManager, string groupName, IReadOnlyList<string> excludedConnectionIds)
     {
+        ArgumentNullException.ThrowIfNull(groupName);
+
         _lifetimeManager = lifetimeManager;
         _groupName = groupName;
         _excludedConnectionIds = excludedConnectionIds;
@@ -94,7 +96,7 @@ internal class GroupExceptProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class AllClientProxy<THub> : IClientProxy where THub : Hub
+internal sealed class AllClientProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly HubLifetimeManager<THub> _lifetimeManager;
 
@@ -109,7 +111,7 @@ internal class AllClientProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class AllClientsExceptProxy<THub> : IClientProxy where THub : Hub
+internal sealed class AllClientsExceptProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly HubLifetimeManager<THub> _lifetimeManager;
     private readonly IReadOnlyList<string> _excludedConnectionIds;
@@ -126,24 +128,7 @@ internal class AllClientsExceptProxy<THub> : IClientProxy where THub : Hub
     }
 }
 
-internal class SingleClientProxy<THub> : IClientProxy where THub : Hub
-{
-    private readonly string _connectionId;
-    private readonly HubLifetimeManager<THub> _lifetimeManager;
-
-    public SingleClientProxy(HubLifetimeManager<THub> lifetimeManager, string connectionId)
-    {
-        _lifetimeManager = lifetimeManager;
-        _connectionId = connectionId;
-    }
-
-    public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
-    {
-        return _lifetimeManager.SendConnectionAsync(_connectionId, method, args, cancellationToken);
-    }
-}
-
-internal class MultipleClientProxy<THub> : IClientProxy where THub : Hub
+internal sealed class MultipleClientProxy<THub> : IClientProxy where THub : Hub
 {
     private readonly HubLifetimeManager<THub> _lifetimeManager;
     private readonly IReadOnlyList<string> _connectionIds;
@@ -157,5 +142,28 @@ internal class MultipleClientProxy<THub> : IClientProxy where THub : Hub
     public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
     {
         return _lifetimeManager.SendConnectionsAsync(_connectionIds, method, args, cancellationToken);
+    }
+}
+
+internal sealed class SingleClientProxy<THub> : ISingleClientProxy where THub : Hub
+{
+    private readonly string _connectionId;
+    private readonly HubLifetimeManager<THub> _lifetimeManager;
+
+    public SingleClientProxy(HubLifetimeManager<THub> lifetimeManager, string connectionId)
+    {
+        _lifetimeManager = lifetimeManager;
+        ArgumentNullException.ThrowIfNull(connectionId);
+        _connectionId = connectionId;
+    }
+
+    public Task SendCoreAsync(string method, object?[] args, CancellationToken cancellationToken = default)
+    {
+        return _lifetimeManager.SendConnectionAsync(_connectionId, method, args, cancellationToken);
+    }
+
+    public Task<T> InvokeCoreAsync<T>(string method, object?[] args, CancellationToken cancellationToken = default)
+    {
+        return _lifetimeManager.InvokeConnectionAsync<T>(_connectionId, method, args ?? Array.Empty<object?>(), cancellationToken);
     }
 }

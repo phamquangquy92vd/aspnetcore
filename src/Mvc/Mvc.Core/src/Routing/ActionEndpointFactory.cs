@@ -1,16 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -19,22 +16,23 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Mvc.Routing;
 
-internal class ActionEndpointFactory
+internal sealed class ActionEndpointFactory
 {
     private readonly RoutePatternTransformer _routePatternTransformer;
     private readonly RequestDelegate _requestDelegate;
     private readonly IRequestDelegateFactory[] _requestDelegateFactories;
+    private readonly IServiceProvider _serviceProvider;
 
-    public ActionEndpointFactory(RoutePatternTransformer routePatternTransformer, IEnumerable<IRequestDelegateFactory> requestDelegateFactories)
+    public ActionEndpointFactory(RoutePatternTransformer routePatternTransformer,
+                                IEnumerable<IRequestDelegateFactory> requestDelegateFactories,
+                                IServiceProvider serviceProvider)
     {
-        if (routePatternTransformer == null)
-        {
-            throw new ArgumentNullException(nameof(routePatternTransformer));
-        }
+        ArgumentNullException.ThrowIfNull(routePatternTransformer);
 
         _routePatternTransformer = routePatternTransformer;
         _requestDelegate = CreateRequestDelegate();
         _requestDelegateFactories = requestDelegateFactories.ToArray();
+        _serviceProvider = serviceProvider;
     }
 
     public void AddEndpoints(
@@ -43,32 +41,20 @@ internal class ActionEndpointFactory
         ActionDescriptor action,
         IReadOnlyList<ConventionalRouteEntry> routes,
         IReadOnlyList<Action<EndpointBuilder>> conventions,
-        bool createInertEndpoints)
+        IReadOnlyList<Action<EndpointBuilder>> groupConventions,
+        IReadOnlyList<Action<EndpointBuilder>> finallyConventions,
+        IReadOnlyList<Action<EndpointBuilder>> groupFinallyConventions,
+        bool createInertEndpoints,
+        RoutePattern? groupPrefix = null)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (routeNames == null)
-        {
-            throw new ArgumentNullException(nameof(routeNames));
-        }
-
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
-
-        if (routes == null)
-        {
-            throw new ArgumentNullException(nameof(routes));
-        }
-
-        if (conventions == null)
-        {
-            throw new ArgumentNullException(nameof(conventions));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(routeNames);
+        ArgumentNullException.ThrowIfNull(action);
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(conventions);
+        ArgumentNullException.ThrowIfNull(groupConventions);
+        ArgumentNullException.ThrowIfNull(finallyConventions);
+        ArgumentNullException.ThrowIfNull(groupFinallyConventions);
 
         if (createInertEndpoints)
         {
@@ -85,8 +71,12 @@ internal class ActionEndpointFactory
                 dataTokens: null,
                 suppressLinkGeneration: false,
                 suppressPathMatching: false,
-                conventions,
-                Array.Empty<Action<EndpointBuilder>>());
+                groupConventions: groupConventions,
+                conventions: conventions,
+                perRouteConventions: Array.Empty<Action<EndpointBuilder>>(),
+                groupFinallyConventions: groupFinallyConventions,
+                finallyConventions: finallyConventions,
+                perRouteFinallyConventions: Array.Empty<Action<EndpointBuilder>>());
             endpoints.Add(builder.Build());
         }
 
@@ -106,6 +96,8 @@ internal class ActionEndpointFactory
                     continue;
                 }
 
+                updatedRoutePattern = RoutePatternFactory.Combine(groupPrefix, updatedRoutePattern);
+
                 var requestDelegate = CreateRequestDelegate(action, route.DataTokens) ?? _requestDelegate;
 
                 // We suppress link generation for each conventionally routed endpoint. We generate a single endpoint per-route
@@ -113,6 +105,7 @@ internal class ActionEndpointFactory
                 var builder = new RouteEndpointBuilder(requestDelegate, updatedRoutePattern, route.Order)
                 {
                     DisplayName = action.DisplayName,
+                    ApplicationServices = _serviceProvider,
                 };
                 AddActionDataToBuilder(
                     builder,
@@ -122,8 +115,12 @@ internal class ActionEndpointFactory
                     route.DataTokens,
                     suppressLinkGeneration: true,
                     suppressPathMatching: false,
-                    conventions,
-                    route.Conventions);
+                    groupConventions: groupConventions,
+                    conventions: conventions,
+                    perRouteConventions: route.Conventions,
+                    groupFinallyConventions: groupFinallyConventions,
+                    finallyConventions: finallyConventions,
+                    perRouteFinallyConventions: route.FinallyConventions);
                 endpoints.Add(builder.Build());
             }
         }
@@ -149,9 +146,12 @@ internal class ActionEndpointFactory
                     "To fix this error, choose a different parameter name.");
             }
 
+            updatedRoutePattern = RoutePatternFactory.Combine(groupPrefix, updatedRoutePattern);
+
             var builder = new RouteEndpointBuilder(requestDelegate, updatedRoutePattern, action.AttributeRouteInfo.Order)
             {
                 DisplayName = action.DisplayName,
+                ApplicationServices = _serviceProvider,
             };
             AddActionDataToBuilder(
                 builder,
@@ -161,8 +161,12 @@ internal class ActionEndpointFactory
                 dataTokens: null,
                 action.AttributeRouteInfo.SuppressLinkGeneration,
                 action.AttributeRouteInfo.SuppressPathMatching,
-                conventions,
-                perRouteConventions: Array.Empty<Action<EndpointBuilder>>());
+                groupConventions: groupConventions,
+                conventions: conventions,
+                perRouteConventions: Array.Empty<Action<EndpointBuilder>>(),
+                groupFinallyConventions: groupFinallyConventions,
+                finallyConventions: finallyConventions,
+                perRouteFinallyConventions: Array.Empty<Action<EndpointBuilder>>());
             endpoints.Add(builder.Build());
         }
     }
@@ -172,22 +176,15 @@ internal class ActionEndpointFactory
         HashSet<string> routeNames,
         HashSet<string> keys,
         ConventionalRouteEntry route,
-        IReadOnlyList<Action<EndpointBuilder>> conventions)
+        IReadOnlyList<Action<EndpointBuilder>> groupConventions,
+        IReadOnlyList<Action<EndpointBuilder>> conventions,
+        IReadOnlyList<Action<EndpointBuilder>> groupFinallyConventions,
+        IReadOnlyList<Action<EndpointBuilder>> finallyConventions,
+        RoutePattern? groupPrefix = null)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (keys == null)
-        {
-            throw new ArgumentNullException(nameof(keys));
-        }
-
-        if (conventions == null)
-        {
-            throw new ArgumentNullException(nameof(conventions));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(keys);
+        ArgumentNullException.ThrowIfNull(conventions);
 
         var requiredValues = new RouteValueDictionary();
         foreach (var key in keys)
@@ -216,13 +213,16 @@ internal class ActionEndpointFactory
             throw new InvalidOperationException("Failed to create a conventional route for pattern: " + route.Pattern);
         }
 
+        pattern = RoutePatternFactory.Combine(groupPrefix, pattern);
+
         var builder = new RouteEndpointBuilder(context => Task.CompletedTask, pattern, route.Order)
         {
             DisplayName = "Route: " + route.Pattern.RawText,
             Metadata =
-                {
-                    new SuppressMatchingMetadata(),
-                },
+            {
+                new SuppressMatchingMetadata(),
+            },
+            ApplicationServices = _serviceProvider,
         };
 
         if (route.RouteName != null)
@@ -233,11 +233,16 @@ internal class ActionEndpointFactory
         // See comments on the other usage of EndpointNameMetadata in this class.
         //
         // The set of cases for a conventional route are much simpler. We don't need to check
-        // for Endpoint Name already exising here because there's no way to add an attribute to
+        // for Endpoint Name already existing here because there's no way to add an attribute to
         // a conventional route.
         if (route.RouteName != null && routeNames.Add(route.RouteName))
         {
             builder.Metadata.Add(new EndpointNameMetadata(route.RouteName));
+        }
+
+        for (var i = 0; i < groupConventions.Count; i++)
+        {
+            groupConventions[i](builder);
         }
 
         for (var i = 0; i < conventions.Count; i++)
@@ -248,6 +253,21 @@ internal class ActionEndpointFactory
         for (var i = 0; i < route.Conventions.Count; i++)
         {
             route.Conventions[i](builder);
+        }
+
+        foreach (var routeFinallyConvention in route.FinallyConventions)
+        {
+            routeFinallyConvention(builder);
+        }
+
+        foreach (var finallyConvention in finallyConventions)
+        {
+            finallyConvention(builder);
+        }
+
+        foreach (var groupFinallyConvention in groupFinallyConventions)
+        {
+            groupFinallyConvention(builder);
         }
 
         endpoints.Add((RouteEndpoint)builder.Build());
@@ -313,10 +333,32 @@ internal class ActionEndpointFactory
         RouteValueDictionary? dataTokens,
         bool suppressLinkGeneration,
         bool suppressPathMatching,
+        IReadOnlyList<Action<EndpointBuilder>> groupConventions,
         IReadOnlyList<Action<EndpointBuilder>> conventions,
-        IReadOnlyList<Action<EndpointBuilder>> perRouteConventions)
+        IReadOnlyList<Action<EndpointBuilder>> perRouteConventions,
+        IReadOnlyList<Action<EndpointBuilder>> groupFinallyConventions,
+        IReadOnlyList<Action<EndpointBuilder>> finallyConventions,
+        IReadOnlyList<Action<EndpointBuilder>> perRouteFinallyConventions)
     {
-        // Add action metadata first so it has a low precedence
+        // REVIEW: The RouteEndpointDataSource adds HttpMethodMetadata before running group conventions
+        // do we need to do the same here?
+
+        // Group metadata has the lowest precedence.
+        for (var i = 0; i < groupConventions.Count; i++)
+        {
+            groupConventions[i](builder);
+        }
+
+        var controllerActionDescriptor = action as ControllerActionDescriptor;
+
+        // Add metadata inferred from the parameter and/or return type before action-specific metadata.
+        // MethodInfo *should* never be null given a ControllerActionDescriptor, but this is unenforced.
+        if (controllerActionDescriptor?.MethodInfo is not null)
+        {
+            EndpointMetadataPopulator.PopulateMetadata(controllerActionDescriptor.MethodInfo, builder);
+        }
+
+        // Add action-specific metadata early so it has a low precedence
         if (action.EndpointMetadata != null)
         {
             foreach (var d in action.EndpointMetadata)
@@ -339,7 +381,7 @@ internal class ActionEndpointFactory
         // However, Endpoint Routing requires Endpoint Names to be unique.
         //
         // We can use the route name as the endpoint name if it's not set. Note that there's no
-        // attribute for this today so it's unlikley. Using endpoint name on a
+        // attribute for this today so it's unlikely.
         if (routeName != null &&
             !suppressLinkGeneration &&
             routeNames.Add(routeName) &&
@@ -410,6 +452,49 @@ internal class ActionEndpointFactory
         {
             perRouteConventions[i](builder);
         }
+
+        if (builder.FilterFactories.Count > 0 && controllerActionDescriptor is not null)
+        {
+            var routeHandlerFilters = builder.FilterFactories;
+
+            EndpointFilterDelegate del = static invocationContext =>
+            {
+                // By the time this is called, we have the cache entry
+                var controllerInvocationContext = (ControllerEndpointFilterInvocationContext)invocationContext;
+                return controllerInvocationContext.ActionDescriptor.CacheEntry!.InnerActionMethodExecutor.Execute(controllerInvocationContext);
+            };
+
+            var context = new EndpointFilterFactoryContext
+            {
+                MethodInfo = controllerActionDescriptor.MethodInfo,
+                ApplicationServices = builder.ApplicationServices,
+            };
+
+            var initialFilteredInvocation = del;
+
+            for (var i = routeHandlerFilters.Count - 1; i >= 0; i--)
+            {
+                var filterFactory = routeHandlerFilters[i];
+                del = filterFactory(context, del);
+            }
+
+            controllerActionDescriptor.FilterDelegate = ReferenceEquals(del, initialFilteredInvocation) ? null : del;
+        }
+
+        foreach (var perRouteFinallyConvention in perRouteFinallyConventions)
+        {
+            perRouteFinallyConvention(builder);
+        }
+
+        foreach (var finallyConvention in finallyConventions)
+        {
+            finallyConvention(builder);
+        }
+
+        foreach (var groupFinallyConvention in groupFinallyConventions)
+        {
+            groupFinallyConvention(builder);
+        }
     }
 
     private RequestDelegate? CreateRequestDelegate(ActionDescriptor action, RouteValueDictionary? dataTokens = null)
@@ -445,8 +530,8 @@ internal class ActionEndpointFactory
             var routeData = new RouteData();
             routeData.PushState(router: null, context.Request.RouteValues, new RouteValueDictionary(dataTokens?.DataTokens));
 
-                // Don't close over the ActionDescriptor, that's not valid for pages.
-                var action = endpoint.Metadata.GetMetadata<ActionDescriptor>()!;
+            // Don't close over the ActionDescriptor, that's not valid for pages.
+            var action = endpoint.Metadata.GetMetadata<ActionDescriptor>()!;
             var actionContext = new ActionContext(context, routeData, action);
 
             if (invokerFactory == null)
@@ -457,13 +542,5 @@ internal class ActionEndpointFactory
             var invoker = invokerFactory.CreateInvoker(actionContext);
             return invoker!.InvokeAsync();
         };
-    }
-
-    private class InertEndpointBuilder : EndpointBuilder
-    {
-        public override Endpoint Build()
-        {
-            return new Endpoint(RequestDelegate, new EndpointMetadataCollection(Metadata), DisplayName);
-        }
     }
 }

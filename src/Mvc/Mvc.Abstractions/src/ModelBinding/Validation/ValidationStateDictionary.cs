@@ -1,16 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 /// <summary>
 /// Used for tracking validation state to customize validation behavior for a model object.
 /// </summary>
+[DebuggerDisplay("Count = {Count}")]
+[DebuggerTypeProxy(typeof(DictionaryDebugView<object, ValidationStateEntry>))]
 public class ValidationStateDictionary :
     IDictionary<object, ValidationStateEntry>,
     IReadOnlyDictionary<object, ValidationStateEntry>

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.Abstractions;
 
 /// <summary>
@@ -19,10 +17,7 @@ public static class ActionDescriptorExtensions
     /// <returns>The property or the default value of <typeparamref name="T"/>.</returns>
     public static T? GetProperty<T>(this ActionDescriptor actionDescriptor)
     {
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         if (actionDescriptor.Properties.TryGetValue(typeof(T), out var value))
         {
@@ -43,10 +38,7 @@ public static class ActionDescriptorExtensions
     /// <param name="value">The value of the property.</param>
     public static void SetProperty<T>(this ActionDescriptor actionDescriptor, T value)
     {
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         if (value == null)
         {

@@ -3,7 +3,6 @@
 
 #nullable enable
 
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,10 +18,7 @@ public class FormCollectionModelBinderProvider : IModelBinderProvider
     /// <inheritdoc />
     public IModelBinder? GetBinder(ModelBinderProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var modelType = context.Metadata.ModelType;
 

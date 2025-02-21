@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,10 +20,7 @@ public static class MvcDataAnnotationsMvcCoreBuilderExtensions
     /// <returns>The <see cref="IMvcBuilder"/>.</returns>
     public static IMvcCoreBuilder AddDataAnnotations(this IMvcCoreBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         AddDataAnnotationsServices(builder.Services);
         return builder;
@@ -37,10 +33,7 @@ public static class MvcDataAnnotationsMvcCoreBuilderExtensions
     /// <returns>The <see cref="IMvcCoreBuilder"/>.</returns>
     public static IMvcCoreBuilder AddDataAnnotationsLocalization(this IMvcCoreBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddDataAnnotationsLocalization(builder, setupAction: null);
     }
@@ -56,10 +49,7 @@ public static class MvcDataAnnotationsMvcCoreBuilderExtensions
         this IMvcCoreBuilder builder,
         Action<MvcDataAnnotationsLocalizationOptions>? setupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         AddDataAnnotationsLocalizationServices(builder.Services, setupAction);
         return builder;

@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
@@ -20,10 +18,7 @@ public class DictionaryModelBinderProvider : IModelBinderProvider
     /// <inheritdoc />
     public IModelBinder? GetBinder(ModelBinderProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var modelType = context.Metadata.ModelType;
         var dictionaryType = ClosedGenericMatcher.ExtractGenericInterface(modelType, typeof(IDictionary<,>));

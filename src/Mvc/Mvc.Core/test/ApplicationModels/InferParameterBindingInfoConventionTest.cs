@@ -1,18 +1,14 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
+using Moq;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
@@ -33,6 +29,24 @@ public class InferParameterBindingInfoConventionTest
         var parameterModel = Assert.Single(action.Parameters);
         Assert.NotNull(parameterModel.BindingInfo);
         Assert.Same(BindingSource.Custom, parameterModel.BindingInfo.BindingSource);
+    }
+
+    [Fact]
+    public void Apply_DoesNotInferBindingSourceFor_ComplexType_WithPropertiesWithBindingSource()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.CompositeComplexTypeModel);
+        var modelMetadataProvider = TestModelMetadataProvider.CreateDefaultProvider();
+        var convention = GetConvention(modelMetadataProvider);
+        var action = GetActionModel(typeof(ParameterBindingController), actionName);
+
+        // Act
+        convention.Apply(action);
+
+        // Assert
+        var parameterModel = Assert.Single(action.Parameters);
+        Assert.NotNull(parameterModel.BindingInfo);
+        Assert.Null(parameterModel.BindingInfo.BindingSource);
     }
 
     [Fact]
@@ -113,6 +127,7 @@ Environment.NewLine + "int b";
 
                 var bindingInfo = parameter.BindingInfo;
                 Assert.NotNull(bindingInfo);
+                Assert.Equal(EmptyBodyBehavior.Default, bindingInfo.EmptyBodyBehavior);
                 Assert.Same(BindingSource.Body, bindingInfo.BindingSource);
             },
             parameter =>
@@ -122,6 +137,84 @@ Environment.NewLine + "int b";
                 var bindingInfo = parameter.BindingInfo;
                 Assert.NotNull(bindingInfo);
                 Assert.Equal(BindingSource.Special, bindingInfo.BindingSource);
+            });
+    }
+
+    [Fact]
+    public void InferParameterBindingSources_InfersSourcesFromRequiredComplexType()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.RequiredComplexType);
+        var modelMetadataProvider = TestModelMetadataProvider.CreateDefaultProvider();
+        var convention = GetConvention(modelMetadataProvider);
+        var action = GetActionModel(typeof(ParameterBindingController), actionName, modelMetadataProvider);
+
+        // Act
+        convention.InferParameterBindingSources(action);
+
+        // Assert
+        Assert.Collection(
+            action.Parameters,
+            parameter =>
+            {
+                Assert.Equal("model", parameter.Name);
+
+                var bindingInfo = parameter.BindingInfo;
+                Assert.NotNull(bindingInfo);
+                Assert.Equal(EmptyBodyBehavior.Default, bindingInfo.EmptyBodyBehavior);
+                Assert.Same(BindingSource.Body, bindingInfo.BindingSource);
+            });
+    }
+
+    [Fact]
+    public void InferParameterBindingSources_InfersSourcesFromNullableComplexType()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.NullableComplexType);
+        var modelMetadataProvider = TestModelMetadataProvider.CreateDefaultProvider();
+        var convention = GetConvention(modelMetadataProvider);
+        var action = GetActionModel(typeof(ParameterBindingController), actionName, modelMetadataProvider);
+
+        // Act
+        convention.InferParameterBindingSources(action);
+
+        // Assert
+        Assert.Collection(
+            action.Parameters,
+            parameter =>
+            {
+                Assert.Equal("model", parameter.Name);
+
+                var bindingInfo = parameter.BindingInfo;
+                Assert.NotNull(bindingInfo);
+                Assert.Equal(EmptyBodyBehavior.Allow, bindingInfo.EmptyBodyBehavior);
+                Assert.Same(BindingSource.Body, bindingInfo.BindingSource);
+            });
+    }
+
+    [Fact]
+    public void InferParameterBindingSources_InfersSourcesFromComplexTypeWithDefaultValue()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.ComplexTypeWithDefaultValue);
+        var modelMetadataProvider = TestModelMetadataProvider.CreateDefaultProvider();
+        var convention = GetConvention(modelMetadataProvider);
+        var action = GetActionModel(typeof(ParameterBindingController), actionName, modelMetadataProvider);
+
+        // Act
+        convention.InferParameterBindingSources(action);
+
+        // Assert
+        Assert.Collection(
+            action.Parameters,
+            parameter =>
+            {
+                Assert.Equal("model", parameter.Name);
+
+                var bindingInfo = parameter.BindingInfo;
+                Assert.NotNull(bindingInfo);
+                Assert.Equal(EmptyBodyBehavior.Allow, bindingInfo.EmptyBodyBehavior);
+                Assert.Same(BindingSource.Body, bindingInfo.BindingSource);
             });
     }
 
@@ -469,6 +562,21 @@ Environment.NewLine + "int b";
     }
 
     [Fact]
+    public void InferBindingSourceForParameter_ReturnsBodyForIEnumerableOfSimpleTypes()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.IEnumerableOfSimpleTypes);
+        var parameter = GetParameterModel(typeof(ParameterBindingController), actionName);
+        var convention = GetConvention();
+
+        // Act
+        var result = convention.InferBindingSourceForParameter(parameter);
+
+        // Assert
+        Assert.Same(BindingSource.Body, result);
+    }
+
+    [Fact]
     public void InferBindingSourceForParameter_ReturnsBodyForCollectionOfComplexTypes()
     {
         // Arrange
@@ -481,6 +589,57 @@ Environment.NewLine + "int b";
 
         // Assert
         Assert.Same(BindingSource.Body, result);
+    }
+
+    [Fact]
+    public void InferBindingSourceForParameter_ReturnsBodyForIEnumerableOfComplexTypes()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.IEnumerableOfComplexTypes);
+        var parameter = GetParameterModel(typeof(ParameterBindingController), actionName);
+        var convention = GetConvention();
+
+        // Act
+        var result = convention.InferBindingSourceForParameter(parameter);
+
+        // Assert
+        Assert.Same(BindingSource.Body, result);
+    }
+
+    [Fact]
+    public void InferBindingSourceForParameter_ReturnsServicesForComplexTypesRegisteredInDI()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.ServiceParameter);
+        var parameter = GetParameterModel(typeof(ParameterBindingController), actionName);
+        // Using any built-in type defined in the Test action
+        var serviceProvider = Mock.Of<IServiceProviderIsService>(s => s.IsService(typeof(IApplicationModelProvider)) == true);
+        var convention = GetConvention(serviceProviderIsService: serviceProvider);
+
+        // Act
+        var result = convention.InferBindingSourceForParameter(parameter);
+
+        // Assert
+        Assert.True(convention.IsInferForServiceParametersEnabled);
+        Assert.Same(BindingSource.Services, result);
+    }
+
+    [Fact]
+    public void InferBindingSourceForParameter_ReturnsServicesForIEnumerableOfComplexTypesRegisteredInDI()
+    {
+        // Arrange
+        var actionName = nameof(ParameterBindingController.IEnumerableServiceParameter);
+        var parameter = GetParameterModel(typeof(ParameterBindingController), actionName);
+        // Using any built-in type defined in the Test action
+        var serviceProvider = Mock.Of<IServiceProviderIsService>(s => s.IsService(typeof(IApplicationModelProvider)) == true);
+        var convention = GetConvention(serviceProviderIsService: serviceProvider);
+
+        // Act
+        var result = convention.InferBindingSourceForParameter(parameter);
+
+        // Assert
+        Assert.True(convention.IsInferForServiceParametersEnabled);
+        Assert.Same(BindingSource.Services, result);
     }
 
     [Fact]
@@ -738,10 +897,12 @@ Environment.NewLine + "int b";
     }
 
     private static InferParameterBindingInfoConvention GetConvention(
-        IModelMetadataProvider modelMetadataProvider = null)
+        IModelMetadataProvider modelMetadataProvider = null,
+        IServiceProviderIsService serviceProviderIsService = null)
     {
         modelMetadataProvider = modelMetadataProvider ?? new EmptyModelMetadataProvider();
-        return new InferParameterBindingInfoConvention(modelMetadataProvider);
+        serviceProviderIsService = serviceProviderIsService ?? Mock.Of<IServiceProviderIsService>(s => s.IsService(It.IsAny<Type>()) == false);
+        return new InferParameterBindingInfoConvention(modelMetadataProvider, serviceProviderIsService);
     }
 
     private static ApplicationModelProviderContext GetContext(
@@ -810,6 +971,9 @@ Environment.NewLine + "int b";
         public IActionResult ComplexTypeModel(TestModel model) => null;
 
         [HttpPut("put-action/{id}")]
+        public IActionResult CompositeComplexTypeModel(CompositeTestModel model) => null;
+
+        [HttpPut("put-action/{id}")]
         public IActionResult SimpleTypeModel(ConvertibleFromString model) => null;
 
         [HttpPost("form-file")]
@@ -830,6 +994,17 @@ Environment.NewLine + "int b";
 
         [HttpPut("cancellation")]
         public IActionResult ComplexTypeModelWithCancellationToken(TestModel model, CancellationToken cancellationToken) => null;
+
+#nullable enable
+        [HttpPut("parameter-notnull")]
+        public IActionResult RequiredComplexType(TestModel model) => new OkResult();
+
+        [HttpPut("parameter-null")]
+        public IActionResult NullableComplexType(TestModel? model) => new OkResult();
+#nullable restore
+
+        [HttpPut("parameter-with-default-value")]
+        public IActionResult ComplexTypeWithDefaultValue(TestModel model = null) => null;
 
         [HttpGet("parameter-with-model-binder-attribute")]
         public IActionResult ModelBinderAttribute([ModelBinder(Name = "top")] int value) => null;
@@ -876,7 +1051,15 @@ Environment.NewLine + "int b";
 
         public IActionResult CollectionOfSimpleTypes(IList<int> parameter) => null;
 
+        public IActionResult IEnumerableOfSimpleTypes(IEnumerable<int> parameter) => null;
+
         public IActionResult CollectionOfComplexTypes(IList<TestModel> parameter) => null;
+
+        public IActionResult IEnumerableOfComplexTypes(IEnumerable<TestModel> parameter) => null;
+
+        public IActionResult ServiceParameter(IApplicationModelProvider parameter) => null;
+
+        public IActionResult IEnumerableServiceParameter(IEnumerable<IApplicationModelProvider> parameter) => null;
     }
 
     [ApiController]
@@ -931,6 +1114,14 @@ Environment.NewLine + "int b";
     }
 
     private class TestModel { }
+
+    private class CompositeTestModel
+    {
+        [FromQuery]
+        public int Id { get; set; }
+
+        public TestModel TestModel { get; set; }
+    }
 
     [TypeConverter(typeof(ConvertibleFromStringConverter))]
     private class ConvertibleFromString { }

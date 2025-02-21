@@ -1,15 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
 using BasicTestApp;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Interactions;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -27,7 +24,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
     protected override void InitializeAsyncCore()
     {
         // Always do a full page reload because these tests need to start with no custom event registrations
-        Navigate(ServerPathBase, noReload: false);
+        Navigate(ServerPathBase);
         Browser.MountTestComponent<EventCustomArgsComponent>();
     }
 
@@ -80,7 +77,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
                 "You pressed: b",
             }, GetLogLines);
 
-        Assert.Equal("ab", input.GetAttribute("value"));
+        Assert.Equal("ab", input.GetDomProperty("value"));
     }
 
     [Fact]
@@ -100,7 +97,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
             }, GetLogLines);
 
         // Check it was actually preventDefault-ed
-        Assert.Equal("", input.GetAttribute("value"));
+        Assert.Equal("", input.GetDomProperty("value"));
     }
 
     [Fact]
@@ -123,7 +120,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
                 "Yet another aliased event received: b",
             }, GetLogLines);
 
-        Assert.Equal("ab", input.GetAttribute("value"));
+        Assert.Equal("ab", input.GetDomProperty("value"));
     }
 
     [Fact]
@@ -144,7 +141,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
                 "Yet another aliased event received: b",
             }, GetLogLines);
 
-        Assert.Equal("ab", input.GetAttribute("value"));
+        Assert.Equal("ab", input.GetDomProperty("value"));
     }
 
     [Fact]
@@ -183,7 +180,7 @@ public class EventCustomArgsTest : ServerTestBase<ToggleExecutionModeServerFixtu
 
     private string[] GetLogLines()
         => Browser.Exists(By.Id("test-log"))
-        .GetAttribute("value")
+        .GetDomProperty("value")
         .Replace("\r\n", "\n")
         .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 }

@@ -1,21 +1,20 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR.Protocol;
 
 namespace Microsoft.AspNetCore.SignalR;
 
-internal class StreamTracker
+internal sealed class StreamTracker
 {
-    private static readonly MethodInfo _buildConverterMethod = typeof(StreamTracker).GetMethods(BindingFlags.NonPublic | BindingFlags.Static).Single(m => m.Name.Equals("BuildStream"));
+    private static readonly MethodInfo _buildConverterMethod = typeof(StreamTracker).GetMethods(BindingFlags.NonPublic | BindingFlags.Static).Single(m => m.Name.Equals(nameof(BuildStream)));
     private readonly object[] _streamConverterArgs;
     private readonly ConcurrentDictionary<string, IStreamConverter> _lookup = new ConcurrentDictionary<string, IStreamConverter>();
 
@@ -27,8 +26,14 @@ internal class StreamTracker
     /// <summary>
     /// Creates a new stream and returns the ChannelReader for it as an object.
     /// </summary>
+    [UnconditionalSuppressMessage("Trimming", "IL2060:MakeGenericMethod",
+        Justification = "BuildStream doesn't have trimming annotations.")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:RequiresDynamicCode",
+        Justification = "HubMethodDescriptor checks for ValueType streaming item types when PublishAot=true. Developers will get an exception in this situation before publishing.")]
     public object AddStream(string streamId, Type itemType, Type targetType)
     {
+        Debug.Assert(RuntimeFeature.IsDynamicCodeSupported || !itemType.IsValueType, "HubMethodDescriptor ensures itemType is not a ValueType when PublishAot=true.");
+
         var newConverter = (IStreamConverter)_buildConverterMethod.MakeGenericMethod(itemType).Invoke(null, _streamConverterArgs)!;
         _lookup[streamId] = newConverter;
         return newConverter.GetReaderAsObject(targetType);
@@ -73,7 +78,7 @@ internal class StreamTracker
         {
             return false;
         }
-        converter.TryComplete(message.HasResult || message.Error == null ? null : new Exception(message.Error));
+        converter.TryComplete(message.HasResult || message.Error == null ? null : new HubException(message.Error));
         return true;
     }
 
@@ -98,7 +103,7 @@ internal class StreamTracker
         void TryComplete(Exception? ex);
     }
 
-    private class ChannelConverter<T> : IStreamConverter
+    private sealed class ChannelConverter<T> : IStreamConverter
     {
         private readonly Channel<T?> _channel;
 

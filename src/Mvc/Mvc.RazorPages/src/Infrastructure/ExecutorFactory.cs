@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Internal;
 
 namespace Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
@@ -14,10 +12,7 @@ internal static class ExecutorFactory
 {
     public static PageHandlerExecutorDelegate CreateExecutor(HandlerMethodDescriptor handlerDescriptor)
     {
-        if (handlerDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(handlerDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(handlerDescriptor);
 
         var handler = CreateHandlerMethod(handlerDescriptor);
 
@@ -145,7 +140,7 @@ internal static class ExecutorFactory
         }
     }
 
-    private class VoidHandlerMethod : HandlerMethod
+    private sealed class VoidHandlerMethod : HandlerMethod
     {
         private readonly Action<object, object?[]?> _thunk;
 
@@ -171,7 +166,7 @@ internal static class ExecutorFactory
         }
     }
 
-    private class ActionResultHandlerMethod : HandlerMethod
+    private sealed class ActionResultHandlerMethod : HandlerMethod
     {
         private readonly Func<object, object?[]?, IActionResult?> _thunk;
 

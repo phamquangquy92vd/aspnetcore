@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Claims;
 using System.Security.Principal;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
@@ -15,7 +13,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.CookiePolicy.Test;
 
@@ -61,10 +58,10 @@ public class CookiePolicyTests
                 transaction =>
                 {
                     Assert.NotNull(transaction.SetCookie);
-                    Assert.Equal("A=A; path=/; secure", transaction.SetCookie[0]);
-                    Assert.Equal("B=B; path=/; secure", transaction.SetCookie[1]);
-                    Assert.Equal("C=C; path=/; secure", transaction.SetCookie[2]);
-                    Assert.Equal("D=D; path=/; secure", transaction.SetCookie[3]);
+                    Assert.Equal("A=A; path=/; secure", transaction.SetCookie[0].AsSpan());
+                    Assert.Equal("B=B; path=/; secure", transaction.SetCookie[1].AsSpan());
+                    Assert.Equal("C=C; path=/; secure", transaction.SetCookie[2].AsSpan());
+                    Assert.Equal("D=D; path=/; secure", transaction.SetCookie[3].AsSpan());
                 }));
     }
 
@@ -314,7 +311,7 @@ public class CookiePolicyTests
         var transaction = await server.SendAsync("http://example.com/login");
 
         Assert.NotNull(transaction.SetCookie);
-        Assert.Equal(1, transaction.SetCookie.Count);
+        Assert.Single(transaction.SetCookie);
         Assert.Equal("A=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure", transaction.SetCookie[0]);
     }
 
@@ -370,6 +367,7 @@ public class CookiePolicyTests
                         {
                             HttpOnly = HttpOnlyPolicy.Always,
                             Secure = CookieSecurePolicy.Always,
+                            OnAppendCookie = c => c.CookieOptions.Extensions.Add("extension")
                         });
                         app.UseAuthentication();
                         app.Run(context =>
@@ -398,12 +396,13 @@ public class CookiePolicyTests
         var transaction = await server.SendAsync("http://example.com/login");
 
         Assert.NotNull(transaction.SetCookie);
-        Assert.Equal(1, transaction.SetCookie.Count);
+        Assert.Single(transaction.SetCookie);
         var cookie = SetCookieHeaderValue.Parse(transaction.SetCookie[0]);
-        Assert.Equal("TestCookie", cookie.Name);
+        Assert.Equal("TestCookie", cookie.Name.AsSpan());
         Assert.True(cookie.HttpOnly);
         Assert.True(cookie.Secure);
-        Assert.Equal("/", cookie.Path);
+        Assert.Equal("/", cookie.Path.AsSpan());
+        Assert.Contains("extension", cookie.Extensions);
     }
 
     [Fact]
@@ -419,6 +418,7 @@ public class CookiePolicyTests
                         {
                             HttpOnly = HttpOnlyPolicy.Always,
                             Secure = CookieSecurePolicy.Always,
+                            OnAppendCookie = c => c.CookieOptions.Extensions.Add("ext")
                         });
                         app.UseAuthentication();
                         app.Run(context =>
@@ -450,23 +450,26 @@ public class CookiePolicyTests
         Assert.Equal(3, transaction.SetCookie.Count);
 
         var cookie = SetCookieHeaderValue.Parse(transaction.SetCookie[0]);
-        Assert.Equal("TestCookie", cookie.Name);
-        Assert.Equal("chunks-2", cookie.Value);
+        Assert.Equal("TestCookie", cookie.Name.AsSpan());
+        Assert.Equal("chunks-2", cookie.Value.AsSpan());
         Assert.True(cookie.HttpOnly);
         Assert.True(cookie.Secure);
-        Assert.Equal("/", cookie.Path);
+        Assert.Equal("/", cookie.Path.AsSpan());
+        Assert.Contains("ext", cookie.Extensions);
 
         cookie = SetCookieHeaderValue.Parse(transaction.SetCookie[1]);
-        Assert.Equal("TestCookieC1", cookie.Name);
+        Assert.Equal("TestCookieC1", cookie.Name.AsSpan());
         Assert.True(cookie.HttpOnly);
         Assert.True(cookie.Secure);
-        Assert.Equal("/", cookie.Path);
+        Assert.Equal("/", cookie.Path.AsSpan());
+        Assert.Contains("ext", cookie.Extensions);
 
         cookie = SetCookieHeaderValue.Parse(transaction.SetCookie[2]);
-        Assert.Equal("TestCookieC2", cookie.Name);
+        Assert.Equal("TestCookieC2", cookie.Name.AsSpan());
         Assert.True(cookie.HttpOnly);
         Assert.True(cookie.Secure);
-        Assert.Equal("/", cookie.Path);
+        Assert.Equal("/", cookie.Path.AsSpan());
+        Assert.Contains("ext", cookie.Extensions);
     }
 
     private class TestCookieFeature : IResponseCookiesFeature

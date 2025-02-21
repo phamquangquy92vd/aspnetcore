@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -32,7 +31,7 @@ internal static class ActionAttributeRouteModel
             //
             // This is fragile wrt application model customizing the data - but no one has
             // run into an issue with this and its pretty esoteric.
-            additionalSelector = new SelectorModel(actionModel.Controller.Selectors.First());
+            additionalSelector = new SelectorModel(actionModel.Controller.Selectors[0]);
             additionalSelector.AttributeRouteModel = null;
 
             for (var i = additionalSelector.ActionConstraints.Count - 1; i >= 0; i--)
@@ -177,7 +176,6 @@ internal static class ActionAttributeRouteModel
                     yield return (route, actionSelectorModel, controllerSelector);
                 }
             }
-
             else
             {
                 var route = AttributeRouteModel.CombineAttributeRouteModel(

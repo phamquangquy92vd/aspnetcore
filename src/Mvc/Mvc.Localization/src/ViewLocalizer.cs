@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -30,14 +27,12 @@ public class ViewLocalizer : IViewLocalizer, IViewContextAware
     /// <param name="hostingEnvironment">The <see cref="IWebHostEnvironment"/>.</param>
     public ViewLocalizer(IHtmlLocalizerFactory localizerFactory, IWebHostEnvironment hostingEnvironment)
     {
-        if (localizerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(localizerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(localizerFactory);
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
 
-        if (hostingEnvironment == null)
+        if (string.IsNullOrEmpty(hostingEnvironment.ApplicationName))
         {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
+            throw new InvalidOperationException($"{nameof(hostingEnvironment)}.ApplicationName must have a value.");
         }
 
         _applicationName = hostingEnvironment.ApplicationName;
@@ -49,10 +44,7 @@ public class ViewLocalizer : IViewLocalizer, IViewContextAware
     {
         get
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             return _localizer[key];
         }
@@ -63,10 +55,7 @@ public class ViewLocalizer : IViewLocalizer, IViewContextAware
     {
         get
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             return _localizer[key, arguments];
         }
@@ -88,10 +77,7 @@ public class ViewLocalizer : IViewLocalizer, IViewContextAware
     /// <param name="viewContext">The <see cref="ViewContext"/>.</param>
     public void Contextualize(ViewContext viewContext)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
 
         // Given a view path "/Views/Home/Index.cshtml" we want a baseName like "MyApplication.Views.Home.Index"
         var path = viewContext.ExecutingFilePath;

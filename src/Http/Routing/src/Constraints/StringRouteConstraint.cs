@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Matching;
@@ -11,7 +10,7 @@ namespace Microsoft.AspNetCore.Routing.Constraints;
 /// <summary>
 /// Constrains a route parameter to contain only a specified string.
 /// </summary>
-public class StringRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatchingPolicy
+public class StringRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatchingPolicy, ICachableParameterPolicy
 {
     private readonly string _value;
 
@@ -21,10 +20,7 @@ public class StringRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatc
     /// <param name="value">The constraint value to match.</param>
     public StringRouteConstraint(string value)
     {
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(value);
 
         _value = value;
     }
@@ -32,15 +28,8 @@ public class StringRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatc
     /// <inheritdoc />
     public bool Match(HttpContext? httpContext, IRouter? route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
     {
-        if (routeKey == null)
-        {
-            throw new ArgumentNullException(nameof(routeKey));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(routeKey);
+        ArgumentNullException.ThrowIfNull(values);
 
         if (values.TryGetValue(routeKey, out var routeValue)
             && routeValue != null)

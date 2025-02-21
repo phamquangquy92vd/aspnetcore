@@ -94,6 +94,7 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
         return await InvokeAsync<TValue>(targetInstanceId, identifier, CancellationToken.None, args);
     }
 
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "We expect application code is configured to ensure JS interop arguments are linker friendly.")]
     internal ValueTask<TValue> InvokeAsync<[DynamicallyAccessedMembers(JsonSerialized)] TValue>(
         long targetInstanceId,
         string identifier,
@@ -153,7 +154,7 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
     /// <param name="taskId">The identifier for the function invocation, or zero if no async callback is required.</param>
     /// <param name="identifier">The identifier for the function to invoke.</param>
     /// <param name="argsJson">A JSON representation of the arguments.</param>
-    protected virtual void BeginInvokeJS(long taskId, string identifier, string? argsJson)
+    protected virtual void BeginInvokeJS(long taskId, string identifier, [StringSyntax(StringSyntaxAttribute.Json)] string? argsJson)
         => BeginInvokeJS(taskId, identifier, argsJson, JSCallResultType.Default, 0);
 
     /// <summary>
@@ -164,7 +165,7 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
     /// <param name="argsJson">A JSON representation of the arguments.</param>
     /// <param name="resultType">The type of result expected from the invocation.</param>
     /// <param name="targetInstanceId">The instance ID of the target JS object.</param>
-    protected abstract void BeginInvokeJS(long taskId, string identifier, string? argsJson, JSCallResultType resultType, long targetInstanceId);
+    protected abstract void BeginInvokeJS(long taskId, string identifier, [StringSyntax(StringSyntaxAttribute.Json)] string? argsJson, JSCallResultType resultType, long targetInstanceId);
 
     /// <summary>
     /// Completes an async JS interop call from JavaScript to .NET
@@ -225,13 +226,14 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
     }
 
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2072:RequiresUnreferencedCode", Justification = "We enforce trimmer attributes for JSON deserialized types on InvokeAsync.")]
-    internal void EndInvokeJS(long taskId, bool succeeded, ref Utf8JsonReader jsonReader)
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "We enforce trimmer attributes for JSON deserialized types on InvokeAsync.")]
+    internal bool EndInvokeJS(long taskId, bool succeeded, ref Utf8JsonReader jsonReader)
     {
         if (!_pendingTasks.TryRemove(taskId, out var tcs))
         {
             // We should simply return if we can't find an id for the invocation.
             // This likely means that the method that initiated the call defined a timeout and stopped waiting.
-            return;
+            return false;
         }
 
         CleanupTasksAndRegistrations(taskId);
@@ -251,11 +253,14 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
                 var exceptionText = jsonReader.GetString() ?? string.Empty;
                 TaskGenericsUtil.SetTaskCompletionSourceException(tcs, new JSException(exceptionText));
             }
+
+            return true;
         }
         catch (Exception exception)
         {
             var message = $"An exception occurred executing JS interop: {exception.Message}. See InnerException for more details.";
             TaskGenericsUtil.SetTaskCompletionSourceException(tcs, new JSException(message, exception));
+            return false;
         }
     }
 
@@ -287,12 +292,9 @@ public abstract partial class JSRuntime : IJSRuntime, IDisposable
         return streamId;
     }
 
-    internal long TrackObjectReference<TValue>(DotNetObjectReference<TValue> dotNetObjectReference) where TValue : class
+    internal long TrackObjectReference<[DynamicallyAccessedMembers(JSInvokable)] TValue>(DotNetObjectReference<TValue> dotNetObjectReference) where TValue : class
     {
-        if (dotNetObjectReference == null)
-        {
-            throw new ArgumentNullException(nameof(dotNetObjectReference));
-        }
+        ArgumentNullException.ThrowIfNull(dotNetObjectReference);
 
         dotNetObjectReference.ThrowIfDisposed();
 

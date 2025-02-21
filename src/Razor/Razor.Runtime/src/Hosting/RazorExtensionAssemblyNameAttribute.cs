@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Razor.Hosting;
 
 /// <summary>
@@ -23,15 +21,8 @@ public sealed class RazorExtensionAssemblyNameAttribute : Attribute
     /// <param name="assemblyName">The assembly name of the extension.</param>
     public RazorExtensionAssemblyNameAttribute(string extensionName, string assemblyName)
     {
-        if (extensionName == null)
-        {
-            throw new ArgumentNullException(nameof(extensionName));
-        }
-
-        if (assemblyName == null)
-        {
-            throw new ArgumentNullException(nameof(assemblyName));
-        }
+        ArgumentNullException.ThrowIfNull(extensionName);
+        ArgumentNullException.ThrowIfNull(assemblyName);
 
         ExtensionName = extensionName;
         AssemblyName = assemblyName;

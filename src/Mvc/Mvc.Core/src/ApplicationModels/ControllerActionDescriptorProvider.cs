@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -10,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
-internal class ControllerActionDescriptorProvider : IActionDescriptorProvider
+internal sealed class ControllerActionDescriptorProvider : IActionDescriptorProvider
 {
     private readonly ApplicationPartManager _partManager;
     private readonly ApplicationModelFactory _applicationModelFactory;
@@ -19,15 +17,8 @@ internal class ControllerActionDescriptorProvider : IActionDescriptorProvider
         ApplicationPartManager partManager,
         ApplicationModelFactory applicationModelFactory)
     {
-        if (partManager == null)
-        {
-            throw new ArgumentNullException(nameof(partManager));
-        }
-
-        if (applicationModelFactory == null)
-        {
-            throw new ArgumentNullException(nameof(applicationModelFactory));
-        }
+        ArgumentNullException.ThrowIfNull(partManager);
+        ArgumentNullException.ThrowIfNull(applicationModelFactory);
 
         _partManager = partManager;
         _applicationModelFactory = applicationModelFactory;
@@ -38,10 +29,7 @@ internal class ControllerActionDescriptorProvider : IActionDescriptorProvider
     /// <inheritdoc />
     public void OnProvidersExecuting(ActionDescriptorProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         foreach (var descriptor in GetDescriptors())
         {

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
@@ -31,14 +29,8 @@ public class ResponseCompressionProvider : IResponseCompressionProvider
     /// <param name="options">The options for this instance.</param>
     public ResponseCompressionProvider(IServiceProvider services, IOptions<ResponseCompressionOptions> options)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(options);
 
         var responseCompressionOptions = options.Value;
 

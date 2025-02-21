@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -57,15 +54,8 @@ public partial class SystemTextJsonInputFormatter : TextInputFormatter, IInputFo
         InputFormatterContext context,
         Encoding encoding)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (encoding == null)
-        {
-            throw new ArgumentNullException(nameof(encoding));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(encoding);
 
         var httpContext = context.HttpContext;
         var (inputStream, usesTranscodingStream) = GetInputStream(httpContext, encoding);
@@ -133,7 +123,7 @@ public partial class SystemTextJsonInputFormatter : TextInputFormatter, IInputFo
         return new InputFormatterException(jsonException.Message, jsonException);
     }
 
-    private (Stream inputStream, bool usesTranscodingStream) GetInputStream(HttpContext httpContext, Encoding encoding)
+    private static (Stream inputStream, bool usesTranscodingStream) GetInputStream(HttpContext httpContext, Encoding encoding)
     {
         if (encoding.CodePage == Encoding.UTF8.CodePage)
         {

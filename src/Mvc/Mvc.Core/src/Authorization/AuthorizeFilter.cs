@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
@@ -21,6 +18,10 @@ namespace Microsoft.AspNetCore.Mvc.Authorization;
 /// <see cref="AuthorizationPolicy"/>. MVC recognizes the <see cref="AuthorizeAttribute"/> and adds an instance of
 /// this filter to the associated action or controller.
 /// </summary>
+/// <remarks>
+/// An authorize filter is not meant to be used in combination with <see cref="AuthorizationOptions.FallbackPolicy"/>. 
+/// The fallback policy takes precedence over an authorize filter.
+/// </remarks>
 public class AuthorizeFilter : IAsyncAuthorizationFilter, IFilterFactory
 {
     /// <summary>
@@ -37,10 +38,7 @@ public class AuthorizeFilter : IAsyncAuthorizationFilter, IFilterFactory
     /// <param name="policy">Authorization policy to be used.</param>
     public AuthorizeFilter(AuthorizationPolicy policy)
     {
-        if (policy == null)
-        {
-            throw new ArgumentNullException(nameof(policy));
-        }
+        ArgumentNullException.ThrowIfNull(policy);
 
         Policy = policy;
     }
@@ -53,10 +51,7 @@ public class AuthorizeFilter : IAsyncAuthorizationFilter, IFilterFactory
     public AuthorizeFilter(IAuthorizationPolicyProvider policyProvider, IEnumerable<IAuthorizeData> authorizeData)
         : this(authorizeData)
     {
-        if (policyProvider == null)
-        {
-            throw new ArgumentNullException(nameof(policyProvider));
-        }
+        ArgumentNullException.ThrowIfNull(policyProvider);
 
         PolicyProvider = policyProvider;
     }
@@ -67,10 +62,7 @@ public class AuthorizeFilter : IAsyncAuthorizationFilter, IFilterFactory
     /// <param name="authorizeData">The <see cref="IAuthorizeData"/> to combine into an <see cref="IAuthorizeData"/>.</param>
     public AuthorizeFilter(IEnumerable<IAuthorizeData> authorizeData)
     {
-        if (authorizeData == null)
-        {
-            throw new ArgumentNullException(nameof(authorizeData));
-        }
+        ArgumentNullException.ThrowIfNull(authorizeData);
 
         AuthorizeData = authorizeData;
     }
@@ -166,10 +158,7 @@ public class AuthorizeFilter : IAsyncAuthorizationFilter, IFilterFactory
     /// <inheritdoc />
     public virtual async Task OnAuthorizationAsync(AuthorizationFilterContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (!context.IsEffectivePolicy(this))
         {

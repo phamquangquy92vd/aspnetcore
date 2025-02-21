@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.JSInterop.Implementation;
@@ -43,12 +42,12 @@ internal sealed class JSStreamReferenceJsonConverter : JsonConverter<IJSStreamRe
                 }
                 else
                 {
-                    throw new JsonException($"Unexcepted JSON property {reader.GetString()}.");
+                    throw new JsonException($"Unexpected JSON property {reader.GetString()}.");
                 }
             }
             else
             {
-                throw new JsonException($"Unexcepted JSON token {reader.TokenType}");
+                throw new JsonException($"Unexpected JSON token {reader.TokenType}");
             }
         }
 

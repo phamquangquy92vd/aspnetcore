@@ -1,10 +1,7 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -12,7 +9,6 @@ using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
@@ -357,6 +353,14 @@ public class DefaultPageApplicationModelProviderTest
                 Assert.Equal(name, property.PropertyName);
                 Assert.NotNull(property.BindingInfo);
                 Assert.Equal(BindingSource.Query, property.BindingInfo.BindingSource);
+            },
+            property =>
+            {
+                var name = nameof(TestPageModel.TestService);
+                Assert.Equal(modelType.GetProperty(name), property.PropertyInfo);
+                Assert.Equal(name, property.PropertyName);
+                Assert.NotNull(property.BindingInfo);
+                Assert.Equal(BindingSource.Services, property.BindingInfo.BindingSource);
             });
     }
 
@@ -448,7 +452,7 @@ public class DefaultPageApplicationModelProviderTest
 
         // Assert
         var pageModel = context.PageApplicationModel;
-        Assert.Empty(pageModel.HandlerProperties.Where(p => p.BindingInfo != null));
+        Assert.DoesNotContain(pageModel.HandlerProperties, p => p.BindingInfo != null);
         Assert.Empty(pageModel.HandlerMethods);
         Assert.Same(typeof(EmptyPage).GetTypeInfo(), pageModel.HandlerType);
         Assert.Same(typeof(EmptyPage).GetTypeInfo(), pageModel.ModelType);
@@ -469,7 +473,7 @@ public class DefaultPageApplicationModelProviderTest
 
         // Assert
         var pageModel = context.PageApplicationModel;
-        Assert.Empty(pageModel.HandlerProperties.Where(p => p.BindingInfo != null));
+        Assert.DoesNotContain(pageModel.HandlerProperties, p => p.BindingInfo != null);
         Assert.Empty(pageModel.HandlerMethods);
         Assert.Same(typeof(EmptyPageModel).GetTypeInfo(), pageModel.DeclaredModelType);
         Assert.Same(typeof(EmptyPageModel).GetTypeInfo(), pageModel.ModelType);
@@ -1062,6 +1066,9 @@ public class DefaultPageApplicationModelProviderTest
         public override Task ExecuteAsync() => throw new NotImplementedException();
     }
 
+    public interface ITestService
+    { }
+
     [PageModel]
     private class TestPageModel
     {
@@ -1069,6 +1076,9 @@ public class DefaultPageApplicationModelProviderTest
 
         [FromQuery]
         public string Property2 { get; set; }
+
+        [FromServices]
+        public ITestService TestService { get; set; }
 
         public void OnGetUser() { }
     }

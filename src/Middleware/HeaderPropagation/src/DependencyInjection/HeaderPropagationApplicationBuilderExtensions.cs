@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Net.Http;
 using Microsoft.AspNetCore.HeaderPropagation;
@@ -27,10 +26,7 @@ public static class HeaderPropagationApplicationBuilderExtensions
     /// <returns>A reference to the <paramref name="app"/> after the operation has completed.</returns>
     public static IApplicationBuilder UseHeaderPropagation(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         if (app.ApplicationServices.GetService<HeaderPropagationValues>() == null)
         {

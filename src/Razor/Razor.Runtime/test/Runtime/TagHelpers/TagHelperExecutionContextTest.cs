@@ -1,15 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.AspNetCore.Razor.TagHelpers.Testing;
 using Microsoft.Extensions.WebEncoders.Testing;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Razor.Runtime.TagHelpers;
 
@@ -250,9 +245,8 @@ public class TagHelperExecutionContextTest
         get
         {
             var data = new TheoryData<HtmlEncoder>();
-            foreach (var row in HtmlEncoderData)
+            foreach (var encoder in HtmlEncoderData)
             {
-                var encoder = (HtmlEncoder)(row[0]);
                 if (encoder != null)
                 {
                     data.Add(encoder);

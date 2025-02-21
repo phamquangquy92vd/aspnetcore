@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Components;
 
 /// <summary>
@@ -19,10 +17,7 @@ public sealed class CascadingTypeParameterAttribute : Attribute
     /// <param name="name">The name of the type parameter.</param>
     public CascadingTypeParameterAttribute(string name)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         Name = name;
     }

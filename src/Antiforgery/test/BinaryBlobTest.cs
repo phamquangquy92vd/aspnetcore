@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Xunit;
-
 namespace Microsoft.AspNetCore.Antiforgery.Internal;
 
 public class BinaryBlobTest
@@ -59,10 +56,10 @@ public class BinaryBlobTest
     [Theory]
     [InlineData((object[]?)null)]
     [InlineData(new byte[] { 0x01, 0x02, 0x03 })]
-    public void Ctor_Data_Bad(byte[] data)
+    public void Ctor_Data_Bad(byte[]? data)
     {
         // Act & assert
-        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new BinaryBlob(32, data));
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new BinaryBlob(32, data!));
         Assert.Equal("data", ex.ParamName);
     }
 

@@ -3,19 +3,12 @@
 
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
 public class VersioningEndpointRoutingTests : VersioningTestsBase<VersioningWebSite.Startup>
 {
-    public VersioningEndpointRoutingTests(MvcTestFixture<VersioningWebSite.Startup> fixture)
-        : base(fixture)
-    {
-    }
-
     [Fact]
     public override async Task HasEndpointMatch()
     {

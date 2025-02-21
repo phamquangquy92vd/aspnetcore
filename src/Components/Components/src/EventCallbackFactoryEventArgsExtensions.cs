@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Components;
 
 /// <summary>
@@ -21,10 +18,7 @@ public static class EventCallbackFactoryEventArgsExtensions
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public static EventCallback<EventArgs> Create(this EventCallbackFactory factory, object receiver, Action<EventArgs> callback)
     {
-        if (factory == null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ArgumentNullException.ThrowIfNull(factory);
 
         return factory.Create<EventArgs>(receiver, callback);
     }
@@ -39,10 +33,7 @@ public static class EventCallbackFactoryEventArgsExtensions
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public static EventCallback<EventArgs> Create(this EventCallbackFactory factory, object receiver, Func<EventArgs, Task> callback)
     {
-        if (factory == null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ArgumentNullException.ThrowIfNull(factory);
 
         return factory.Create<EventArgs>(receiver, callback);
     }
@@ -57,10 +48,7 @@ public static class EventCallbackFactoryEventArgsExtensions
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public static EventCallback<ChangeEventArgs> Create(this EventCallbackFactory factory, object receiver, Action<ChangeEventArgs> callback)
     {
-        if (factory == null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ArgumentNullException.ThrowIfNull(factory);
 
         return factory.Create<ChangeEventArgs>(receiver, callback);
     }
@@ -75,10 +63,7 @@ public static class EventCallbackFactoryEventArgsExtensions
     /// <returns>The <see cref="EventCallback"/>.</returns>
     public static EventCallback<ChangeEventArgs> Create(this EventCallbackFactory factory, object receiver, Func<ChangeEventArgs, Task> callback)
     {
-        if (factory == null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ArgumentNullException.ThrowIfNull(factory);
 
         return factory.Create<ChangeEventArgs>(receiver, callback);
     }

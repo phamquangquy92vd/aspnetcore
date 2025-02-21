@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +11,7 @@ namespace Microsoft.AspNetCore.Mvc;
 /// <summary>
 /// An <see cref="ActionResult"/> that on execution invokes <see cref="M:HttpContext.ChallengeAsync"/>.
 /// </summary>
-public class ChallengeResult : ActionResult
+public partial class ChallengeResult : ActionResult
 {
     /// <summary>
     /// Initializes a new instance of <see cref="ChallengeResult"/>.
@@ -59,7 +56,7 @@ public class ChallengeResult : ActionResult
     /// Initializes a new instance of <see cref="ChallengeResult"/> with the
     /// specified authentication scheme and <paramref name="properties"/>.
     /// </summary>
-    /// <param name="authenticationScheme">The authentication schemes to challenge.</param>
+    /// <param name="authenticationScheme">The authentication scheme to challenge.</param>
     /// <param name="properties"><see cref="AuthenticationProperties"/> used to perform the authentication
     /// challenge.</param>
     public ChallengeResult(string authenticationScheme, AuthenticationProperties? properties)
@@ -71,7 +68,7 @@ public class ChallengeResult : ActionResult
     /// Initializes a new instance of <see cref="ChallengeResult"/> with the
     /// specified authentication schemes and <paramref name="properties"/>.
     /// </summary>
-    /// <param name="authenticationSchemes">The authentication scheme to challenge.</param>
+    /// <param name="authenticationSchemes">The authentication schemes to challenge.</param>
     /// <param name="properties"><see cref="AuthenticationProperties"/> used to perform the authentication
     /// challenge.</param>
     public ChallengeResult(IList<string> authenticationSchemes, AuthenticationProperties? properties)
@@ -93,16 +90,12 @@ public class ChallengeResult : ActionResult
     /// <inheritdoc />
     public override async Task ExecuteResultAsync(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var httpContext = context.HttpContext;
         var loggerFactory = httpContext.RequestServices.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger<ChallengeResult>();
-
-        logger.ChallengeResultExecuting(AuthenticationSchemes);
+        var logger = loggerFactory.CreateLogger(typeof(ChallengeResult));
+        Log.ChallengeResultExecuting(logger, AuthenticationSchemes);
 
         if (AuthenticationSchemes != null && AuthenticationSchemes.Count > 0)
         {
@@ -115,5 +108,19 @@ public class ChallengeResult : ActionResult
         {
             await httpContext.ChallengeAsync(Properties);
         }
+    }
+
+    private static partial class Log
+    {
+        public static void ChallengeResultExecuting(ILogger logger, IList<string> schemes)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                ChallengeResultExecuting(logger, schemes.ToArray());
+            }
+        }
+
+        [LoggerMessage(1, LogLevel.Information, "Executing ChallengeResult with authentication schemes ({Schemes}).", EventName = "ChallengeResultExecuting", SkipEnabledCheck = true)]
+        private static partial void ChallengeResultExecuting(ILogger logger, string[] schemes);
     }
 }

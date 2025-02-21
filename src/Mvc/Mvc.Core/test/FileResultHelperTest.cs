@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -13,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc;
 
@@ -202,7 +198,7 @@ public class FileResultTest
                 data.Add(char.ConvertFromUtf32(i), $"attachment; filename=_; filename*=UTF-8''%{i:X2}");
             }
 
-            data.Add(char.ConvertFromUtf32(127), $"attachment; filename=\"{char.ConvertFromUtf32(127)}\"; filename*=UTF-8''%7F");
+            data.Add(char.ConvertFromUtf32(127), $"attachment; filename=_; filename*=UTF-8''%7F");
 
             return data;
         }

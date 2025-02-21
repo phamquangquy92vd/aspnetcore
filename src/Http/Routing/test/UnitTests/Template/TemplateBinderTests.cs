@@ -1,24 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.AspNetCore.Routing.TestObjects;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.ObjectPool;
-using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing.Template.Tests;
 
 public class TemplateBinderTests
 {
-    public static TheoryData EmptyAndNullDefaultValues =>
-        new TheoryData<string, RouteValueDictionary, RouteValueDictionary, string>
+    public static TheoryData<string, RouteValueDictionary, RouteValueDictionary, string> EmptyAndNullDefaultValues =>
+        new()
         {
                 {
                     "Test/{val1}/{val2}",
@@ -180,8 +174,8 @@ public class TemplateBinderTests
             "/language/axx-yy");
     }
 
-    public static TheoryData OptionalParamValues =>
-        new TheoryData<string, RouteValueDictionary, RouteValueDictionary, RouteValueDictionary, string>
+    public static TheoryData<string, RouteValueDictionary, RouteValueDictionary, RouteValueDictionary, string> OptionalParamValues =>
+        new()
         {
                 // defaults
                 // ambient values

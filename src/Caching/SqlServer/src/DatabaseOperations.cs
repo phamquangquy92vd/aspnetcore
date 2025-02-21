@@ -2,8 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Buffers;
 using System.Data;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -12,7 +14,7 @@ using Microsoft.Extensions.Internal;
 
 namespace Microsoft.Extensions.Caching.SqlServer;
 
-internal class DatabaseOperations : IDatabaseOperations
+internal sealed class DatabaseOperations : IDatabaseOperations
 {
     /// <summary>
     /// Since there is no specific exception type representing a 'duplicate key' error, we are relying on
@@ -24,10 +26,7 @@ internal class DatabaseOperations : IDatabaseOperations
     /// </summary>
     private const int DuplicateKeyErrorId = 2627;
 
-    protected const string GetTableSchemaErrorText =
-        "Could not retrieve information of table with schema '{0}' and " +
-        "name '{1}'. Make sure you have the table setup and try again. " +
-        "Connection string: {2}";
+    private const string UtcNowParameterName = "UtcNow";
 
     public DatabaseOperations(
         string connectionString, string schemaName, string tableName, ISystemClock systemClock)
@@ -39,15 +38,15 @@ internal class DatabaseOperations : IDatabaseOperations
         SqlQueries = new SqlQueries(schemaName, tableName);
     }
 
-    protected SqlQueries SqlQueries { get; }
+    internal SqlQueries SqlQueries { get; }
 
-    protected string ConnectionString { get; }
+    internal string ConnectionString { get; }
 
-    protected string SchemaName { get; }
+    internal string SchemaName { get; }
 
-    protected string TableName { get; }
+    internal string TableName { get; }
 
-    protected ISystemClock SystemClock { get; }
+    private ISystemClock SystemClock { get; }
 
     public void DeleteCacheItem(string key)
     {
@@ -77,16 +76,29 @@ internal class DatabaseOperations : IDatabaseOperations
         }
     }
 
-    public virtual byte[] GetCacheItem(string key)
+    public byte[]? GetCacheItem(string key)
     {
         return GetCacheItem(key, includeValue: true);
     }
 
-    public virtual async Task<byte[]> GetCacheItemAsync(string key, CancellationToken token = default(CancellationToken))
+    public bool TryGetCacheItem(string key, IBufferWriter<byte> destination)
+    {
+        return GetCacheItem(key, includeValue: true, destination: destination) is not null;
+    }
+
+    public Task<byte[]?> GetCacheItemAsync(string key, CancellationToken token = default(CancellationToken))
     {
         token.ThrowIfCancellationRequested();
 
-        return await GetCacheItemAsync(key, includeValue: true, token: token).ConfigureAwait(false);
+        return GetCacheItemAsync(key, includeValue: true, token: token);
+    }
+
+    public async Task<bool> TryGetCacheItemAsync(string key, IBufferWriter<byte> destination, CancellationToken token = default(CancellationToken))
+    {
+        token.ThrowIfCancellationRequested();
+
+        var arr = await GetCacheItemAsync(key, includeValue: true, destination: destination, token: token).ConfigureAwait(false);
+        return arr is not null;
     }
 
     public void RefreshCacheItem(string key)
@@ -94,21 +106,21 @@ internal class DatabaseOperations : IDatabaseOperations
         GetCacheItem(key, includeValue: false);
     }
 
-    public async Task RefreshCacheItemAsync(string key, CancellationToken token = default(CancellationToken))
+    public Task RefreshCacheItemAsync(string key, CancellationToken token = default(CancellationToken))
     {
         token.ThrowIfCancellationRequested();
 
-        await GetCacheItemAsync(key, includeValue: false, token: token).ConfigureAwait(false);
+        return GetCacheItemAsync(key, includeValue: false, token: token);
     }
 
-    public virtual void DeleteExpiredCacheItems()
+    public void DeleteExpiredCacheItems()
     {
         var utcNow = SystemClock.UtcNow;
 
         using (var connection = new SqlConnection(ConnectionString))
         using (var command = new SqlCommand(SqlQueries.DeleteExpiredCacheItems, connection))
         {
-            command.Parameters.AddWithValue("UtcNow", SqlDbType.DateTimeOffset, utcNow);
+            command.Parameters.AddWithValue(UtcNowParameterName, SqlDbType.DateTimeOffset, utcNow);
 
             connection.Open();
 
@@ -116,12 +128,12 @@ internal class DatabaseOperations : IDatabaseOperations
         }
     }
 
-    public virtual void SetCacheItem(string key, byte[] value, DistributedCacheEntryOptions options)
+    public void SetCacheItem(string key, ArraySegment<byte> value, DistributedCacheEntryOptions options)
     {
         var utcNow = SystemClock.UtcNow;
 
-        var absoluteExpiration = GetAbsoluteExpiration(utcNow, options);
-        ValidateOptions(options.SlidingExpiration, absoluteExpiration);
+        var absoluteExpiration = DatabaseOperations.GetAbsoluteExpiration(utcNow, options);
+        DatabaseOperations.ValidateOptions(options.SlidingExpiration, absoluteExpiration);
 
         using (var connection = new SqlConnection(ConnectionString))
         using (var upsertCommand = new SqlCommand(SqlQueries.SetCacheItem, connection))
@@ -131,7 +143,7 @@ internal class DatabaseOperations : IDatabaseOperations
                 .AddCacheItemValue(value)
                 .AddSlidingExpirationInSeconds(options.SlidingExpiration)
                 .AddAbsoluteExpiration(absoluteExpiration)
-                .AddWithValue("UtcNow", SqlDbType.DateTimeOffset, utcNow);
+                .AddWithValue(UtcNowParameterName, SqlDbType.DateTimeOffset, utcNow);
 
             connection.Open();
 
@@ -141,7 +153,7 @@ internal class DatabaseOperations : IDatabaseOperations
             }
             catch (SqlException ex)
             {
-                if (IsDuplicateKeyException(ex))
+                if (DatabaseOperations.IsDuplicateKeyException(ex))
                 {
                     // There is a possibility that multiple requests can try to add the same item to the cache, in
                     // which case we receive a 'duplicate key' exception on the primary key column.
@@ -154,14 +166,14 @@ internal class DatabaseOperations : IDatabaseOperations
         }
     }
 
-    public virtual async Task SetCacheItemAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token = default(CancellationToken))
+    public async Task SetCacheItemAsync(string key, ArraySegment<byte> value, DistributedCacheEntryOptions options, CancellationToken token = default(CancellationToken))
     {
         token.ThrowIfCancellationRequested();
 
         var utcNow = SystemClock.UtcNow;
 
-        var absoluteExpiration = GetAbsoluteExpiration(utcNow, options);
-        ValidateOptions(options.SlidingExpiration, absoluteExpiration);
+        var absoluteExpiration = DatabaseOperations.GetAbsoluteExpiration(utcNow, options);
+        DatabaseOperations.ValidateOptions(options.SlidingExpiration, absoluteExpiration);
 
         using (var connection = new SqlConnection(ConnectionString))
         using (var upsertCommand = new SqlCommand(SqlQueries.SetCacheItem, connection))
@@ -171,7 +183,7 @@ internal class DatabaseOperations : IDatabaseOperations
                 .AddCacheItemValue(value)
                 .AddSlidingExpirationInSeconds(options.SlidingExpiration)
                 .AddAbsoluteExpiration(absoluteExpiration)
-                .AddWithValue("UtcNow", SqlDbType.DateTimeOffset, utcNow);
+                .AddWithValue(UtcNowParameterName, SqlDbType.DateTimeOffset, utcNow);
 
             await connection.OpenAsync(token).ConfigureAwait(false);
 
@@ -181,7 +193,7 @@ internal class DatabaseOperations : IDatabaseOperations
             }
             catch (SqlException ex)
             {
-                if (IsDuplicateKeyException(ex))
+                if (DatabaseOperations.IsDuplicateKeyException(ex))
                 {
                     // There is a possibility that multiple requests can try to add the same item to the cache, in
                     // which case we receive a 'duplicate key' exception on the primary key column.
@@ -194,7 +206,7 @@ internal class DatabaseOperations : IDatabaseOperations
         }
     }
 
-    protected virtual byte[] GetCacheItem(string key, bool includeValue)
+    private byte[]? GetCacheItem(string key, bool includeValue, IBufferWriter<byte>? destination = null)
     {
         var utcNow = SystemClock.UtcNow;
 
@@ -208,37 +220,44 @@ internal class DatabaseOperations : IDatabaseOperations
             query = SqlQueries.GetCacheItemWithoutValue;
         }
 
-        byte[] value = null;
+        byte[]? value = null;
         using (var connection = new SqlConnection(ConnectionString))
         using (var command = new SqlCommand(query, connection))
         {
             command.Parameters
                 .AddCacheItemId(key)
-                .AddWithValue("UtcNow", SqlDbType.DateTimeOffset, utcNow);
+                .AddWithValue(UtcNowParameterName, SqlDbType.DateTimeOffset, utcNow);
 
             connection.Open();
 
-            using (var reader = command.ExecuteReader(
-                CommandBehavior.SequentialAccess | CommandBehavior.SingleRow | CommandBehavior.SingleResult))
+            if (includeValue)
             {
+                using var reader = command.ExecuteReader(
+                    CommandBehavior.SequentialAccess | CommandBehavior.SingleRow | CommandBehavior.SingleResult);
+
                 if (reader.Read())
                 {
-                    if (includeValue)
+                    if (destination is null)
                     {
                         value = reader.GetFieldValue<byte[]>(Columns.Indexes.CacheItemValueIndex);
                     }
+                    else
+                    {
+                        StreamOut(reader, Columns.Indexes.CacheItemValueIndex, destination);
+                        value = []; // use non-null here as a sentinel to say "we got one"
+                    }
                 }
-                else
-                {
-                    return null;
-                }
+            }
+            else
+            {
+                command.ExecuteNonQuery();
             }
         }
 
         return value;
     }
 
-    protected virtual async Task<byte[]> GetCacheItemAsync(string key, bool includeValue, CancellationToken token = default(CancellationToken))
+    private async Task<byte[]?> GetCacheItemAsync(string key, bool includeValue, IBufferWriter<byte>? destination = null, CancellationToken token = default(CancellationToken))
     {
         token.ThrowIfCancellationRequested();
 
@@ -254,38 +273,93 @@ internal class DatabaseOperations : IDatabaseOperations
             query = SqlQueries.GetCacheItemWithoutValue;
         }
 
-        byte[] value = null;
+        byte[]? value = null;
         using (var connection = new SqlConnection(ConnectionString))
         using (var command = new SqlCommand(query, connection))
         {
             command.Parameters
                 .AddCacheItemId(key)
-                .AddWithValue("UtcNow", SqlDbType.DateTimeOffset, utcNow);
+                .AddWithValue(UtcNowParameterName, SqlDbType.DateTimeOffset, utcNow);
 
             await connection.OpenAsync(token).ConfigureAwait(false);
 
-            using (var reader = await command.ExecuteReaderAsync(
-                CommandBehavior.SequentialAccess | CommandBehavior.SingleRow | CommandBehavior.SingleResult,
-                token).ConfigureAwait(false))
+            if (includeValue)
             {
+                using var reader = await command.ExecuteReaderAsync(
+                    CommandBehavior.SequentialAccess | CommandBehavior.SingleRow | CommandBehavior.SingleResult, token).ConfigureAwait(false);
+
                 if (await reader.ReadAsync(token).ConfigureAwait(false))
                 {
-                    if (includeValue)
+                    if (destination is null)
                     {
                         value = await reader.GetFieldValueAsync<byte[]>(Columns.Indexes.CacheItemValueIndex, token).ConfigureAwait(false);
                     }
+                    else
+                    {
+                        StreamOut(reader, Columns.Indexes.CacheItemValueIndex, destination);
+                        value = []; // use non-null here as a sentinel to say "we got one"
+                    }
                 }
-                else
-                {
-                    return null;
-                }
+            }
+            else
+            {
+                await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
             }
         }
 
         return value;
     }
 
-    protected bool IsDuplicateKeyException(SqlException ex)
+    private static long StreamOut(SqlDataReader source, int ordinal, IBufferWriter<byte> destination)
+    {
+        long dataIndex = 0;
+        int read = 0;
+        byte[]? lease = null;
+        do
+        {
+            dataIndex += read; // increment offset
+
+            const int DefaultPageSize = 8192;
+
+            var memory = destination.GetMemory(DefaultPageSize); // start from the page size
+            if (MemoryMarshal.TryGetArray<byte>(memory, out var segment))
+            {
+                // avoid an extra copy by writing directly to the target array when possible
+                read = (int)source.GetBytes(ordinal, dataIndex, segment.Array, segment.Offset, segment.Count);
+                if (read > 0)
+                {
+                    destination.Advance(read);
+                }
+            }
+            else
+            {
+                lease ??= ArrayPool<byte>.Shared.Rent(DefaultPageSize);
+                read = (int)source.GetBytes(ordinal, dataIndex, lease, 0, lease.Length);
+
+                if (read > 0)
+                {
+                    if (new ReadOnlySpan<byte>(lease, 0, read).TryCopyTo(memory.Span))
+                    {
+                        destination.Advance(read);
+                    }
+                    else
+                    {
+                        // multi-chunk write (utility method)
+                        destination.Write(new(lease, 0, read));
+                    }
+                }
+            }
+        }
+        while (read > 0);
+
+        if (lease is not null)
+        {
+            ArrayPool<byte>.Shared.Return(lease);
+        }
+        return dataIndex;
+    }
+
+    private static bool IsDuplicateKeyException(SqlException ex)
     {
         if (ex.Errors != null)
         {
@@ -294,7 +368,7 @@ internal class DatabaseOperations : IDatabaseOperations
         return false;
     }
 
-    protected DateTimeOffset? GetAbsoluteExpiration(DateTimeOffset utcNow, DistributedCacheEntryOptions options)
+    private static DateTimeOffset? GetAbsoluteExpiration(DateTimeOffset utcNow, DistributedCacheEntryOptions options)
     {
         // calculate absolute expiration
         DateTimeOffset? absoluteExpiration = null;
@@ -314,7 +388,7 @@ internal class DatabaseOperations : IDatabaseOperations
         return absoluteExpiration;
     }
 
-    protected void ValidateOptions(TimeSpan? slidingExpiration, DateTimeOffset? absoluteExpiration)
+    private static void ValidateOptions(TimeSpan? slidingExpiration, DateTimeOffset? absoluteExpiration)
     {
         if (!slidingExpiration.HasValue && !absoluteExpiration.HasValue)
         {

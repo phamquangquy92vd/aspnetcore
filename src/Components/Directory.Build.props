@@ -10,9 +10,6 @@
 
     <ComponentsSharedSourceRoot>$(MSBuildThisFileDirectory)Shared\</ComponentsSharedSourceRoot>
 
-    <!-- So we can use the tool from source within the repo without having to pack -->
-    <BlazorToolsDir>$(MSBuildThisFileDirectory)Blazor\Build\src\bin\$(Configuration)\$(DefaultNetCoreTargetFramework)\</BlazorToolsDir>
-
     <PackageThirdPartyNoticesFile>$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.txt</PackageThirdPartyNoticesFile>
   </PropertyGroup>
 
@@ -20,5 +17,14 @@
     <!-- Workaround microsoft/msbuild#3626 -->
     <AddSyntheticProjectReferencesForSolutionDependencies>false</AddSyntheticProjectReferencesForSolutionDependencies>
   </PropertyGroup>
+
+  <!-- Workaround to add Blazor framework static assets without requiring a package reference -->
+  <PropertyGroup>
+    <UseBlazorFrameworkDebugAssets>true</UseBlazorFrameworkDebugAssets>
+    <BlazorFrameworkStaticWebAssetRoot Condition="'$(Configuration)' == 'Debug'">$(RepoRoot)src\Components\Web.JS\dist\Debug</BlazorFrameworkStaticWebAssetRoot>
+    <BlazorFrameworkStaticWebAssetRoot Condition="'$(Configuration)' == 'Release'">$(RepoRoot)src\Components\Web.JS\dist\Release</BlazorFrameworkStaticWebAssetRoot>
+  </PropertyGroup>
+
+  <Import Project="$(RepoRoot)\src\Assets\build\Microsoft.AspNetCore.App.Internal.Assets.targets" />
 
 </Project>

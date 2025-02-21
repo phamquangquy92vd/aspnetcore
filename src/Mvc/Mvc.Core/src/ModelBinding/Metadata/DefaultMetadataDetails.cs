@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 /// <summary>
@@ -22,10 +20,7 @@ public class DefaultMetadataDetails
     /// <param name="attributes">The set of model attributes.</param>
     public DefaultMetadataDetails(ModelMetadataIdentity key, ModelAttributes attributes)
     {
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(attributes);
 
         Key = key;
         ModelAttributes = attributes;

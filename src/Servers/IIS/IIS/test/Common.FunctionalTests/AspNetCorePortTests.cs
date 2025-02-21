@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Microsoft.AspNetCore.Server.IIS.FunctionalTests.Utilities;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 
 #if !IIS_FUNCTIONALS
 using Microsoft.AspNetCore.Server.IIS.FunctionalTests;
@@ -29,6 +29,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests;
 #endif
 
 [Collection(PublishedSitesCollection.Name)]
+[SkipOnHelix("Unsupported queue", Queues = "Windows.Amd64.VS2022.Pre.Open;")]
 public class AspNetCorePortTests : IISFunctionalTestBase
 {
     // Port range allowed by ANCM config
@@ -46,8 +47,8 @@ public class AspNetCorePortTests : IISFunctionalTestBase
 
     public static IEnumerable<object[]> InvalidTestVariants
         => from v in TestVariants.Select(v => v.Single())
-            from s in new string[] { (_minPort - 1).ToString(CultureInfo.InvariantCulture), (_maxPort + 1).ToString(CultureInfo.InvariantCulture), "noninteger" }
-            select new object[] { v, s };
+           from s in new string[] { (_minPort - 1).ToString(CultureInfo.InvariantCulture), (_maxPort + 1).ToString(CultureInfo.InvariantCulture), "noninteger" }
+           select new object[] { v, s };
 
     [ConditionalTheory]
     [MemberData(nameof(TestVariants))]
@@ -124,7 +125,7 @@ public class AspNetCorePortTests : IISFunctionalTestBase
         if (i == 10)
         {
             // Didn't restart after 10 retries
-            Assert.False(true);
+            Assert.Fail();
         }
 
         // Shutdown again
@@ -142,7 +143,7 @@ public class AspNetCorePortTests : IISFunctionalTestBase
         }
 
         // Test failure if this happens.
-        Assert.False(true);
+        Assert.Fail();
     }
 
     private static int GetUnusedRandomPort()

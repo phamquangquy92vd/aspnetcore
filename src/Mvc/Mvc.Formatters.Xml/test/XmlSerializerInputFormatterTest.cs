@@ -1,21 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.AspNetCore.WebUtilities;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
 
@@ -472,7 +466,7 @@ public class XmlSerializerInputFormatterTest
         var formatter = new XmlSerializerInputFormatter(new MvcOptions());
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => formatter.MaxDepth = 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => formatter.MaxDepth = 0);
     }
 
     [Fact]
@@ -682,10 +676,12 @@ public class XmlSerializerInputFormatterTest
         request.SetupGet(r => r.Headers).Returns(headers.Object);
         request.SetupGet(f => f.Body).Returns(new MemoryStream(contentBytes));
         request.SetupGet(f => f.ContentType).Returns(contentType);
+        request.SetupGet(f => f.ContentLength).Returns(contentBytes.Length);
 
         var httpContext = new Mock<HttpContext>();
+        var features = new Mock<IFeatureCollection>();
         httpContext.SetupGet(c => c.Request).Returns(request.Object);
-        httpContext.SetupGet(c => c.Request).Returns(request.Object);
+        httpContext.SetupGet(c => c.Features).Returns(features.Object);
         return httpContext.Object;
     }
 

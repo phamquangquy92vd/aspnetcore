@@ -1,16 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
-using System.Threading;
-using BasicTestApp;
 using BasicTestApp.Reconnection;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.ServerExecutionTests;
@@ -27,7 +23,7 @@ public class ServerReconnectionTest : ServerTestBase<BasicTestAppServerSiteFixtu
 
     protected override void InitializeAsyncCore()
     {
-        Navigate(ServerPathBase, noReload: false);
+        Navigate(ServerPathBase);
         Browser.MountTestComponent<ReconnectionComponent>();
         Browser.Exists(By.Id("count"));
     }

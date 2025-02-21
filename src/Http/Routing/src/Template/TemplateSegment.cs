@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -29,10 +27,7 @@ public class TemplateSegment
     /// <param name="other">A <see cref="RoutePatternPathSegment"/> instance.</param>
     public TemplateSegment(RoutePatternPathSegment other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         var partCount = other.Parts.Count;
         Parts = new List<TemplatePart>(partCount);

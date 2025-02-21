@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.JSInterop;
 
@@ -36,10 +33,7 @@ public abstract class ProtectedBrowserStorage
             throw new PlatformNotSupportedException($"{GetType()} cannot be used when running in a browser.");
         }
 
-        if (string.IsNullOrEmpty(storeName))
-        {
-            throw new ArgumentException("The value cannot be null or empty", nameof(storeName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(storeName);
 
         _storeName = storeName;
         _jsRuntime = jsRuntime ?? throw new ArgumentNullException(nameof(jsRuntime));
@@ -74,15 +68,8 @@ public abstract class ProtectedBrowserStorage
     /// <returns>A <see cref="ValueTask"/> representing the completion of the operation.</returns>
     public ValueTask SetAsync(string purpose, string key, object value)
     {
-        if (string.IsNullOrEmpty(purpose))
-        {
-            throw new ArgumentException("Cannot be null or empty", nameof(purpose));
-        }
-
-        if (string.IsNullOrEmpty(key))
-        {
-            throw new ArgumentException("Cannot be null or empty", nameof(key));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(purpose);
+        ArgumentException.ThrowIfNullOrEmpty(key);
 
         return SetProtectedJsonAsync(key, Protect(purpose, value));
     }

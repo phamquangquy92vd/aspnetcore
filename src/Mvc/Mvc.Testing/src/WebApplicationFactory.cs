@@ -1,15 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.TestHost;
@@ -25,7 +22,7 @@ namespace Microsoft.AspNetCore.Mvc.Testing;
 /// </summary>
 /// <typeparam name="TEntryPoint">A type in the entry point assembly of the application.
 /// Typically the Startup or Program classes can be used.</typeparam>
-public class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable where TEntryPoint : class
+public partial class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable where TEntryPoint : class
 {
     private bool _disposed;
     private bool _disposedAsync;
@@ -239,7 +236,7 @@ public class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable 
 
     private static string? GetContentRootFromFile(string file)
     {
-        var data = JsonSerializer.Deserialize<IDictionary<string, string>>(File.ReadAllBytes(file))!;
+        var data = JsonSerializer.Deserialize(File.ReadAllBytes(file), CustomJsonSerializerContext.Default.IDictionaryStringString)!;
         var key = typeof(TEntryPoint).Assembly.GetName().FullName;
 
         // If the `ContentRoot` is not provided in the app manifest, then return null
@@ -251,6 +248,9 @@ public class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable 
 
         return (contentRoot == "~") ? AppContext.BaseDirectory : contentRoot;
     }
+
+    [JsonSerializable(typeof(IDictionary<string, string>))]
+    private sealed partial class CustomJsonSerializerContext : JsonSerializerContext;
 
     private string? GetContentRootFromAssembly()
     {
@@ -509,10 +509,7 @@ public class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable 
     /// <param name="client">The <see cref="HttpClient"/> instance getting configured.</param>
     protected virtual void ConfigureClient(HttpClient client)
     {
-        if (client == null)
-        {
-            throw new ArgumentNullException(nameof(client));
-        }
+        ArgumentNullException.ThrowIfNull(client);
 
         client.BaseAddress = new Uri("http://localhost");
     }
@@ -607,7 +604,7 @@ public class WebApplicationFactory<TEntryPoint> : IDisposable, IAsyncDisposable 
         GC.SuppressFinalize(this);
     }
 
-    private class DelegatedWebApplicationFactory : WebApplicationFactory<TEntryPoint>
+    private sealed class DelegatedWebApplicationFactory : WebApplicationFactory<TEntryPoint>
     {
         private readonly Func<IWebHostBuilder, TestServer> _createServer;
         private readonly Func<IHostBuilder, IHost> _createHost;

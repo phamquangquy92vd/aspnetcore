@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Formatters;
 
@@ -17,6 +16,11 @@ public interface IApiResponseMetadataProvider : IFilterMetadata
     /// Gets the optimistic return type of the action.
     /// </summary>
     Type? Type { get; }
+
+    /// <summary>
+    /// Gets the description of the response.
+    /// </summary>
+    string? Description { get; }
 
     /// <summary>
     /// Gets the HTTP status code of the response.

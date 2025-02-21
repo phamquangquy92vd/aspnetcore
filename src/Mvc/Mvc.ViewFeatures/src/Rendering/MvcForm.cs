@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Buffers;
@@ -25,15 +24,8 @@ public class MvcForm : IDisposable
     /// <param name="htmlEncoder">The <see cref="HtmlEncoder"/>.</param>
     public MvcForm(ViewContext viewContext, HtmlEncoder htmlEncoder)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (htmlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(htmlEncoder));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(htmlEncoder);
 
         _viewContext = viewContext;
         _htmlEncoder = htmlEncoder;

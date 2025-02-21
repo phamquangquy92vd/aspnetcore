@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -67,30 +65,11 @@ public class InputFormatterContext
         Func<Stream, Encoding, TextReader> readerFactory,
         bool treatEmptyInputAsDefaultValue)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
-
-        if (modelName == null)
-        {
-            throw new ArgumentNullException(nameof(modelName));
-        }
-
-        if (modelState == null)
-        {
-            throw new ArgumentNullException(nameof(modelState));
-        }
-
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
-
-        if (readerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(readerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(modelName);
+        ArgumentNullException.ThrowIfNull(modelState);
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(readerFactory);
 
         HttpContext = httpContext;
         ModelName = modelName;

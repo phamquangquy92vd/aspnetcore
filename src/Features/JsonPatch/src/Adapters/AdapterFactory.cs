@@ -1,11 +1,12 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.AspNetCore.JsonPatch.Internal;
-using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 using System;
 using System.Collections;
+using Microsoft.AspNetCore.JsonPatch.Internal;
+using Microsoft.AspNetCore.Shared;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace Microsoft.AspNetCore.JsonPatch.Adapters;
 
@@ -21,15 +22,8 @@ public class AdapterFactory : IAdapterFactory
     public virtual IAdapter Create(object target, IContractResolver contractResolver)
 #pragma warning restore PUB0001
     {
-        if (target == null)
-        {
-            throw new ArgumentNullException(nameof(target));
-        }
-
-        if (contractResolver == null)
-        {
-            throw new ArgumentNullException(nameof(contractResolver));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(target);
+        ArgumentNullThrowHelper.ThrowIfNull(contractResolver);
 
         var jsonContract = contractResolver.ResolveContract(target.GetType());
 

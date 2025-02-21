@@ -1,25 +1,23 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.WebSockets;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.SignalR.Client.Internal;
 using Microsoft.AspNetCore.SignalR.Protocol;
+using Microsoft.AspNetCore.SignalR.Test.Internal;
 using Microsoft.AspNetCore.SignalR.Tests;
-using Microsoft.AspNetCore.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
-using Xunit;
 
 namespace Microsoft.AspNetCore.SignalR.Client.FunctionalTests;
 
@@ -29,7 +27,7 @@ public class HubConnectionTestsCollection : ICollectionFixture<InProcessTestServ
 }
 
 [Collection(HubConnectionTestsCollection.Name)]
-public class HubConnectionTests : FunctionalTestBase
+public partial class HubConnectionTests : FunctionalTestBase
 {
     private const string DefaultHubDispatcherLoggerName = "Microsoft.AspNetCore.SignalR.Internal.DefaultHubDispatcher";
 
@@ -39,7 +37,8 @@ public class HubConnectionTests : FunctionalTestBase
         HttpTransportType? transportType = null,
         IHubProtocol protocol = null,
         ILoggerFactory loggerFactory = null,
-        bool withAutomaticReconnect = false)
+        bool withAutomaticReconnect = false,
+        SignalRClientActivitySource activitySourceContainer = null)
     {
         var hubConnectionBuilder = new HubConnectionBuilder();
 
@@ -63,11 +62,15 @@ public class HubConnectionTests : FunctionalTestBase
         var delegateConnectionFactory = new DelegateConnectionFactory(
             GetHttpConnectionFactory(url, loggerFactory, path, transportType.Value, protocol.TransferFormat));
         hubConnectionBuilder.Services.AddSingleton<IConnectionFactory>(delegateConnectionFactory);
+        if (activitySourceContainer != null)
+        {
+            hubConnectionBuilder.Services.AddSingleton(activitySourceContainer);
+        }
 
         return hubConnectionBuilder.Build();
     }
 
-    private Func<EndPoint, ValueTask<ConnectionContext>> GetHttpConnectionFactory(string url, ILoggerFactory loggerFactory, string path, HttpTransportType transportType, TransferFormat transferFormat)
+    private static Func<EndPoint, ValueTask<ConnectionContext>> GetHttpConnectionFactory(string url, ILoggerFactory loggerFactory, string path, HttpTransportType transportType, TransferFormat transferFormat)
     {
         return async endPoint =>
         {
@@ -75,7 +78,8 @@ public class HubConnectionTests : FunctionalTestBase
             var options = new HttpConnectionOptions { Url = httpEndpoint.Uri, Transports = transportType, DefaultTransferFormat = transferFormat };
             var connection = new HttpConnection(options, loggerFactory);
 
-            await connection.StartAsync();
+            // This is used by CanBlockOnAsyncOperationsWithOneAtATimeSynchronizationContext, so the ConfigureAwait(false) is important.
+            await connection.StartAsync().ConfigureAwait(false);
 
             return connection;
         };
@@ -332,9 +336,9 @@ public class HubConnectionTests : FunctionalTestBase
                 }
                 catch (Exception ex)
                 {
-                        // It's important to try catch here since this happens
-                        // on a thread pool thread
-                        restartTcs.TrySetException(ex);
+                    // It's important to try catch here since this happens
+                    // on a thread pool thread
+                    restartTcs.TrySetException(ex);
                 }
             };
 
@@ -573,7 +577,7 @@ public class HubConnectionTests : FunctionalTestBase
                     var stream = connection.StreamAsync<int>("Stream", 5, cts.Token);
                     await foreach (var streamValue in stream)
                     {
-                        Assert.True(false, "Expected an exception from the streaming invocation.");
+                        Assert.Fail("Expected an exception from the streaming invocation.");
                     }
                 });
             }
@@ -654,7 +658,7 @@ public class HubConnectionTests : FunctionalTestBase
                 {
                     await foreach (var streamValue in asyncEnumerable)
                     {
-                        Assert.True(false, "Expected an exception from the streaming invocation.");
+                        Assert.Fail("Expected an exception from the streaming invocation.");
                     }
                 });
 
@@ -1737,6 +1741,231 @@ public class HubConnectionTests : FunctionalTestBase
 
     [ConditionalFact]
     [WebSocketsSupportedCondition]
+    public async Task WebSocketsCanConnectOverHttp2()
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, options =>
+                {
+                    options.HttpMessageHandlerFactory = h =>
+                    {
+                        ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                        return h;
+                    };
+                    options.WebSocketConfiguration = o =>
+                    {
+                        o.HttpVersion = HttpVersion.Version20;
+                        o.HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+                    };
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var echoResponse = await hubConnection.InvokeAsync<string>(nameof(TestHub.Echo), "Foo").DefaultTimeout();
+                Assert.Equal("Foo", echoResponse);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+
+        // Triple check that the WebSocket ran over HTTP/2, also verify the negotiate was HTTP/2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 CONNECT"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/2 CONNECT"));
+    }
+
+    [ConditionalTheory]
+    [MemberData(nameof(TransportTypes))]
+    // Negotiate auth on non-windows requires a lot of setup which is out of scope for these tests
+    [OSSkipCondition(OperatingSystems.MacOSX | OperatingSystems.Linux)]
+    public async Task TransportFallsbackFromHttp2WhenUsingCredentials(HttpTransportType httpTransportType)
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http1;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/windowsauthhub", httpTransportType, options =>
+                {
+                    options.HttpMessageHandlerFactory = h =>
+                    {
+                        ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                        return h;
+                    };
+                    options.WebSocketConfiguration = o =>
+                    {
+                        o.RemoteCertificateValidationCallback = (_, _, _, _) => true;
+                        o.HttpVersion = HttpVersion.Version20;
+                    };
+                    options.UseDefaultCredentials = true;
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var echoResponse = await hubConnection.InvokeAsync<string>(nameof(HubWithAuthorization2.Echo), "Foo").DefaultTimeout();
+                Assert.Equal("Foo", echoResponse);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+
+        // Check that HTTP/1.1 was used instead of the configured HTTP/2 since Windows Auth is being used
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/1.1 POST"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/1.1 GET"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/1.1 GET"));
+    }
+
+    [ConditionalFact]
+    [WebSocketsSupportedCondition]
+    // Negotiate auth on non-windows requires a lot of setup which is out of scope for these tests
+    [OSSkipCondition(OperatingSystems.MacOSX | OperatingSystems.Linux)]
+    public async Task WebSocketsFailsWhenHttp1NotAllowedAndUsingCredentials()
+    {
+        await using (var server = await StartServer<Startup>(context => context.EventId.Name == "ErrorStartingTransport",
+            configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/windowsauthhub", HttpTransportType.WebSockets, options =>
+                {
+                    options.HttpMessageHandlerFactory = h =>
+                    {
+                        ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                        return h;
+                    };
+                    options.WebSocketConfiguration = o =>
+                    {
+                        o.RemoteCertificateValidationCallback = (_, _, _, _) => true;
+                        o.HttpVersion = HttpVersion.Version20;
+                        o.HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+                    };
+                    options.UseDefaultCredentials = true;
+                })
+                .Build();
+
+            var ex = await Assert.ThrowsAsync<AggregateException>(() => hubConnection.StartAsync().DefaultTimeout());
+            Assert.Contains("Negotiate Authentication doesn't work with HTTP/2 or higher.", ex.Message);
+            await hubConnection.DisposeAsync().DefaultTimeout();
+        }
+    }
+
+    [ConditionalFact]
+    [WebSocketsSupportedCondition]
+    public async Task WebSocketsWithAccessTokenOverHttp2()
+    {
+        var accessTokenCallCount = 0;
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, options =>
+                {
+                    options.HttpMessageHandlerFactory = h =>
+                    {
+                        ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                        return h;
+                    };
+                    options.WebSocketConfiguration = o =>
+                    {
+                        o.HttpVersion = HttpVersion.Version20;
+                        o.HttpVersionPolicy = HttpVersionPolicy.RequestVersionExact;
+                    };
+                    options.AccessTokenProvider = () =>
+                    {
+                        accessTokenCallCount++;
+                        return Task.FromResult("test");
+                    };
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var headerResponse = await hubConnection.InvokeAsync<string[]>(nameof(TestHub.GetHeaderValues), new string[] { "Authorization" }).DefaultTimeout();
+                Assert.Single(headerResponse);
+                Assert.Equal("Bearer test", headerResponse[0]);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+
+        Assert.Equal(1, accessTokenCallCount);
+
+        // Triple check that the WebSocket ran over HTTP/2, also verify the negotiate was HTTP/2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 CONNECT"));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/2 CONNECT"));
+    }
+
+    [ConditionalFact]
+    [WebSocketsSupportedCondition]
     public async Task CookiesFromNegotiateAreAppliedToWebSockets()
     {
         await using (var server = await StartServer<Startup>())
@@ -1938,7 +2167,6 @@ public class HubConnectionTests : FunctionalTestBase
                     return Task.CompletedTask;
                 };
 
-
                 await connection.StartAsync().DefaultTimeout();
                 var initialConnectionId = connection.ConnectionId;
 
@@ -2086,6 +2314,655 @@ public class HubConnectionTests : FunctionalTestBase
             finally
             {
                 await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(TransportTypes))]
+    public async Task CanBlockOnAsyncOperationsWithOneAtATimeSynchronizationContext(HttpTransportType transportType)
+    {
+        const int DefaultTimeout = InternalTesting.TaskExtensions.DefaultTimeoutDuration;
+
+        await using var server = await StartServer<Startup>();
+        await using var connection = CreateHubConnection(server.Url, "/default", transportType, HubProtocols["json"], LoggerFactory);
+        await using var oneAtATimeSynchronizationContext = new OneAtATimeSynchronizationContext();
+
+        var originalSynchronizationContext = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(oneAtATimeSynchronizationContext);
+
+        try
+        {
+            // Yield first so the rest of the test runs in the OneAtATimeSynchronizationContext.Run loop
+            await Task.Yield();
+
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
+            Assert.True(connection.StartAsync().Wait(DefaultTimeout));
+
+            var invokeTask = connection.InvokeAsync<string>(nameof(TestHub.HelloWorld));
+            Assert.True(invokeTask.Wait(DefaultTimeout));
+            Assert.Equal("Hello World!", invokeTask.Result);
+
+            Assert.True(connection.DisposeAsync().AsTask().Wait(DefaultTimeout));
+#pragma warning restore xUnit1031 // Do not use blocking task operations in test method
+        }
+        catch (Exception ex)
+        {
+            LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+            throw;
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(originalSynchronizationContext);
+        }
+    }
+
+    [ConditionalFact]
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/50180")]
+    public async Task LongPollingUsesHttp2ByDefault()
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.LongPolling, o => o.HttpMessageHandlerFactory = h =>
+                {
+                    ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                    return h;
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var httpProtocol = await hubConnection.InvokeAsync<string>(nameof(TestHub.GetHttpProtocol)).DefaultTimeout();
+
+                Assert.Equal("HTTP/2", httpProtocol);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+
+        // negotiate is HTTP2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST") && context.Message.Contains("/negotiate?"));
+
+        // LongPolling polls and sends are HTTP2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST") && context.Message.Contains("?id="));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/2 GET") && context.Message.Contains("?id="));
+
+        // LongPolling delete is HTTP2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/2 DELETE") && context.Message.Contains("?id="));
+    }
+
+    [ConditionalFact]
+    public async Task LongPollingWorksWithHttp2OnlyEndpoint()
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.LongPolling, o => o.HttpMessageHandlerFactory = h =>
+                {
+                    ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                    return h;
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var httpProtocol = await hubConnection.InvokeAsync<string>(nameof(TestHub.GetHttpProtocol)).DefaultTimeout();
+
+                Assert.Equal("HTTP/2", httpProtocol);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [ConditionalFact]
+    public async Task ServerSentEventsUsesHttp2ByDefault()
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.ServerSentEvents, o => o.HttpMessageHandlerFactory = h =>
+                {
+                    ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                    return h;
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var httpProtocol = await hubConnection.InvokeAsync<string>(nameof(TestHub.GetHttpProtocol)).DefaultTimeout();
+
+                Assert.Equal("HTTP/2", httpProtocol);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+
+        // negotiate is HTTP2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST") && context.Message.Contains("/negotiate?"));
+
+        // ServerSentEvents eventsource and sendsos are HTTP2
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request starting HTTP/2 POST") && context.Message.Contains("?id="));
+        Assert.Contains(TestSink.Writes, context => context.Message.Contains("Request finished HTTP/2 GET") && context.Message.Contains("?id="));
+    }
+
+    [ConditionalFact]
+    public async Task ServerSentEventsWorksWithHttp2OnlyEndpoint()
+    {
+        await using (var server = await StartServer<Startup>(configureKestrelServerOptions: o =>
+        {
+            o.ConfigureEndpointDefaults(o2 =>
+            {
+                o2.Protocols = Server.Kestrel.Core.HttpProtocols.Http2;
+                o2.UseHttps();
+            });
+            o.ConfigureHttpsDefaults(httpsOptions =>
+            {
+                httpsOptions.ServerCertificate = TestCertificateHelper.GetTestCert();
+            });
+        }))
+        {
+            var hubConnection = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.ServerSentEvents, o => o.HttpMessageHandlerFactory = h =>
+                {
+                    ((HttpClientHandler)h).ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+                    return h;
+                })
+                .Build();
+            try
+            {
+                await hubConnection.StartAsync().DefaultTimeout();
+                var httpProtocol = await hubConnection.InvokeAsync<string>(nameof(TestHub.GetHttpProtocol)).DefaultTimeout();
+
+                Assert.Equal("HTTP/2", httpProtocol);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await hubConnection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CanReconnectAndSendMessageWhileDisconnected()
+    {
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>(w => w.EventId.Name == "ReceivedUnexpectedResponse"))
+        {
+            var websocket = new ClientWebSocket();
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            tcs.SetResult();
+
+            const string originalMessage = "SignalR";
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, o =>
+                {
+                    o.WebSocketFactory = async (context, token) =>
+                    {
+                        await tcs.Task;
+                        await websocket.ConnectAsync(context.Uri, token);
+                        tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        return websocket;
+                    };
+                    o.UseStatefulReconnect = true;
+                });
+            connectionBuilder.Services.AddSingleton(protocol);
+            var connection = connectionBuilder.Build();
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+                var originalConnectionId = connection.ConnectionId;
+
+                var result = await connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+
+                Assert.Equal(originalMessage, result);
+
+                var originalWebsocket = websocket;
+                websocket = new ClientWebSocket();
+                originalWebsocket.Dispose();
+
+                var resultTask = connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+                tcs.SetResult();
+                result = await resultTask;
+
+                Assert.Equal(originalMessage, result);
+                Assert.Equal(originalConnectionId, connection.ConnectionId);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CanReconnectAndSendMessageOnceConnected()
+    {
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>(w => w.EventId.Name == "ReceivedUnexpectedResponse"))
+        {
+            var websocket = new ClientWebSocket();
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            const string originalMessage = "SignalR";
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, o =>
+                {
+                    o.WebSocketFactory = async (context, token) =>
+                    {
+                        await websocket.ConnectAsync(context.Uri, token);
+                        tcs.SetResult();
+                        return websocket;
+                    };
+                    o.UseStatefulReconnect = true;
+                })
+                .WithAutomaticReconnect();
+            connectionBuilder.Services.AddSingleton(protocol);
+            var connection = connectionBuilder.Build();
+
+            var reconnectCalled = false;
+            connection.Reconnecting += ex =>
+            {
+                reconnectCalled = true;
+                return Task.CompletedTask;
+            };
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+                await tcs.Task;
+                tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                var originalConnectionId = connection.ConnectionId;
+
+                var result = await connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+
+                Assert.Equal(originalMessage, result);
+
+                var originalWebsocket = websocket;
+                websocket = new ClientWebSocket();
+
+                originalWebsocket.Dispose();
+
+                await tcs.Task.DefaultTimeout();
+                result = await connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+
+                Assert.Equal(originalMessage, result);
+                Assert.Equal(originalConnectionId, connection.ConnectionId);
+                Assert.False(reconnectCalled);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/52408")]
+    [Fact]
+    public async Task ChangingUserNameDuringReconnectLogsWarning()
+    {
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>())
+        {
+            var websocket = new ClientWebSocket();
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var userName = "test1";
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, o =>
+                {
+                    o.WebSocketFactory = async (context, token) =>
+                    {
+                        var httpResponse = await new HttpClient().GetAsync(server.Url + $"/generateJwtToken/{userName}");
+                        httpResponse.EnsureSuccessStatusCode();
+                        var authHeader = await httpResponse.Content.ReadAsStringAsync();
+                        websocket.Options.SetRequestHeader("Authorization", $"Bearer {authHeader}");
+
+                        await websocket.ConnectAsync(context.Uri, token);
+                        tcs.SetResult();
+                        return websocket;
+                    };
+                })
+                .WithStatefulReconnect()
+                .WithAutomaticReconnect();
+            connectionBuilder.Services.AddSingleton(protocol);
+            var connection = connectionBuilder.Build();
+
+            var reconnectCalled = false;
+            connection.Reconnecting += ex =>
+            {
+                reconnectCalled = true;
+                return Task.CompletedTask;
+            };
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+                userName = "test2";
+                await tcs.Task;
+                tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                var originalConnectionId = connection.ConnectionId;
+
+                var originalWebsocket = websocket;
+                websocket = new ClientWebSocket();
+
+                originalWebsocket.Dispose();
+
+                await tcs.Task.DefaultTimeout();
+
+                Assert.Equal(originalConnectionId, connection.ConnectionId);
+                Assert.False(reconnectCalled);
+
+                var changeLog = Assert.Single(TestSink.Writes.Where(w => w.EventId.Name == "UserNameChanged"));
+                Assert.EndsWith("The name of the user changed from 'test1' to 'test2'.", changeLog.Message);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ServerAbortsConnectionWithAckingEnabledNoReconnectAttempted()
+    {
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>())
+        {
+            var connectCount = 0;
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, o =>
+                {
+                    o.WebSocketFactory = async (context, token) =>
+                    {
+                        connectCount++;
+                        var ws = new ClientWebSocket();
+                        await ws.ConnectAsync(context.Uri, token);
+                        return ws;
+                    };
+                    o.UseStatefulReconnect = true;
+                });
+            connectionBuilder.Services.AddSingleton(protocol);
+            var connection = connectionBuilder.Build();
+
+            var closedTcs = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+            connection.Closed += ex =>
+            {
+                closedTcs.SetResult(ex);
+                return Task.CompletedTask;
+            };
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+
+                await connection.SendAsync(nameof(TestHub.Abort)).DefaultTimeout();
+
+                Assert.Null(await closedTcs.Task.DefaultTimeout());
+                Assert.Equal(HubConnectionState.Disconnected, connection.State);
+                Assert.Equal(1, connectCount);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CanSetMessageBufferSizeOnClient()
+    {
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>())
+        {
+            const string originalMessage = "SignalR";
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithStatefulReconnect()
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets);
+            connectionBuilder.Services.AddSingleton(protocol);
+            connectionBuilder.Services.Configure<HubConnectionOptions>(o => o.StatefulReconnectBufferSize = 500);
+            var connection = connectionBuilder.Build();
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+                var originalConnectionId = connection.ConnectionId;
+
+                var result = await connection.InvokeAsync<string>(nameof(TestHub.Echo), new string('x', 500)).DefaultTimeout();
+
+                var resultTask = connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+                // Waiting for buffer to be unblocked by ack from server
+                Assert.False(resultTask.IsCompleted);
+
+                result = await resultTask;
+
+                Assert.Equal(originalMessage, result);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    [Fact]
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/51361")]
+    public async Task ServerWithOldProtocolVersionClientWithNewProtocolVersionWorksDoesNotAllowStatefulReconnect()
+    {
+        bool ExpectedErrors(WriteContext writeContext)
+        {
+            return writeContext.LoggerName == typeof(HubConnection).FullName &&
+                   (writeContext.EventId.Name == "ShutdownWithError" ||
+                   writeContext.EventId.Name == "ServerDisconnectedWithError");
+        }
+
+        var protocol = HubProtocols["json"];
+        await using (var server = await StartServer<Startup>(ExpectedErrors))
+        {
+            var websocket = new ClientWebSocket();
+            var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            tcs.SetResult();
+
+            const string originalMessage = "SignalR";
+            var connectionBuilder = new HubConnectionBuilder()
+                .WithLoggerFactory(LoggerFactory)
+                .WithUrl(server.Url + "/default", HttpTransportType.WebSockets, o =>
+                {
+                    o.WebSocketFactory = async (context, token) =>
+                    {
+                        await tcs.Task;
+                        await websocket.ConnectAsync(context.Uri, token);
+                        tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                        return websocket;
+                    };
+                    o.UseStatefulReconnect = true;
+                });
+            // Force version 1 on the server so it turns off Stateful Reconnects
+            connectionBuilder.Services.AddSingleton<IHubProtocol>(new HubProtocolVersionTests.SingleVersionHubProtocol(HubProtocols["json"], 1));
+            var connection = connectionBuilder.Build();
+
+            var closedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            connection.Closed += (_) =>
+            {
+                closedTcs.SetResult();
+                return Task.CompletedTask;
+            };
+
+            try
+            {
+                await connection.StartAsync().DefaultTimeout();
+                var originalConnectionId = connection.ConnectionId;
+
+                var result = await connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+
+                Assert.Equal(originalMessage, result);
+
+                var originalWebsocket = websocket;
+                websocket = new ClientWebSocket();
+                originalWebsocket.Dispose();
+
+                var resultTask = connection.InvokeAsync<string>(nameof(TestHub.Echo), originalMessage).DefaultTimeout();
+                tcs.SetResult();
+
+                // In-progress send canceled when connection closes
+                var ex = await Assert.ThrowsAnyAsync<Exception>(() => resultTask);
+                Assert.True(ex is TaskCanceledException || ex is WebSocketException);
+                await closedTcs.Task;
+
+                Assert.Equal(HubConnectionState.Disconnected, connection.State);
+            }
+            catch (Exception ex)
+            {
+                LoggerFactory.CreateLogger<HubConnectionTests>().LogError(ex, "{ExceptionType} from test", ex.GetType().FullName);
+                throw;
+            }
+            finally
+            {
+                await connection.DisposeAsync().DefaultTimeout();
+            }
+        }
+    }
+
+    private class OneAtATimeSynchronizationContext : SynchronizationContext, IAsyncDisposable
+    {
+        private readonly Channel<(SendOrPostCallback, object)> _taskQueue = Channel.CreateUnbounded<(SendOrPostCallback, object)>();
+        private readonly Task _runTask;
+        private bool _disposed;
+
+        public OneAtATimeSynchronizationContext()
+        {
+            // Task.Run to avoid running with xUnit's AsyncTestSyncContext as well.
+            _runTask = Task.Run(Run);
+        }
+
+        public override void Post(SendOrPostCallback d, object state)
+        {
+            if (_disposed)
+            {
+                // There should be no other calls to Post() after dispose. If there are calls,
+                // the test has most likely failed with a timeout. Let the callbacks run so the
+                // timeout exception gets reported accurately instead of as a long-running test.
+                d(state);
+            }
+
+            _taskQueue.Writer.TryWrite((d, state));
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            _disposed = true;
+            _taskQueue.Writer.Complete();
+            return new ValueTask(_runTask);
+        }
+
+        private async Task Run()
+        {
+            while (await _taskQueue.Reader.WaitToReadAsync())
+            {
+                SetSynchronizationContext(this);
+                while (_taskQueue.Reader.TryRead(out var tuple))
+                {
+                    var (callback, state) = tuple;
+                    callback(state);
+                }
+                SetSynchronizationContext(null);
             }
         }
     }

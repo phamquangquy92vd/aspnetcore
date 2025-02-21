@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Security.Cryptography;
-using Microsoft.AspNetCore.Cryptography;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
@@ -46,7 +44,8 @@ public sealed class AuthenticatedEncryptorConfiguration : AlgorithmConfiguration
     {
         var factory = new AuthenticatedEncryptorFactory(NullLoggerFactory.Instance);
         // Run a sample payload through an encrypt -> decrypt operation to make sure data round-trips properly.
-        var encryptor = factory.CreateAuthenticatedEncryptorInstance(Secret.Random(512 / 8), this);
+        using var secret = Secret.Random(512 / 8);
+        var encryptor = factory.CreateAuthenticatedEncryptorInstance(secret, this);
         try
         {
             encryptor.PerformSelfTest();

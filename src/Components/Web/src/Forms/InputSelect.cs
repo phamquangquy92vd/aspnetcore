@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -41,22 +40,25 @@ public class InputSelect<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTy
     {
         builder.OpenElement(0, "select");
         builder.AddMultipleAttributes(1, AdditionalAttributes);
-        builder.AddAttributeIfNotNullOrEmpty(2, "class", CssClass);
-        builder.AddAttribute(3, "multiple", _isMultipleSelect);
+        builder.AddAttributeIfNotNullOrEmpty(2, "name", NameAttributeValue);
+        builder.AddAttributeIfNotNullOrEmpty(3, "class", CssClass);
+        builder.AddAttribute(4, "multiple", _isMultipleSelect);
 
         if (_isMultipleSelect)
         {
-            builder.AddAttribute(4, "value", BindConverter.FormatValue(CurrentValue)?.ToString());
-            builder.AddAttribute(5, "onchange", EventCallback.Factory.CreateBinder<string?[]?>(this, SetCurrentValueAsStringArray, default));
+            builder.AddAttribute(5, "value", BindConverter.FormatValue(CurrentValue)?.ToString());
+            builder.AddAttribute(6, "onchange", EventCallback.Factory.CreateBinder<string?[]?>(this, SetCurrentValueAsStringArray, default));
+            builder.SetUpdatesAttributeName("value");
         }
         else
         {
-            builder.AddAttribute(6, "value", CurrentValueAsString);
-            builder.AddAttribute(7, "onchange", EventCallback.Factory.CreateBinder<string?>(this, __value => CurrentValueAsString = __value, default));
+            builder.AddAttribute(7, "value", CurrentValueAsString);
+            builder.AddAttribute(8, "onchange", EventCallback.Factory.CreateBinder<string?>(this, __value => CurrentValueAsString = __value, default));
+            builder.SetUpdatesAttributeName("value");
         }
 
-        builder.AddElementReferenceCapture(8, __selectReference => Element = __selectReference);
-        builder.AddContent(9, ChildContent);
+        builder.AddElementReferenceCapture(9, __selectReference => Element = __selectReference);
+        builder.AddContent(10, ChildContent);
         builder.CloseElement();
     }
 

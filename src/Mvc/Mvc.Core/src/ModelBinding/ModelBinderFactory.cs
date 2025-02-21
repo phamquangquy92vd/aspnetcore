@@ -3,9 +3,7 @@
 
 #nullable enable
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -21,7 +19,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 /// <summary>
 /// A factory for <see cref="IModelBinder"/> instances.
 /// </summary>
-public class ModelBinderFactory : IModelBinderFactory
+public partial class ModelBinderFactory : IModelBinderFactory
 {
     private readonly IModelMetadataProvider _metadataProvider;
     private readonly IModelBinderProvider[] _providers;
@@ -46,16 +44,13 @@ public class ModelBinderFactory : IModelBinderFactory
 
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         var logger = loggerFactory.CreateLogger<ModelBinderFactory>();
-        logger.RegisteredModelBinderProviders(_providers);
+        Log.RegisteredModelBinderProviders(logger, _providers);
     }
 
     /// <inheritdoc />
     public IModelBinder CreateBinder(ModelBinderFactoryContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (_providers.Length == 0)
         {
@@ -202,7 +197,7 @@ public class ModelBinderFactory : IModelBinderFactory
         return _cache.TryGetValue(new Key(metadata, cacheToken), out binder);
     }
 
-    private class DefaultModelBinderProviderContext : ModelBinderProviderContext
+    private sealed class DefaultModelBinderProviderContext : ModelBinderProviderContext
     {
         private readonly ModelBinderFactory _factory;
 
@@ -262,15 +257,8 @@ public class ModelBinderFactory : IModelBinderFactory
 
         public override IModelBinder CreateBinder(ModelMetadata metadata, BindingInfo bindingInfo)
         {
-            if (metadata == null)
-            {
-                throw new ArgumentNullException(nameof(metadata));
-            }
-
-            if (bindingInfo == null)
-            {
-                throw new ArgumentNullException(nameof(bindingInfo));
-            }
+            ArgumentNullException.ThrowIfNull(metadata);
+            ArgumentNullException.ThrowIfNull(bindingInfo);
 
             // For non-root nodes we use the ModelMetadata as the cache token. This ensures that all non-root
             // nodes with the same metadata will have the same binder. This is OK because for an non-root
@@ -330,5 +318,11 @@ public class ModelBinderFactory : IModelBinderFactory
                     return $"Unsupported MetadataKind '{_metadata.MetadataKind}'.";
             }
         }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(12, LogLevel.Debug, "Registered model binder providers, in the following order: {ModelBinderProviders}", EventName = "RegisteredModelBinderProviders")]
+        public static partial void RegisteredModelBinderProviders(ILogger logger, IModelBinderProvider[] modelBinderProviders);
     }
 }

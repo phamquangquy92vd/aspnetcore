@@ -338,6 +338,30 @@ public class InputBaseTest
     }
 
     [Fact]
+    public async Task ClearsParsingValidationMessagesWhenDisposed()
+    {
+        // Arrange
+        var model = new TestModel();
+        var rootComponent = new TestInputHostComponent<DateTime, TestDateInputComponent>
+        {
+            EditContext = new EditContext(model),
+            ValueExpression = () => model.DateProperty
+        };
+        var fieldIdentifier = FieldIdentifier.Create(() => model.DateProperty);
+        var inputComponent = await InputRenderer.RenderAndGetComponent(rootComponent);
+
+        // Act + Assert 1 (Precondition): The test needs a validation message to be removed later.
+        await inputComponent.SetCurrentValueAsStringAsync("1991/11/40");
+        Assert.Equal(new[] { "Bad date value" }, rootComponent.EditContext.GetValidationMessages(fieldIdentifier));
+
+        // Act: Dispose the input component
+        (inputComponent as IDisposable).Dispose();
+
+        // Assert 2
+        Assert.Empty(rootComponent.EditContext.GetValidationMessages(fieldIdentifier));
+    }
+
+    [Fact]
     public async Task RespondsToValidationStateChangeNotifications()
     {
         // Arrange
@@ -420,7 +444,6 @@ public class InputBaseTest
         var rootComponentId = renderer.AssignRootComponentId(rootComponent);
         await renderer.RenderRootComponentAsync(rootComponentId);
 
-
         // Initally, it rendered one batch and is valid
         var batch1 = renderer.Batches.Single();
         var componentFrame1 = batch1.GetComponentFrames<TestInputComponent<string>>().Single();
@@ -428,7 +451,7 @@ public class InputBaseTest
         var component = (TestInputComponent<string>)componentFrame1.Component;
         Assert.Equal("invalid", component.CssClass);
         Assert.NotNull(component.AdditionalAttributes);
-        Assert.Equal(1, component.AdditionalAttributes.Count);
+        Assert.Single(component.AdditionalAttributes);
         //Check for "true" see https://www.w3.org/TR/wai-aria-1.1/#aria-invalid
         Assert.Equal("true", component.AdditionalAttributes["aria-invalid"]);
     }
@@ -463,7 +486,7 @@ public class InputBaseTest
         var component = (TestInputComponent<string>)componentFrame1.Component;
         Assert.Equal("invalid", component.CssClass);
         Assert.NotNull(component.AdditionalAttributes);
-        Assert.Equal(1, component.AdditionalAttributes.Count);
+        Assert.Single(component.AdditionalAttributes);
         Assert.Equal("userSpecifiedValue", component.AdditionalAttributes["aria-invalid"]);
     }
 

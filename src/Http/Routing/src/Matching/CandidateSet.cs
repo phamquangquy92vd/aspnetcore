@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Collections;
-using System.Collections.Generic;
-using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -38,20 +34,9 @@ public sealed class CandidateSet
     /// <param name="scores">The list of endpoint scores. <see cref="CandidateState.Score"/>.</param>
     public CandidateSet(Endpoint[] endpoints, RouteValueDictionary[] values, int[] scores)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
-
-        if (scores == null)
-        {
-            throw new ArgumentNullException(nameof(scores));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(values);
+        ArgumentNullException.ThrowIfNull(scores);
 
         if (endpoints.Length != values.Length || endpoints.Length != scores.Length)
         {
@@ -321,7 +306,6 @@ public sealed class CandidateSet
                 }
 
                 break;
-
         }
     }
 

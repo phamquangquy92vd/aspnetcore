@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -21,10 +19,7 @@ public class ActionDescriptorCollection
     /// <param name="version">The unique version of discovered actions.</param>
     public ActionDescriptorCollection(IReadOnlyList<ActionDescriptor> items, int version)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
 
         Items = items;
         Version = version;

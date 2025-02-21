@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -10,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 namespace Microsoft.AspNetCore.Mvc.ApiExplorer;
 
-internal class EndpointModelMetadata : ModelMetadata
+internal sealed class EndpointModelMetadata : ModelMetadata
 {
     public EndpointModelMetadata(ModelMetadataIdentity identity) : base(identity)
     {
@@ -53,4 +51,20 @@ internal class EndpointModelMetadata : ModelMetadata
     public override string? TemplateHint { get; }
     public override bool ValidateChildren { get; }
     public override IReadOnlyList<object> ValidatorMetadata { get; } = Array.Empty<object>();
+
+    public static Type GetDisplayType(Type type)
+    {
+        var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
+        return underlyingType.IsPrimitive
+            // Those additional types have TypeConverter or TryParse and are not primitives
+            // but should not be considered string in the metadata
+            || underlyingType == typeof(DateTime)
+            || underlyingType == typeof(DateTimeOffset)
+            || underlyingType == typeof(DateOnly)
+            || underlyingType == typeof(TimeOnly)
+            || underlyingType == typeof(TimeSpan)
+            || underlyingType == typeof(decimal)
+            || underlyingType == typeof(Guid)
+            || underlyingType == typeof(Uri) ? type : typeof(string);
+    }
 }

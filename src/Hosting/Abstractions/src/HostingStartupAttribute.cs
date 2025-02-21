@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 
 namespace Microsoft.AspNetCore.Hosting;
 
@@ -19,10 +17,7 @@ public sealed class HostingStartupAttribute : Attribute
     /// <param name="hostingStartupType">A type that implements <see cref="IHostingStartup"/>.</param>
     public HostingStartupAttribute([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type hostingStartupType)
     {
-        if (hostingStartupType == null)
-        {
-            throw new ArgumentNullException(nameof(hostingStartupType));
-        }
+        ArgumentNullException.ThrowIfNull(hostingStartupType);
 
         if (!typeof(IHostingStartup).IsAssignableFrom(hostingStartupType))
         {

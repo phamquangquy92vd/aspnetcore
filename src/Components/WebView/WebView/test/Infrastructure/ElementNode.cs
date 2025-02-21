@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Components.WebView.Document;
 
 internal class ElementNode : ContainerNode
@@ -40,15 +37,8 @@ internal class ElementNode : ContainerNode
 
     internal void SetEvent(string eventName, ElementEventDescriptor descriptor)
     {
-        if (eventName is null)
-        {
-            throw new ArgumentNullException(nameof(eventName));
-        }
-
-        if (descriptor is null)
-        {
-            throw new ArgumentNullException(nameof(descriptor));
-        }
+        ArgumentNullException.ThrowIfNull(eventName);
+        ArgumentNullException.ThrowIfNull(descriptor);
 
         _events[eventName] = descriptor;
     }

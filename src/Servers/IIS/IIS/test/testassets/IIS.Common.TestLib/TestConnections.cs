@@ -10,7 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Server.IntegrationTesting;
@@ -20,7 +20,7 @@ namespace Microsoft.AspNetCore.Server.IntegrationTesting;
 /// </summary>
 public class TestConnection : IDisposable
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(2);
 
     private readonly bool _ownsSocket;
     private readonly Socket _socket;
@@ -207,7 +207,7 @@ public class TestConnection : IDisposable
 
     public Task WaitForConnectionClose()
     {
-        var tcs = new TaskCompletionSource<object>();
+        var tcs = new TaskCompletionSource();
         var eventArgs = new SocketAsyncEventArgs();
         eventArgs.SetBuffer(new byte[128], 0, 128);
         eventArgs.Completed += ReceiveAsyncCompleted;
@@ -223,10 +223,10 @@ public class TestConnection : IDisposable
 
     private void ReceiveAsyncCompleted(object sender, SocketAsyncEventArgs e)
     {
-        var tcs = (TaskCompletionSource<object>)e.UserToken;
+        var tcs = (TaskCompletionSource)e.UserToken;
         if (e.BytesTransferred == 0)
         {
-            tcs.SetResult(null);
+            tcs.SetResult();
         }
         else
         {

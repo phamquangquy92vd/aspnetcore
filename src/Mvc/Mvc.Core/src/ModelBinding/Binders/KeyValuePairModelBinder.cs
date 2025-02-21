@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
@@ -29,41 +26,27 @@ public class KeyValuePairModelBinder<TKey, TValue> : IModelBinder
     /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
     public KeyValuePairModelBinder(IModelBinder keyBinder, IModelBinder valueBinder, ILoggerFactory loggerFactory)
     {
-        if (keyBinder == null)
-        {
-            throw new ArgumentNullException(nameof(keyBinder));
-        }
-
-        if (valueBinder == null)
-        {
-            throw new ArgumentNullException(nameof(valueBinder));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(keyBinder);
+        ArgumentNullException.ThrowIfNull(valueBinder);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _keyBinder = keyBinder;
         _valueBinder = valueBinder;
-        _logger = loggerFactory.CreateLogger<KeyValuePairModelBinder<TKey, TValue>>();
+        _logger = loggerFactory.CreateLogger(typeof(KeyValuePairModelBinder<TKey, TValue>));
     }
 
     /// <inheritdoc />
     public async Task BindModelAsync(ModelBindingContext bindingContext)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
 
         _logger.AttemptingToBindModel(bindingContext);
 
         var keyModelName = ModelNames.CreatePropertyModelName(bindingContext.ModelName, "Key");
-        var keyResult = await TryBindStrongModel<TKey?>(bindingContext, _keyBinder, "Key", keyModelName);
+        var keyResult = await KeyValuePairModelBinder<TKey, TValue>.TryBindStrongModel<TKey?>(bindingContext, _keyBinder, "Key", keyModelName);
 
         var valueModelName = ModelNames.CreatePropertyModelName(bindingContext.ModelName, "Value");
-        var valueResult = await TryBindStrongModel<TValue?>(bindingContext, _valueBinder, "Value", valueModelName);
+        var valueResult = await KeyValuePairModelBinder<TKey, TValue>.TryBindStrongModel<TValue?>(bindingContext, _valueBinder, "Value", valueModelName);
 
         if (keyResult.IsModelSet && valueResult.IsModelSet)
         {
@@ -104,7 +87,7 @@ public class KeyValuePairModelBinder<TKey, TValue> : IModelBinder
         _logger.DoneAttemptingToBindModel(bindingContext);
     }
 
-    internal async Task<ModelBindingResult> TryBindStrongModel<TModel>(
+    internal static async Task<ModelBindingResult> TryBindStrongModel<TModel>(
         ModelBindingContext bindingContext,
         IModelBinder binder,
         string propertyName,

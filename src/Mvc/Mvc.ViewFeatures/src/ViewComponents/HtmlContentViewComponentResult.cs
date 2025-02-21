@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 
 namespace Microsoft.AspNetCore.Mvc.ViewComponents;
@@ -23,10 +21,7 @@ public class HtmlContentViewComponentResult : IViewComponentResult
     /// </summary>
     public HtmlContentViewComponentResult(IHtmlContent encodedContent)
     {
-        if (encodedContent == null)
-        {
-            throw new ArgumentNullException(nameof(encodedContent));
-        }
+        ArgumentNullException.ThrowIfNull(encodedContent);
 
         EncodedContent = encodedContent;
     }
@@ -42,10 +37,7 @@ public class HtmlContentViewComponentResult : IViewComponentResult
     /// <param name="context">The <see cref="ViewComponentContext"/>.</param>
     public void Execute(ViewComponentContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         context.Writer.Write(EncodedContent);
     }

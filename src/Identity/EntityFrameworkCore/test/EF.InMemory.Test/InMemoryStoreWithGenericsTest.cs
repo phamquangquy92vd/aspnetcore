@@ -1,20 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Data.Common;
 using System.Globalization;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.Test;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Identity.EntityFrameworkCore.InMemory.Test;
 
@@ -112,10 +105,10 @@ public class InMemoryEFUserStoreTestWithGenerics
         Assert.Equal(2, userClaims.Count);
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(user, claims[1]));
         userClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(1, userClaims.Count);
+        Assert.Single(userClaims);
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(user, claims[2]));
         userClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(0, userClaims.Count);
+        Assert.Empty(userClaims);
     }
 
     [Fact]
@@ -139,10 +132,10 @@ public class InMemoryEFUserStoreTestWithGenerics
         Assert.Equal(2, userClaims.Count);
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(user, claims[1]));
         userClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(1, userClaims.Count);
+        Assert.Single(userClaims);
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(user, claims[2]));
         userClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(0, userClaims.Count);
+        Assert.Empty(userClaims);
         var userClaims2 = await manager.GetClaimsAsync(user2);
         Assert.Equal(3, userClaims2.Count);
     }
@@ -155,12 +148,12 @@ public class InMemoryEFUserStoreTestWithGenerics
         IdentityResultAssert.IsSuccess(await manager.CreateAsync(user));
         IdentityResultAssert.IsSuccess(await manager.AddClaimAsync(user, new Claim("c", "a", "i")));
         var userClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(1, userClaims.Count);
+        Assert.Single(userClaims);
         Claim claim = new Claim("c", "b", "i");
         Claim oldClaim = userClaims.FirstOrDefault();
         IdentityResultAssert.IsSuccess(await manager.ReplaceClaimAsync(user, oldClaim, claim));
         var newUserClaims = await manager.GetClaimsAsync(user);
-        Assert.Equal(1, newUserClaims.Count);
+        Assert.Single(newUserClaims);
         Claim newClaim = newUserClaims.FirstOrDefault();
         Assert.Equal(claim.Type, newClaim.Type);
         Assert.Equal(claim.Value, newClaim.Value);
@@ -182,7 +175,6 @@ public class ClaimEqualityComparer : IEqualityComparer<Claim>
         return 1;
     }
 }
-
 
 #region Generic Type defintions
 

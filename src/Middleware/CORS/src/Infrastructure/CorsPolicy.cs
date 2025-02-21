@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -32,7 +30,7 @@ public class CorsPolicy
     {
         get
         {
-            if (Headers == null || Headers.Count != 1 || Headers[0] != "*")
+            if (Headers == null || Headers.Count != 1 || Headers[0] != CorsConstants.AnyHeader)
             {
                 return false;
             }
@@ -48,7 +46,7 @@ public class CorsPolicy
     {
         get
         {
-            if (Methods == null || Methods.Count != 1 || Methods[0] != "*")
+            if (Methods == null || Methods.Count != 1 || Methods[0] != CorsConstants.AnyMethod)
             {
                 return false;
             }
@@ -64,7 +62,7 @@ public class CorsPolicy
     {
         get
         {
-            if (Origins == null || Origins.Count != 1 || Origins[0] != "*")
+            if (Origins == null || Origins.Count != 1 || Origins[0] != CorsConstants.AnyOrigin)
             {
                 return false;
             }

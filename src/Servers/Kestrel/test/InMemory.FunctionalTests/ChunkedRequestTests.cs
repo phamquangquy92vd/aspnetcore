@@ -1,20 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 using Microsoft.AspNetCore.Server.Kestrel.InMemory.FunctionalTests.TestTransport;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
 using Microsoft.Extensions.Logging;
-using Xunit;
 using BadHttpRequestException = Microsoft.AspNetCore.Server.Kestrel.Core.BadHttpRequestException;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.InMemory.FunctionalTests;
@@ -238,23 +235,23 @@ public class ChunkedRequestTests : LoggedTest
 
             var buffer = new byte[200];
 
-                // The first request is chunked with no trailers.
-                if (requestsReceived == 0)
+            // The first request is chunked with no trailers.
+            if (requestsReceived == 0)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
-                    Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
-                }
-                // The middle requests are chunked with trailers.
-                else if (requestsReceived < requestCount)
-            {
-                Assert.True(request.SupportsTrailers(), "SupportsTrailers");
-                Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
-                    Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
-                    Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
+                Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
             }
-                // The last request is content-length with no trailers.
-                else
+            // The middle requests are chunked with trailers.
+            else if (requestsReceived < requestCount)
+            {
+                Assert.True(request.SupportsTrailers(), "SupportsTrailers");
+                Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
+                Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
+                Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
+            }
+            // The last request is content-length with no trailers.
+            else
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
@@ -264,28 +261,28 @@ public class ChunkedRequestTests : LoggedTest
             while (await request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
             {
                 ;// read to end
-                }
+            }
 
             Assert.False(request.Headers.ContainsKey("X-Trailer-Header"));
 
-                // The first request is chunked with no trailers.
-                if (requestsReceived == 0)
+            // The first request is chunked with no trailers.
+            if (requestsReceived == 0)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
                 Assert.Equal(string.Empty, request.GetDeclaredTrailers().ToString());
                 Assert.Equal(string.Empty, request.GetTrailer("X-Trailer-Header").ToString());
             }
-                // The middle requests are chunked with trailers.
-                else if (requestsReceived < requestCount)
+            // The middle requests are chunked with trailers.
+            else if (requestsReceived < requestCount)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
                 Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
                 Assert.Equal(new string('a', requestsReceived), request.GetTrailer("X-Trailer-Header").ToString());
             }
-                // The last request is content-length with no trailers.
-                else
+            // The last request is content-length with no trailers.
+            else
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
@@ -364,23 +361,23 @@ public class ChunkedRequestTests : LoggedTest
             var request = httpContext.Request;
             Assert.True(request.CanHaveBody());
 
-                // The first request is chunked with no trailers.
-                if (requestsReceived == 0)
+            // The first request is chunked with no trailers.
+            if (requestsReceived == 0)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
-                    Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
-                }
-                // The middle requests are chunked with trailers.
-                else if (requestsReceived < requestCount)
-            {
-                Assert.True(request.SupportsTrailers(), "SupportsTrailers");
-                Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
-                    Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
-                    Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
+                Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
             }
-                // The last request is content-length with no trailers.
-                else
+            // The middle requests are chunked with trailers.
+            else if (requestsReceived < requestCount)
+            {
+                Assert.True(request.SupportsTrailers(), "SupportsTrailers");
+                Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable"); // Not yet
+                Assert.Throws<InvalidOperationException>(() => request.GetTrailer("X-Trailer-Header"));  // Not yet
+                Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
+            }
+            // The last request is content-length with no trailers.
+            else
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.False(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
@@ -399,24 +396,24 @@ public class ChunkedRequestTests : LoggedTest
 
             Assert.False(request.Headers.ContainsKey("X-Trailer-Header"));
 
-                // The first request is chunked with no trailers.
-                if (requestsReceived == 0)
+            // The first request is chunked with no trailers.
+            if (requestsReceived == 0)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
                 Assert.Equal(string.Empty, request.GetDeclaredTrailers().ToString());
                 Assert.Equal(string.Empty, request.GetTrailer("X-Trailer-Header").ToString());
             }
-                // The middle requests are chunked with trailers.
-                else if (requestsReceived < requestCount)
+            // The middle requests are chunked with trailers.
+            else if (requestsReceived < requestCount)
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
                 Assert.Equal("X-Trailer-Header", request.GetDeclaredTrailers().ToString());
                 Assert.Equal(new string('a', requestsReceived), request.GetTrailer("X-Trailer-Header").ToString());
             }
-                // The last request is content-length with no trailers.
-                else
+            // The last request is content-length with no trailers.
+            else
             {
                 Assert.True(request.SupportsTrailers(), "SupportsTrailers");
                 Assert.True(request.CheckTrailersAvailable(), "CheckTrailersAvailable");
@@ -498,8 +495,11 @@ public class ChunkedRequestTests : LoggedTest
         await using (var server = new TestServer(async context =>
         {
             var buffer = new byte[128];
-            while (await context.Request.Body.ReadAsync(buffer, 0, buffer.Length) != 0) ; // read to end
-            }, testContext))
+            while (await context.Request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
+            {
+                // read to end
+            }
+        }, testContext))
         {
             using (var connection = server.CreateConnection())
             {
@@ -539,8 +539,11 @@ public class ChunkedRequestTests : LoggedTest
         await using (var server = new TestServer(async context =>
         {
             var buffer = new byte[128];
-            while (await context.Request.Body.ReadAsync(buffer, 0, buffer.Length) != 0) ; // read to end
-            }, testContext))
+            while (await context.Request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
+            {
+                // read to end
+            }
+        }, testContext))
         {
             using (var connection = server.CreateConnection())
             {
@@ -584,7 +587,7 @@ public class ChunkedRequestTests : LoggedTest
             while (await request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
             {
                 ;// read to end
-                }
+            }
 
             Assert.True(string.IsNullOrEmpty(request.Headers["X-Trailer-Header"]));
 
@@ -666,7 +669,7 @@ public class ChunkedRequestTests : LoggedTest
             while (await request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
             {
                 ;// read to end
-                }
+            }
 
             response.Headers["Content-Length"] = new[] { "11" };
 
@@ -710,7 +713,7 @@ public class ChunkedRequestTests : LoggedTest
             while (await request.Body.ReadAsync(buffer, 0, buffer.Length) != 0)
             {
                 ;// read to end
-                }
+            }
 
             response.Headers["Content-Length"] = new[] { "11" };
 
@@ -737,9 +740,11 @@ public class ChunkedRequestTests : LoggedTest
                     "",
                     "");
             }
+
+            // The 400 response should have been logged by default at Error level since the connection wasn't aborted when the bad request was handled.
+            Assert.Contains(TestSink.Writes, w => w.LoggerName == "Microsoft.AspNetCore.Server.Kestrel" && w.EventId.Id == 13 && w.LogLevel > LogLevel.Debug);
         }
     }
-
 
     [Fact]
     public async Task ChunkedNotFinalTransferCodingResultsIn400()
@@ -847,7 +852,10 @@ public class ChunkedRequestTests : LoggedTest
     [Fact]
     public async Task ClosingConnectionMidChunkPrefixThrows()
     {
-        var testContext = new TestServiceContext(LoggerFactory);
+        var testMeterFactory = new TestMeterFactory();
+        using var connectionDuration = new MetricCollector<double>(testMeterFactory, "Microsoft.AspNetCore.Server.Kestrel", "kestrel.connection.duration");
+
+        var testContext = new TestServiceContext(LoggerFactory, metrics: new KestrelMetrics(testMeterFactory));
         var readStartedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 #pragma warning disable CS0618 // Type or member is obsolete
         var exTcs = new TaskCompletionSource<BadHttpRequestException>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -863,9 +871,9 @@ public class ChunkedRequestTests : LoggedTest
                 await readTask;
             }
 #pragma warning disable CS0618 // Type or member is obsolete
-                catch (BadHttpRequestException badRequestEx)
+            catch (BadHttpRequestException badRequestEx)
 #pragma warning restore CS0618 // Type or member is obsolete
-                {
+            {
                 exTcs.TrySetResult(badRequestEx);
             }
             catch (Exception ex)
@@ -893,6 +901,8 @@ public class ChunkedRequestTests : LoggedTest
                 Assert.Equal(RequestRejectionReason.UnexpectedEndOfRequestContent, badReqEx.Reason);
             }
         }
+
+        Assert.Collection(connectionDuration.GetMeasurementSnapshot(), m => MetricsAssert.Equal(ConnectionEndReason.UnexpectedEndOfRequestContent, m.Tags));
     }
 
     [Fact]
@@ -1011,10 +1021,10 @@ public class ChunkedRequestTests : LoggedTest
         {
             var request = httpContext.Request;
 
-                // This read may receive all data, but what we care about
-                // is that ConsumeAsync is called and doesn't error. Calling
-                // TryRead before would always fail.
-                var readResult = await request.BodyReader.ReadAsync();
+            // This read may receive all data, but what we care about
+            // is that ConsumeAsync is called and doesn't error. Calling
+            // TryRead before would always fail.
+            var readResult = await request.BodyReader.ReadAsync();
             request.BodyReader.AdvanceTo(readResult.Buffer.End);
 
             request.BodyReader.Complete();

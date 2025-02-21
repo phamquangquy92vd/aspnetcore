@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 
@@ -14,7 +11,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 /// <summary>
 /// A <see cref="IActionResultExecutor{FileContentResult}"/>
 /// </summary>
-public class FileContentResultExecutor : FileResultExecutorBase, IActionResultExecutor<FileContentResult>
+public partial class FileContentResultExecutor : FileResultExecutorBase, IActionResultExecutor<FileContentResult>
 {
     /// <summary>
     /// Intializes a new <see cref="FileContentResultExecutor"/>.
@@ -28,17 +25,10 @@ public class FileContentResultExecutor : FileResultExecutorBase, IActionResultEx
     /// <inheritdoc />
     public virtual Task ExecuteAsync(ActionContext context, FileContentResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
-
-        Logger.ExecutingFileResult(result);
+        Log.ExecutingFileResult(Logger, result);
 
         var (range, rangeLength, serveBody) = SetHeadersAndLog(
             context,
@@ -65,15 +55,8 @@ public class FileContentResultExecutor : FileResultExecutorBase, IActionResultEx
     /// <param name="rangeLength">The length of the range.</param>
     protected virtual Task WriteFileAsync(ActionContext context, FileContentResult result, RangeItemHeaderValue? range, long rangeLength)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         if (range != null && rangeLength == 0)
         {
@@ -82,10 +65,28 @@ public class FileContentResultExecutor : FileResultExecutorBase, IActionResultEx
 
         if (range != null)
         {
-            Logger.WritingRangeToBody();
+            Log.WritingRangeToBody(Logger);
         }
 
         var fileContentStream = new MemoryStream(result.FileContents);
         return WriteFileAsync(context.HttpContext, fileContentStream, range, rangeLength);
+    }
+
+    private static partial class Log
+    {
+        public static void ExecutingFileResult(ILogger logger, FileResult fileResult)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                var fileResultType = fileResult.GetType().Name;
+                ExecutingFileResultWithNoFileName(logger, fileResultType, fileResult.FileDownloadName);
+            }
+        }
+
+        [LoggerMessage(2, LogLevel.Information, "Executing {FileResultType}, sending file with download name '{FileDownloadName}' ...", EventName = "ExecutingFileResultWithNoFileName", SkipEnabledCheck = true)]
+        private static partial void ExecutingFileResultWithNoFileName(ILogger logger, string fileResultType, string fileDownloadName);
+
+        [LoggerMessage(17, LogLevel.Debug, "Writing the requested range of bytes to the body...", EventName = "WritingRangeToBody")]
+        public static partial void WritingRangeToBody(ILogger logger);
     }
 }

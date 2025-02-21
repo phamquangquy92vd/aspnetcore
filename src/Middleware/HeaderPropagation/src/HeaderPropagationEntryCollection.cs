@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.ObjectModel;
 using Microsoft.Extensions.Primitives;
 
@@ -20,10 +19,7 @@ public sealed class HeaderPropagationEntryCollection : Collection<HeaderPropagat
     /// <param name="headerName">The header name to be propagated.</param>
     public void Add(string headerName)
     {
-        if (headerName == null)
-        {
-            throw new ArgumentNullException(nameof(headerName));
-        }
+        ArgumentNullException.ThrowIfNull(headerName);
 
         Add(new HeaderPropagationEntry(headerName, headerName, valueFilter: null));
     }
@@ -40,10 +36,7 @@ public sealed class HeaderPropagationEntryCollection : Collection<HeaderPropagat
     /// </param>
     public void Add(string headerName, Func<HeaderPropagationContext, StringValues> valueFilter)
     {
-        if (headerName == null)
-        {
-            throw new ArgumentNullException(nameof(headerName));
-        }
+        ArgumentNullException.ThrowIfNull(headerName);
 
         Add(new HeaderPropagationEntry(headerName, headerName, valueFilter));
     }
@@ -60,15 +53,8 @@ public sealed class HeaderPropagationEntryCollection : Collection<HeaderPropagat
     /// </param>
     public void Add(string inboundHeaderName, string outboundHeaderName)
     {
-        if (inboundHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(inboundHeaderName));
-        }
-
-        if (outboundHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(outboundHeaderName));
-        }
+        ArgumentNullException.ThrowIfNull(inboundHeaderName);
+        ArgumentNullException.ThrowIfNull(outboundHeaderName);
 
         Add(new HeaderPropagationEntry(inboundHeaderName, outboundHeaderName, valueFilter: null));
     }
@@ -92,15 +78,8 @@ public sealed class HeaderPropagationEntryCollection : Collection<HeaderPropagat
         string outboundHeaderName,
         Func<HeaderPropagationContext, StringValues> valueFilter)
     {
-        if (inboundHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(inboundHeaderName));
-        }
-
-        if (outboundHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(outboundHeaderName));
-        }
+        ArgumentNullException.ThrowIfNull(inboundHeaderName);
+        ArgumentNullException.ThrowIfNull(outboundHeaderName);
 
         Add(new HeaderPropagationEntry(inboundHeaderName, outboundHeaderName, valueFilter));
     }

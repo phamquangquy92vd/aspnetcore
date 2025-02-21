@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.ObjectModel;
 
 namespace Microsoft.AspNetCore.HeaderPropagation;
@@ -21,10 +20,7 @@ public sealed class HeaderPropagationMessageHandlerEntryCollection : Collection<
     /// </param>
     public void Add(string headerName)
     {
-        if (headerName == null)
-        {
-            throw new ArgumentNullException(nameof(headerName));
-        }
+        ArgumentNullException.ThrowIfNull(headerName);
 
         Add(new HeaderPropagationMessageHandlerEntry(headerName, headerName));
     }
@@ -41,15 +37,8 @@ public sealed class HeaderPropagationMessageHandlerEntryCollection : Collection<
     /// </param>
     public void Add(string capturedHeaderName, string outboundHeaderName)
     {
-        if (capturedHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(capturedHeaderName));
-        }
-
-        if (outboundHeaderName == null)
-        {
-            throw new ArgumentNullException(nameof(outboundHeaderName));
-        }
+        ArgumentNullException.ThrowIfNull(capturedHeaderName);
+        ArgumentNullException.ThrowIfNull(outboundHeaderName);
 
         Add(new HeaderPropagationMessageHandlerEntry(capturedHeaderName, outboundHeaderName));
     }

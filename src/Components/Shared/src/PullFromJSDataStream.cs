@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.JSInterop;
 
 namespace Microsoft.AspNetCore.Components;
@@ -58,7 +55,11 @@ internal sealed class PullFromJSDataStream : Stream
     }
 
     public override void Flush()
-        => throw new NotSupportedException();
+    {
+        // No-op
+    }
+
+    public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public override int Read(byte[] buffer, int offset, int count)
         => throw new NotSupportedException("Synchronous reads are not supported.");

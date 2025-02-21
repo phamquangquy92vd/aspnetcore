@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net.Http;
-using System.Threading.Tasks;
 using AngleSharp.Dom;
 using AngleSharp.Dom.Html;
 using AngleSharp.Extensions;
@@ -12,28 +10,33 @@ using HtmlGenerationWebSite;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Testing;
-using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
+using Microsoft.AspNetCore.Builder;
+using System.Reflection;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class HtmlGenerationWithCultureTest : LoggedTest, IClassFixture<MvcTestFixture<StartupWithCultureReplace>>
+public class HtmlGenerationWithCultureTest : LoggedTest
 {
-    public HtmlGenerationWithCultureTest(
-        ITestOutputHelper testOutputHelper,
-        MvcTestFixture<StartupWithCultureReplace> fixture) : base(testOutputHelper)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Factory = fixture.WithWebHostBuilder(builder => builder.UseStartup<StartupWithCultureReplace>());
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<StartupWithCultureReplace>(LoggerFactory)
+            .WithWebHostBuilder(builder => builder.UseStartup<StartupWithCultureReplace>());
         Client = Factory.CreateDefaultClient();
     }
 
-    public WebApplicationFactory<StartupWithCultureReplace> Factory { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
 
-    public HttpClient Client { get; }
+    public WebApplicationFactory<StartupWithCultureReplace> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task CacheTagHelper_AllowsVaryingByCulture()
@@ -128,6 +131,7 @@ public class HtmlGenerationWithCultureTest : LoggedTest, IClassFixture<MvcTestFi
         }
     }
 
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/56440")]
     [Fact]
     public async Task CacheTagHelper_VaryByCultureComposesWithOtherVaryByOptions()
     {

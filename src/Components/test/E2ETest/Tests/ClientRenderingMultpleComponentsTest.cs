@@ -1,17 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -56,7 +51,7 @@ public class ClientRenderingMultpleComponentsTest : E2ETest.Infrastructure.Serve
         Assert.Single(greets, "Hello Abraham");
         Assert.Equal(2, greets.Where(g => g == "Hello Blue fish").Count());
         Assert.Equal(3, greets.Where(g => string.Equals("Hello", g)).Count()); // 3 server prerendered without parameters
-        var content = Browser.Exists(By.Id("test-container")).GetAttribute("innerHTML");
+        var content = Browser.Exists(By.Id("test-container")).GetDomProperty("innerHTML");
         var markers = ReadMarkers(content);
         var componentSequence = markers.Select(m => m.Item1.PrerenderId != null).ToArray();
         Assert.Equal(13, componentSequence.Length);
@@ -73,16 +68,16 @@ public class ClientRenderingMultpleComponentsTest : E2ETest.Infrastructure.Serve
         Assert.Single(updatedGreets.Where(g => string.Equals("Hello Abraham", g)));
     }
 
-    private (WebAssemblyComponentMarker, WebAssemblyComponentMarker)[] ReadMarkers(string content)
+    private (ComponentMarker, ComponentMarker)[] ReadMarkers(string content)
     {
         content = content.Replace("\r\n", "");
         var matches = Regex.Matches(content, MarkerPattern);
-        var markers = matches.Select(s => JsonSerializer.Deserialize<WebAssemblyComponentMarker>(
+        var markers = matches.Select(s => JsonSerializer.Deserialize<ComponentMarker>(
             s.Groups[1].Value,
             WebAssemblyComponentSerializationSettings.JsonSerializationOptions));
 
         var prerenderMarkers = markers.Where(m => m.PrerenderId != null).GroupBy(p => p.PrerenderId).Select(g => (g.First(), g.Skip(1).First())).ToArray();
-        var nonPrerenderMarkers = markers.Where(m => m.PrerenderId == null).Select(g => (g, (WebAssemblyComponentMarker)default)).ToArray();
+        var nonPrerenderMarkers = markers.Where(m => m.PrerenderId == null).Select(g => (g, (ComponentMarker)default)).ToArray();
 
         return prerenderMarkers.Concat(nonPrerenderMarkers).ToArray();
     }

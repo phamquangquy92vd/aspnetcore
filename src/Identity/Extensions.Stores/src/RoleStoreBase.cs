@@ -4,11 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Internal;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Identity;
 
@@ -19,7 +20,7 @@ namespace Microsoft.AspNetCore.Identity;
 /// <typeparam name="TKey">The type of the primary key for a role.</typeparam>
 /// <typeparam name="TUserRole">The type of the class representing a user role.</typeparam>
 /// <typeparam name="TRoleClaim">The type of the class representing a role claim.</typeparam>
-public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
+public abstract class RoleStoreBase<TRole, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TKey, TUserRole, TRoleClaim> :
     IQueryableRoleStore<TRole>,
     IRoleClaimStore<TRole>
     where TRole : IdentityRole<TKey>
@@ -33,10 +34,7 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
     public RoleStoreBase(IdentityErrorDescriber describer)
     {
-        if (describer == null)
-        {
-            throw new ArgumentNullException(nameof(describer));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(describer);
 
         ErrorDescriber = describer;
     }
@@ -82,11 +80,8 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
-        return Task.FromResult(ConvertIdToString(role.Id));
+        ArgumentNullThrowHelper.ThrowIfNull(role);
+        return Task.FromResult(ConvertIdToString(role.Id)!);
     }
 
     /// <summary>
@@ -95,14 +90,11 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="role">The role whose name should be returned.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>A <see cref="Task{TResult}"/> that contains the name of the role.</returns>
-    public virtual Task<string> GetRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(role);
         return Task.FromResult(role.Name);
     }
 
@@ -113,14 +105,11 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="roleName">The name of the role.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetRoleNameAsync(TRole role, string roleName, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetRoleNameAsync(TRole role, string? roleName, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(role);
         role.Name = roleName;
         return Task.CompletedTask;
     }
@@ -130,13 +119,15 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// </summary>
     /// <param name="id">The id to convert.</param>
     /// <returns>An instance of <typeparamref name="TKey"/> representing the provided <paramref name="id"/>.</returns>
-    public virtual TKey ConvertIdFromString(string id)
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+        Justification = "TKey is annoated with RequiresUnreferencedCodeAttribute.All.")]
+    public virtual TKey? ConvertIdFromString(string? id)
     {
         if (id == null)
         {
             return default(TKey);
         }
-        return (TKey)TypeDescriptor.GetConverter(typeof(TKey)).ConvertFromInvariantString(id);
+        return (TKey?)TypeDescriptor.GetConverter(typeof(TKey)).ConvertFromInvariantString(id);
     }
 
     /// <summary>
@@ -144,7 +135,7 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// </summary>
     /// <param name="id">The id to convert.</param>
     /// <returns>An <see cref="string"/> representation of the provided <paramref name="id"/>.</returns>
-    public virtual string ConvertIdToString(TKey id)
+    public virtual string? ConvertIdToString(TKey id)
     {
         if (id.Equals(default(TKey)))
         {
@@ -159,7 +150,7 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="id">The role ID to look for.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>A <see cref="Task{TResult}"/> that result of the look up.</returns>
-    public abstract Task<TRole> FindByIdAsync(string id, CancellationToken cancellationToken = default(CancellationToken));
+    public abstract Task<TRole?> FindByIdAsync(string id, CancellationToken cancellationToken = default(CancellationToken));
 
     /// <summary>
     /// Finds the role who has the specified normalized name as an asynchronous operation.
@@ -167,7 +158,7 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="normalizedName">The normalized role name to look for.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>A <see cref="Task{TResult}"/> that result of the look up.</returns>
-    public abstract Task<TRole> FindByNameAsync(string normalizedName, CancellationToken cancellationToken = default(CancellationToken));
+    public abstract Task<TRole?> FindByNameAsync(string normalizedName, CancellationToken cancellationToken = default(CancellationToken));
 
     /// <summary>
     /// Get a role's normalized name as an asynchronous operation.
@@ -175,14 +166,11 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="role">The role whose normalized name should be retrieved.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>A <see cref="Task{TResult}"/> that contains the name of the role.</returns>
-    public virtual Task<string> GetNormalizedRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetNormalizedRoleNameAsync(TRole role, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(role);
         return Task.FromResult(role.NormalizedName);
     }
 
@@ -193,14 +181,11 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// <param name="normalizedName">The normalized name to set</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetNormalizedRoleNameAsync(TRole role, string normalizedName, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetNormalizedRoleNameAsync(TRole role, string? normalizedName, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (role == null)
-        {
-            throw new ArgumentNullException(nameof(role));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(role);
         role.NormalizedName = normalizedName;
         return Task.CompletedTask;
     }
@@ -210,10 +195,7 @@ public abstract class RoleStoreBase<TRole, TKey, TUserRole, TRoleClaim> :
     /// </summary>
     protected void ThrowIfDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedThrowHelper.ThrowIf(_disposed, this);
     }
 
     /// <summary>

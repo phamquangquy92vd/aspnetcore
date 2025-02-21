@@ -3,11 +3,8 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -45,30 +42,11 @@ public class DefaultViewComponentHelper : IViewComponentHelper, IViewContextAwar
         IViewComponentInvokerFactory invokerFactory,
         IViewBufferScope viewBufferScope)
     {
-        if (descriptorProvider == null)
-        {
-            throw new ArgumentNullException(nameof(descriptorProvider));
-        }
-
-        if (htmlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(htmlEncoder));
-        }
-
-        if (selector == null)
-        {
-            throw new ArgumentNullException(nameof(selector));
-        }
-
-        if (invokerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(invokerFactory));
-        }
-
-        if (viewBufferScope == null)
-        {
-            throw new ArgumentNullException(nameof(viewBufferScope));
-        }
+        ArgumentNullException.ThrowIfNull(descriptorProvider);
+        ArgumentNullException.ThrowIfNull(htmlEncoder);
+        ArgumentNullException.ThrowIfNull(selector);
+        ArgumentNullException.ThrowIfNull(invokerFactory);
+        ArgumentNullException.ThrowIfNull(viewBufferScope);
 
         _descriptorProvider = descriptorProvider;
         _htmlEncoder = htmlEncoder;
@@ -80,10 +58,7 @@ public class DefaultViewComponentHelper : IViewComponentHelper, IViewContextAwar
     /// <inheritdoc />
     public void Contextualize(ViewContext viewContext)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
 
         _viewContext = viewContext;
     }
@@ -91,10 +66,7 @@ public class DefaultViewComponentHelper : IViewComponentHelper, IViewContextAwar
     /// <inheritdoc />
     public Task<IHtmlContent> InvokeAsync(string name, object? arguments)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         var descriptor = _selector.SelectComponent(name);
         if (descriptor == null)
@@ -112,10 +84,7 @@ public class DefaultViewComponentHelper : IViewComponentHelper, IViewContextAwar
     /// <inheritdoc />
     public Task<IHtmlContent> InvokeAsync(Type componentType, object? arguments)
     {
-        if (componentType == null)
-        {
-            throw new ArgumentNullException(nameof(componentType));
-        }
+        ArgumentNullException.ThrowIfNull(componentType);
 
         var descriptor = SelectComponent(componentType);
         return InvokeCoreAsync(descriptor, arguments);
@@ -141,7 +110,7 @@ public class DefaultViewComponentHelper : IViewComponentHelper, IViewContextAwar
     }
 
     // Internal for testing
-    internal IDictionary<string, object?> GetArgumentDictionary(ViewComponentDescriptor descriptor, object? arguments)
+    internal static IDictionary<string, object?> GetArgumentDictionary(ViewComponentDescriptor descriptor, object? arguments)
     {
         if (arguments != null)
         {

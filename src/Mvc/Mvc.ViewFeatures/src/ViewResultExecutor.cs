@@ -3,12 +3,9 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
@@ -21,7 +18,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
 /// <summary>
 /// Finds and executes an <see cref="IView"/> for a <see cref="ViewResult"/>.
 /// </summary>
-public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult>
+public partial class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult>
 {
     private const string ActionNameKey = "action";
 
@@ -45,10 +42,7 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
         IModelMetadataProvider modelMetadataProvider)
         : base(viewOptions, writerFactory, viewEngine, tempDataFactory, diagnosticListener, modelMetadataProvider)
     {
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         Logger = loggerFactory.CreateLogger<ViewResultExecutor>();
     }
@@ -66,15 +60,8 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
     /// <returns>A <see cref="ViewEngineResult"/>.</returns>
     public virtual ViewEngineResult FindView(ActionContext actionContext, ViewResult viewResult)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (viewResult == null)
-        {
-            throw new ArgumentNullException(nameof(viewResult));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(viewResult);
 
         var viewEngine = viewResult.ViewEngine ?? ViewEngine;
 
@@ -89,7 +76,7 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
             result = viewEngine.FindView(actionContext, viewName, isMainPage: true);
         }
 
-        Logger.ViewResultExecuting(result.ViewName);
+        Log.ViewResultExecuting(Logger, result.ViewName);
         if (!result.Success)
         {
             if (originalResult.SearchedLocations.Any())
@@ -116,11 +103,11 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
 
         if (result.Success)
         {
-            Logger.ViewFound(result.View, stopwatch.GetElapsedTime());
+            Log.ViewFound(Logger, result.View, stopwatch.GetElapsedTime());
         }
         else
         {
-            Logger.ViewNotFound(viewName, result.SearchedLocations);
+            Log.ViewNotFound(Logger, viewName, result.SearchedLocations);
         }
 
         return result;
@@ -151,15 +138,8 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
     /// <inheritdoc />
     public async Task ExecuteAsync(ActionContext context, ViewResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         var stopwatch = ValueStopwatch.StartNew();
 
@@ -178,15 +158,12 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
                 result.StatusCode);
         }
 
-        Logger.ViewResultExecuted(viewEngineResult.ViewName, stopwatch.GetElapsedTime());
+        Log.ViewResultExecuted(Logger, viewEngineResult.ViewName, stopwatch.GetElapsedTime());
     }
 
     private static string? GetActionName(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (!context.RouteData.Values.TryGetValue(ActionNameKey, out var routeValue))
         {
@@ -208,5 +185,30 @@ public class ViewResultExecutor : ViewExecutor, IActionResultExecutor<ViewResult
         }
 
         return stringRouteValue;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Information, "Executing ViewResult, running view {ViewName}.", EventName = "ViewResultExecuting")]
+        public static partial void ViewResultExecuting(ILogger logger, string viewName);
+
+        [LoggerMessage(2, LogLevel.Debug, "The view path '{ViewFilePath}' was found in {ElapsedMilliseconds}ms.", EventName = "ViewFound")]
+        private static partial void ViewFound(ILogger logger, string viewFilePath, double elapsedMilliseconds);
+
+        public static void ViewFound(ILogger logger, IView view, TimeSpan timespan)
+        {
+            ViewFound(logger, view.Path, timespan.TotalMilliseconds);
+        }
+
+        [LoggerMessage(3, LogLevel.Error, "The view '{ViewName}' was not found. Searched locations: {SearchedViewLocations}", EventName = "ViewNotFound")]
+        public static partial void ViewNotFound(ILogger logger, string viewName, IEnumerable<string> searchedViewLocations);
+
+        [LoggerMessage(4, LogLevel.Information, "Executed ViewResult - view {ViewName} executed in {ElapsedMilliseconds}ms.", EventName = "ViewResultExecuted")]
+        private static partial void ViewResultExecuted(ILogger logger, string viewName, double elapsedMilliseconds);
+
+        public static void ViewResultExecuted(ILogger logger, string viewName, TimeSpan timespan)
+        {
+            ViewResultExecuted(logger, viewName, timespan.TotalMilliseconds);
+        }
     }
 }

@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
@@ -28,10 +25,7 @@ public class DataProtectorTokenProvider<TUser> : IUserTwoFactorTokenProvider<TUs
                                       IOptions<DataProtectionTokenProviderOptions> options,
                                       ILogger<DataProtectorTokenProvider<TUser>> logger)
     {
-        if (dataProtectionProvider == null)
-        {
-            throw new ArgumentNullException(nameof(dataProtectionProvider));
-        }
+        ArgumentNullException.ThrowIfNull(dataProtectionProvider);
 
         Options = options?.Value ?? new DataProtectionTokenProviderOptions();
 
@@ -81,10 +75,7 @@ public class DataProtectorTokenProvider<TUser> : IUserTwoFactorTokenProvider<TUs
     /// <returns>A <see cref="Task{TResult}"/> representing the generated token.</returns>
     public virtual async Task<string> GenerateAsync(string purpose, UserManager<TUser> manager, TUser user)
     {
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
         var ms = new MemoryStream();
         var userId = await manager.GetUserIdAsync(user);
         using (var writer = ms.CreateWriter())
@@ -92,7 +83,7 @@ public class DataProtectorTokenProvider<TUser> : IUserTwoFactorTokenProvider<TUs
             writer.Write(DateTimeOffset.UtcNow);
             writer.Write(userId);
             writer.Write(purpose ?? "");
-            string stamp = null;
+            string? stamp = null;
             if (manager.SupportsUserSecurityStamp)
             {
                 stamp = await manager.GetSecurityStampAsync(user);
@@ -163,7 +154,6 @@ public class DataProtectorTokenProvider<TUser> : IUserTwoFactorTokenProvider<TUs
                     return isEqualsSecurityStamp;
                 }
 
-
                 var stampIsEmpty = stamp == "";
                 if (!stampIsEmpty)
                 {
@@ -208,19 +198,13 @@ internal static class StreamExtensions
     internal static readonly Encoding DefaultEncoding = new UTF8Encoding(false, true);
 
     public static BinaryReader CreateReader(this Stream stream)
-    {
-        return new BinaryReader(stream, DefaultEncoding, true);
-    }
+        => new BinaryReader(stream, DefaultEncoding, true);
 
     public static BinaryWriter CreateWriter(this Stream stream)
-    {
-        return new BinaryWriter(stream, DefaultEncoding, true);
-    }
+        => new BinaryWriter(stream, DefaultEncoding, true);
 
     public static DateTimeOffset ReadDateTimeOffset(this BinaryReader reader)
-    {
-        return new DateTimeOffset(reader.ReadInt64(), TimeSpan.Zero);
-    }
+        => new DateTimeOffset(reader.ReadInt64(), TimeSpan.Zero);
 
     public static void Write(this BinaryWriter writer, DateTimeOffset value)
     {

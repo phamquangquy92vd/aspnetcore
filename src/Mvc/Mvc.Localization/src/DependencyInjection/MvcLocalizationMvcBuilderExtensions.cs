@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Localization;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -21,10 +20,7 @@ public static class MvcLocalizationMvcBuilderExtensions
     /// <returns>The <see cref="IMvcBuilder"/>.</returns>
     public static IMvcBuilder AddViewLocalization(this IMvcBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddViewLocalization(builder, LanguageViewLocationExpanderFormat.Suffix);
     }
@@ -39,10 +35,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         this IMvcBuilder builder,
         LanguageViewLocationExpanderFormat format)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         AddViewLocalization(builder, format, setupAction: null);
         return builder;
@@ -58,10 +51,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         this IMvcBuilder builder,
         Action<LocalizationOptions>? setupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         AddViewLocalization(builder, LanguageViewLocationExpanderFormat.Suffix, setupAction);
         return builder;
@@ -79,10 +69,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         LanguageViewLocationExpanderFormat format,
         Action<LocalizationOptions>? setupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         MvcLocalizationServices.AddLocalizationServices(builder.Services, format, setupAction);
         return builder;
@@ -100,10 +87,7 @@ public static class MvcLocalizationMvcBuilderExtensions
     /// </remarks>
     public static IMvcBuilder AddMvcLocalization(this IMvcBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -127,10 +111,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         this IMvcBuilder builder,
         Action<LocalizationOptions>? localizationOptionsSetupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -154,10 +135,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         this IMvcBuilder builder,
         LanguageViewLocationExpanderFormat format)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -184,10 +162,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         Action<LocalizationOptions>? localizationOptionsSetupAction,
         LanguageViewLocationExpanderFormat format)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -212,10 +187,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         this IMvcBuilder builder,
         Action<MvcDataAnnotationsLocalizationOptions>? dataAnnotationsLocalizationOptionsSetupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -243,10 +215,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         Action<LocalizationOptions>? localizationOptionsSetupAction,
         Action<MvcDataAnnotationsLocalizationOptions>? dataAnnotationsLocalizationOptionsSetupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -273,10 +242,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         LanguageViewLocationExpanderFormat format,
         Action<MvcDataAnnotationsLocalizationOptions>? dataAnnotationsLocalizationOptionsSetupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return AddMvcLocalization(
             builder,
@@ -306,10 +272,7 @@ public static class MvcLocalizationMvcBuilderExtensions
         LanguageViewLocationExpanderFormat format,
         Action<MvcDataAnnotationsLocalizationOptions>? dataAnnotationsLocalizationOptionsSetupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return builder
             .AddViewLocalization(format, localizationOptionsSetupAction)

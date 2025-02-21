@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
 /// <summary>
@@ -16,10 +13,7 @@ public class RouteValueProviderFactory : IValueProviderFactory
     /// <inheritdoc />
     public Task CreateValueProviderAsync(ValueProviderFactoryContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var valueProvider = new RouteValueProvider(
             BindingSource.Path,

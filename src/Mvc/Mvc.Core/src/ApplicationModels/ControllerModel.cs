@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -27,15 +25,8 @@ public class ControllerModel : ICommonModel, IFilterModel, IApiExplorerModel
         TypeInfo controllerType,
         IReadOnlyList<object> attributes)
     {
-        if (controllerType == null)
-        {
-            throw new ArgumentNullException(nameof(controllerType));
-        }
-
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(controllerType);
+        ArgumentNullException.ThrowIfNull(attributes);
 
         ControllerType = controllerType;
 
@@ -55,10 +46,7 @@ public class ControllerModel : ICommonModel, IFilterModel, IApiExplorerModel
     /// <param name="other">The other controller model.</param>
     public ControllerModel(ControllerModel other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         ControllerName = other.ControllerName;
         ControllerType = other.ControllerType;

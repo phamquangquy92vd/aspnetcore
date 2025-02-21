@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Builder;
 
 /// <summary>
@@ -14,7 +12,10 @@ public sealed class ComponentEndpointConventionBuilder : IHubEndpointConventionB
     private readonly IEndpointConventionBuilder _disconnectEndpoint;
     private readonly IEndpointConventionBuilder _jsInitializersEndpoint;
 
-    internal ComponentEndpointConventionBuilder(IEndpointConventionBuilder hubEndpoint, IEndpointConventionBuilder disconnectEndpoint, IEndpointConventionBuilder jsInitializersEndpoint)
+    internal ComponentEndpointConventionBuilder(
+        IEndpointConventionBuilder hubEndpoint,
+        IEndpointConventionBuilder disconnectEndpoint,
+        IEndpointConventionBuilder jsInitializersEndpoint)
     {
         _hubEndpoint = hubEndpoint;
         _disconnectEndpoint = disconnectEndpoint;
@@ -30,5 +31,13 @@ public sealed class ComponentEndpointConventionBuilder : IHubEndpointConventionB
         _hubEndpoint.Add(convention);
         _disconnectEndpoint.Add(convention);
         _jsInitializersEndpoint.Add(convention);
+    }
+
+    /// <inheritdoc/>
+    public void Finally(Action<EndpointBuilder> finalConvention)
+    {
+        _hubEndpoint.Finally(finalConvention);
+        _disconnectEndpoint.Finally(finalConvention);
+        _jsInitializersEndpoint.Finally(finalConvention);
     }
 }

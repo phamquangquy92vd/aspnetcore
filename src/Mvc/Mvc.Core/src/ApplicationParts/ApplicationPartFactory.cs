@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.Core;
 
@@ -36,10 +34,7 @@ public abstract class ApplicationPartFactory
     /// <returns>An instance of <see cref="ApplicationPartFactory"/>.</returns>
     public static ApplicationPartFactory GetApplicationPartFactory(Assembly assembly)
     {
-        if (assembly == null)
-        {
-            throw new ArgumentNullException(nameof(assembly));
-        }
+        ArgumentNullException.ThrowIfNull(assembly);
 
         var provideAttribute = assembly.GetCustomAttribute<ProvideApplicationPartFactoryAttribute>();
         if (provideAttribute == null)

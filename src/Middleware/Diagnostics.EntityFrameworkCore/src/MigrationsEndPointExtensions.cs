@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -20,10 +19,7 @@ public static class MigrationsEndPointExtensions
     /// <returns>The same <see cref="IApplicationBuilder"/> instance so that multiple calls can be chained.</returns>
     public static IApplicationBuilder UseMigrationsEndPoint(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseMigrationsEndPoint(new MigrationsEndPointOptions());
     }
@@ -36,14 +32,8 @@ public static class MigrationsEndPointExtensions
     /// <returns>The same <see cref="IApplicationBuilder"/> instance so that multiple calls can be chained.</returns>
     public static IApplicationBuilder UseMigrationsEndPoint(this IApplicationBuilder app, MigrationsEndPointOptions options)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(options);
 
         return app.UseMiddleware<MigrationsEndPointMiddleware>(Options.Create(options));
     }

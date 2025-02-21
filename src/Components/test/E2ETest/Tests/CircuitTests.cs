@@ -1,18 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using BasicTestApp;
-using BasicTestApp.Reconnection;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
-using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.AspNetCore.E2ETesting;
+using Microsoft.AspNetCore.InternalTesting;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.ServerExecutionTests;
@@ -29,7 +24,7 @@ public class CircuitTests : ServerTestBase<BasicTestAppServerSiteFixture<ServerS
 
     protected override void InitializeAsyncCore()
     {
-        Navigate(ServerPathBase, noReload: false);
+        Navigate(ServerPathBase);
     }
 
     [Theory]
@@ -40,6 +35,7 @@ public class CircuitTests : ServerTestBase<BasicTestAppServerSiteFixture<ServerS
     [InlineData("render-throw")]
     [InlineData("afterrender-sync-throw")]
     [InlineData("afterrender-async-throw")]
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/57588")]
     public void ComponentLifecycleMethodThrowsExceptionTerminatesTheCircuit(string id)
     {
         Browser.MountTestComponent<ReliabilityComponent>();
@@ -58,6 +54,7 @@ public class CircuitTests : ServerTestBase<BasicTestAppServerSiteFixture<ServerS
     }
 
     [Fact]
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/57588")]
     public void ComponentDisposeMethodThrowsExceptionTerminatesTheCircuit()
     {
         Browser.MountTestComponent<ReliabilityComponent>();

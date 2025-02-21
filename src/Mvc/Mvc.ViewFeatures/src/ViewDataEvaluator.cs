@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -26,10 +24,7 @@ public static class ViewDataEvaluator
     /// </returns>
     public static ViewDataInfo Eval(ViewDataDictionary viewData, string expression)
     {
-        if (viewData == null)
-        {
-            throw new ArgumentNullException(nameof(viewData));
-        }
+        ArgumentNullException.ThrowIfNull(viewData);
 
         // While it is not valid to generate a field for the top-level model itself because the result is an
         // unnamed input element, do not throw here if full name is null or empty. Support is needed for cases

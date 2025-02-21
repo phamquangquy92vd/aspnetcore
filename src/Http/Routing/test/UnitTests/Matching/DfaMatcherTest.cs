@@ -1,10 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.TestObjects;
@@ -12,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
 
@@ -97,6 +92,35 @@ public class DfaMatcherTest
 
         var httpContext = CreateContext();
         httpContext.Request.Path = "/One";
+
+        // Act
+        await matcher.MatchAsync(httpContext);
+
+        // Assert
+        Assert.Null(httpContext.GetEndpoint());
+    }
+
+    [Theory]
+    [InlineData("{a}.{b}.{c}/{d}", "/.git/index")]
+    [InlineData("{a}-{b}-{c}/c.aspx", "/-hello/c.aspx")]
+    [InlineData("-{b}-{c}", "/-hello")]
+    [InlineData("--{b}-{c}", "/-hello")]
+    [InlineData("-{b}--{c}", "/-hello")]
+    [InlineData("{b}-{c}", "/-hello")]
+    [InlineData("-{b}--{c}", "/--hello")]
+    [InlineData(".{b}-{c}", "/-hello")]
+    public async Task MatchAsync_ComplexSegmentEndpointAndPathStartingWithLiteral_NoEndpointMatched(string endpoint, string path)
+    {
+        // Arrange
+        var endpointDataSource = new DefaultEndpointDataSource(new List<Endpoint>
+            {
+                CreateEndpoint(endpoint, 0)
+            });
+
+        var matcher = CreateDfaMatcher(endpointDataSource);
+
+        var httpContext = CreateContext();
+        httpContext.Request.Path = path;
 
         // Act
         await matcher.MatchAsync(httpContext);
@@ -975,7 +999,7 @@ public class DfaMatcherTest
             .Returns<HttpContext, CandidateSet>((c, cs) =>
             {
                 throw null; // Won't be called.
-                });
+            });
 
         var matcher = CreateDfaMatcher(dataSource, policies: new[] { policy.Object, });
 

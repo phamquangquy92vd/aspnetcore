@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -11,7 +8,6 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc;
 
@@ -153,6 +149,29 @@ public class ProducesAttributeTests
         // Act and Assert
         Assert.NotNull(producesAttribute.ContentTypes);
         Assert.Empty(producesAttribute.ContentTypes);
+    }
+
+    [Fact]
+    public void ProducesAttribute_SetsDescription()
+    {
+        // Arrange
+        var producesAttribute = new ProducesAttribute(typeof(Person))
+        {
+            Description = "Example"
+        };
+
+        // Act and Assert
+        Assert.Equal("Example", producesAttribute.Description);
+    }
+
+    [Fact]
+    public void ProducesAttribute_WithTypeOnly_DoesNotSetDescription()
+    {
+        // Arrange
+        var producesAttribute = new ProducesAttribute(typeof(Person));
+
+        // Act and Assert
+        Assert.Null(producesAttribute.Description);
     }
 
     private static ResultExecutedContext CreateResultExecutedContext(ResultExecutingContext context)

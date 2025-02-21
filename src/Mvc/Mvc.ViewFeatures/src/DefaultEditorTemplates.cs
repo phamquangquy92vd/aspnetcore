@@ -1,12 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Html;
@@ -398,20 +395,14 @@ internal static class DefaultEditorTemplates
 
     public static IHtmlContent FileInputTemplate(IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return GenerateTextBox(htmlHelper, inputType: "file");
     }
 
     public static IHtmlContent FileCollectionInputTemplate(IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         var htmlAttributes =
             CreateHtmlAttributes(htmlHelper, className: "text-box single-line", inputType: "file");
@@ -463,7 +454,7 @@ internal static class DefaultEditorTemplates
             htmlAttributes: htmlAttributes);
     }
 
-    private class HasContentTextWriter : TextWriter
+    private sealed class HasContentTextWriter : TextWriter
     {
         public bool HasContent { get; private set; }
 
@@ -492,7 +483,7 @@ internal static class DefaultEditorTemplates
 
     // An HTML encoder which passes through all input data. Does no encoding.
     // Copied from Microsoft.AspNetCore.Razor.TagHelpers.NullHtmlEncoder.
-    private class PassThroughHtmlEncoder : HtmlEncoder
+    private sealed class PassThroughHtmlEncoder : HtmlEncoder
     {
         private PassThroughHtmlEncoder()
         {
@@ -509,10 +500,7 @@ internal static class DefaultEditorTemplates
 
         public override void Encode(TextWriter output, char[] value, int startIndex, int characterCount)
         {
-            if (output == null)
-            {
-                throw new ArgumentNullException(nameof(output));
-            }
+            ArgumentNullException.ThrowIfNull(output);
 
             if (characterCount == 0)
             {
@@ -524,15 +512,8 @@ internal static class DefaultEditorTemplates
 
         public override void Encode(TextWriter output, string value, int startIndex, int characterCount)
         {
-            if (output == null)
-            {
-                throw new ArgumentNullException(nameof(output));
-            }
-
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(output);
+            ArgumentNullException.ThrowIfNull(value);
 
             if (characterCount == 0)
             {

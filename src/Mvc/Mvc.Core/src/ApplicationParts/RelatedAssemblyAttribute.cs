@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -23,10 +20,7 @@ public sealed class RelatedAssemblyAttribute : Attribute
     /// <param name="assemblyFileName">The file name, without extension, of the related assembly.</param>
     public RelatedAssemblyAttribute(string assemblyFileName)
     {
-        if (string.IsNullOrEmpty(assemblyFileName))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(assemblyFileName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(assemblyFileName);
 
         AssemblyFileName = assemblyFileName;
     }
@@ -44,10 +38,7 @@ public sealed class RelatedAssemblyAttribute : Attribute
     /// <returns>Related <see cref="Assembly"/> instances.</returns>
     public static IReadOnlyList<Assembly> GetRelatedAssemblies(Assembly assembly, bool throwOnError)
     {
-        if (assembly == null)
-        {
-            throw new ArgumentNullException(nameof(assembly));
-        }
+        ArgumentNullException.ThrowIfNull(assembly);
 
         var loadContext = AssemblyLoadContext.GetLoadContext(assembly) ?? AssemblyLoadContext.Default;
         return GetRelatedAssemblies(assembly, throwOnError, File.Exists, new AssemblyLoadContextWrapper(loadContext));
@@ -59,10 +50,7 @@ public sealed class RelatedAssemblyAttribute : Attribute
         Func<string, bool> fileExists,
         AssemblyLoadContextWrapper assemblyLoadContext)
     {
-        if (assembly == null)
-        {
-            throw new ArgumentNullException(nameof(assembly));
-        }
+        ArgumentNullException.ThrowIfNull(assembly);
 
         // MVC will specifically look for related parts in the same physical directory as the assembly.
         // No-op if the assembly does not have a location.
@@ -124,7 +112,9 @@ public sealed class RelatedAssemblyAttribute : Attribute
         return relatedAssemblies;
     }
 
+#pragma warning disable CA1852 // Seal internal types
     internal class AssemblyLoadContextWrapper
+#pragma warning restore CA1852 // Seal internal types
     {
         private readonly AssemblyLoadContext _loadContext;
 

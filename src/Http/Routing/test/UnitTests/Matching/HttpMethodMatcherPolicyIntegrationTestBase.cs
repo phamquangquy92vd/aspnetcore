@@ -1,15 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 using static Microsoft.AspNetCore.Routing.Matching.HttpMethodMatcherPolicy;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
@@ -66,7 +61,6 @@ public abstract class HttpMethodMatcherPolicyIntegrationTestBase
         // Assert
         MatcherAssert.AssertMatch(httpContext, endpoint);
     }
-
 
     [Fact] // Nothing here supports OPTIONS, so it goes to a 405.
     public async Task NotMatch_HttpMethod_CORS_Preflight()
@@ -323,6 +317,30 @@ public abstract class HttpMethodMatcherPolicyIntegrationTestBase
         await httpContext.GetEndpoint().RequestDelegate(httpContext);
         Assert.Equal(405, httpContext.Response.StatusCode);
         Assert.Equal("DELETE, GET, PUT", httpContext.Response.Headers["Allow"]);
+    }
+
+    [Fact]
+    public async Task Match_Custom_HttpMethod()
+    {
+        // Arrange
+        var endpoint1 = CreateEndpoint("/hello", httpMethods: new string[] { "GET", });
+        var endpoint2 = CreateEndpoint("/hello", httpMethods: new string[] { "GOT", });
+
+        var matcher = CreateMatcher(endpoint1, endpoint2);
+
+        // Act 1
+        var httpContext1 = CreateContext("/hello", "GET");
+        await matcher.MatchAsync(httpContext1);
+
+        // Assert 1
+        MatcherAssert.AssertMatch(httpContext1, endpoint1);
+
+        // Act 2
+        var httpContext2 = CreateContext("/hello", "GOT");
+        await matcher.MatchAsync(httpContext2);
+
+        // Assert 2
+        MatcherAssert.AssertMatch(httpContext2, endpoint2);
     }
 
     private static Matcher CreateMatcher(params RouteEndpoint[] endpoints)

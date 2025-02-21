@@ -1,21 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
 /// <summary>
 /// A <see cref="IActionResultExecutor{RedirectToRouteResult}"/> for <see cref="RedirectToRouteResult"/>.
 /// </summary>
-public class RedirectToRouteResultExecutor : IActionResultExecutor<RedirectToRouteResult>
+public partial class RedirectToRouteResultExecutor : IActionResultExecutor<RedirectToRouteResult>
 {
     private readonly ILogger _logger;
     private readonly IUrlHelperFactory _urlHelperFactory;
@@ -27,15 +23,8 @@ public class RedirectToRouteResultExecutor : IActionResultExecutor<RedirectToRou
     /// <param name="urlHelperFactory">The factory used to create url helpers.</param>
     public RedirectToRouteResultExecutor(ILoggerFactory loggerFactory, IUrlHelperFactory urlHelperFactory)
     {
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
-
-        if (urlHelperFactory == null)
-        {
-            throw new ArgumentNullException(nameof(urlHelperFactory));
-        }
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(urlHelperFactory);
 
         _logger = loggerFactory.CreateLogger<RedirectToRouteResult>();
         _urlHelperFactory = urlHelperFactory;
@@ -57,7 +46,7 @@ public class RedirectToRouteResultExecutor : IActionResultExecutor<RedirectToRou
             throw new InvalidOperationException(Resources.NoRoutesMatched);
         }
 
-        _logger.RedirectToRouteResultExecuting(destinationUrl, result.RouteName);
+        Log.RedirectToRouteResultExecuting(_logger, destinationUrl, result.RouteName);
 
         if (result.PreserveMethod)
         {
@@ -71,5 +60,11 @@ public class RedirectToRouteResultExecutor : IActionResultExecutor<RedirectToRou
         }
 
         return Task.CompletedTask;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Information, "Executing RedirectToRouteResult, redirecting to {Destination} from route {RouteName}.", EventName = "RedirectToRouteResultExecuting")]
+        public static partial void RedirectToRouteResultExecuting(ILogger logger, string destination, string? routeName);
     }
 }

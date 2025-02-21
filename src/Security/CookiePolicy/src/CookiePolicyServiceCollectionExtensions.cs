@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Builder;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -19,14 +18,8 @@ public static class CookiePolicyServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddCookiePolicy(this IServiceCollection services, Action<CookiePolicyOptions> configureOptions)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-        if (configureOptions == null)
-        {
-            throw new ArgumentNullException(nameof(configureOptions));
-        }
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configureOptions);
 
         return services.Configure(configureOptions);
     }
@@ -39,14 +32,8 @@ public static class CookiePolicyServiceCollectionExtensions
     /// <returns></returns>
     public static IServiceCollection AddCookiePolicy<TService>(this IServiceCollection services, Action<CookiePolicyOptions, TService> configureOptions) where TService : class
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-        if (configureOptions == null)
-        {
-            throw new ArgumentNullException(nameof(configureOptions));
-        }
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configureOptions);
 
         services.AddOptions<CookiePolicyOptions>().Configure(configureOptions);
         return services;

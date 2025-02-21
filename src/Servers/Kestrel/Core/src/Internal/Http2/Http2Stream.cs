@@ -1,41 +1,50 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Pipelines;
 using System.Net.Http.HPack;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2.FlowControl;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Net.Http.Headers;
+using HttpCharacters = Microsoft.AspNetCore.Http.HttpCharacters;
 using HttpMethods = Microsoft.AspNetCore.Http.HttpMethods;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
 
+/// <summary>
+/// A poolable HTTP/2 stream.
+/// </summary>
+/// <remarks>
+/// In practice, the product code uses <see cref="Http2Stream{TContext}"/>. This appears to be
+/// a simplified version omitting <see cref="Hosting.Server.IHttpApplication{TContext}"/> that
+/// the tests can subtype for mocking.
+/// <para/>
+/// Reusable after calling <see cref="Initialize"/> or <see cref="InitializeWithExistingContext"/>.
+/// <para/>
+/// Indirectly owned, via <see cref="PooledStreamStack{TValue}"/>, by an <see cref="Http2Connection"/>.
+/// </remarks>
 internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem, IDisposable, IPooledStream
 {
     private Http2StreamContext _context = default!;
     private Http2OutputProducer _http2Output = default!;
     private StreamInputFlowControl _inputFlowControl = default!;
-    private StreamOutputFlowControl _outputFlowControl = default!;
     private Http2MessageBody? _messageBody;
 
     private bool _decrementCalled;
 
+    public int TotalParsedHeaderSize { get; set; }
+
     public Pipe RequestBodyPipe { get; private set; } = default!;
 
-    internal long DrainExpirationTicks { get; set; }
+    internal long DrainExpirationTimestamp { get; set; }
 
     private StreamCompletionFlags _completionState;
-    private readonly object _completionLock = new object();
+    private readonly Lock _completionLock = new();
 
     public void Initialize(Http2StreamContext context)
     {
@@ -45,7 +54,10 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         _completionState = StreamCompletionFlags.None;
         InputRemaining = null;
         RequestBodyStarted = false;
-        DrainExpirationTicks = 0;
+        DrainExpirationTimestamp = 0;
+        TotalParsedHeaderSize = 0;
+        // Allow up to 2x during parsing, enforce the hard limit after when we can preserve the connection.
+        _eagerRequestHeadersParsedLimit = ServerOptions.Limits.MaxRequestHeaderCount * 2;
 
         _context = context;
 
@@ -60,11 +72,7 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
                 context.ServerPeerSettings.InitialWindowSize,
                 context.ServerPeerSettings.InitialWindowSize / 2);
 
-            _outputFlowControl = new StreamOutputFlowControl(
-                context.ConnectionOutputFlowControl,
-                context.ClientPeerSettings.InitialWindowSize);
-
-            _http2Output = new Http2OutputProducer(this, context, _outputFlowControl);
+            _http2Output = new Http2OutputProducer(this, context);
 
             RequestBodyPipe = CreateRequestBodyPipe();
 
@@ -73,8 +81,7 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         else
         {
             _inputFlowControl.Reset();
-            _outputFlowControl.Reset(context.ClientPeerSettings.InitialWindowSize);
-            _http2Output.StreamReset();
+            _http2Output.StreamReset(context.ClientPeerSettings.InitialWindowSize);
             RequestBodyPipe.Reset();
         }
     }
@@ -87,6 +94,8 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
     }
 
     public int StreamId => _context.StreamId;
+    public BaseConnectionContext ConnectionContext => _context.ConnectionContext;
+    public ConnectionMetricsContext MetricsContext => _context.MetricsContext;
 
     public long? InputRemaining { get; internal set; }
 
@@ -133,7 +142,7 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
 
     protected override void OnRequestProcessingEnded()
     {
-        CompleteStream(errored: false);
+        _http2Output.OnRequestProcessingEnded();
     }
 
     public void CompleteStream(bool errored)
@@ -172,7 +181,6 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
             // The app can no longer read any more of the request body, so return any bytes that weren't read to the
             // connection's flow-control window.
             _inputFlowControl.Abort();
-
         }
         finally
         {
@@ -209,8 +217,24 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         // do the reading from a pipeline, nor do we use endConnection to report connection-level errors.
         endConnection = !TryValidatePseudoHeaders();
 
+        // 431 if the headers are too large
+        if (TotalParsedHeaderSize > ServerOptions.Limits.MaxRequestHeadersTotalSize)
+        {
+            KestrelBadHttpRequestException.Throw(RequestRejectionReason.HeadersExceedMaxTotalSize);
+        }
+
+        // 431 if we received too many headers
+        if (RequestHeadersParsed > ServerOptions.Limits.MaxRequestHeaderCount)
+        {
+            KestrelBadHttpRequestException.Throw(RequestRejectionReason.TooManyHeaders);
+        }
+
         // Suppress pseudo headers from the public headers collection.
         HttpRequestHeaders.ClearPseudoRequestHeaders();
+
+        // Cookies should be merged into a single string separated by "; "
+        // https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2.5
+        HttpRequestHeaders.MergeCookies();
 
         return true;
     }
@@ -233,18 +257,37 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
             return false;
         }
 
-        // CONNECT - :scheme and :path must be excluded
         if (Method == HttpMethod.Connect)
         {
-            if (!String.IsNullOrEmpty(HttpRequestHeaders.HeaderScheme) || !String.IsNullOrEmpty(HttpRequestHeaders.HeaderPath))
+            // https://datatracker.ietf.org/doc/html/rfc8441#section-4
+            // HTTP/2 WebSockets
+            if (!StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderProtocol))
+            {
+                // On requests that contain the :protocol pseudo-header field, the :scheme and :path pseudo-header fields of the target URI MUST also be included.
+                if (StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderScheme) || StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderPath))
+                {
+                    ResetAndAbort(new ConnectionAbortedException(CoreStrings.ConnectRequestsWithProtocolRequireSchemeAndPath), Http2ErrorCode.PROTOCOL_ERROR);
+                    return false;
+                }
+                ConnectProtocol = HttpRequestHeaders.HeaderProtocol;
+                IsExtendedConnectRequest = true;
+            }
+            // CONNECT - :scheme and :path must be excluded
+            else if (!StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderScheme) || !StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderPath))
             {
                 ResetAndAbort(new ConnectionAbortedException(CoreStrings.Http2ErrorConnectMustNotSendSchemeOrPath), Http2ErrorCode.PROTOCOL_ERROR);
                 return false;
             }
-
-            RawTarget = hostText;
-
-            return true;
+            else
+            {
+                RawTarget = hostText;
+                return true;
+            }
+        }
+        else if (!StringValues.IsNullOrEmpty(HttpRequestHeaders.HeaderProtocol))
+        {
+            ResetAndAbort(new ConnectionAbortedException(CoreStrings.ProtocolRequiresConnect), Http2ErrorCode.PROTOCOL_ERROR);
+            return false;
         }
 
         // :scheme https://tools.ietf.org/html/rfc7540#section-8.1.2.3
@@ -404,7 +447,7 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
                 pathBuffer[i] = (byte)ch;
             }
 
-            Path = PathNormalizer.DecodePath(pathBuffer, pathEncoded, RawTarget!, QueryString!.Length);
+            Path = PathDecoder.DecodePath(pathBuffer, pathEncoded, RawTarget!, QueryString!.Length);
 
             return true;
         }
@@ -511,7 +554,7 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
 
     public bool TryUpdateOutputWindow(int bytes)
     {
-        return _context.FrameWriter.TryUpdateStreamWindow(_outputFlowControl, bytes);
+        return _http2Output.TryUpdateStreamWindow(bytes);
     }
 
     public void AbortRstStreamReceived()
@@ -644,11 +687,11 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         Aborted = 4,
     }
 
-    public override void OnHeader(int index, bool indexedValue, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    public override void OnHeader(int index, bool indexOnly, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        base.OnHeader(index, indexedValue, name, value);
+        base.OnHeader(index, indexOnly, name, value);
 
-        if (indexedValue)
+        if (indexOnly)
         {
             // Special case setting headers when the value is indexed for performance.
             switch (index)
@@ -675,7 +718,9 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         // HPack append will return false if the index is not a known request header.
         // For example, someone could send the index of "Server" (a response header) in the request.
         // If that happens then fallback to using Append with the name bytes.
-        if (!HttpRequestHeaders.TryHPackAppend(index, value))
+        //
+        // If the value is indexed then we know it doesn't contain new lines and can skip checking.
+        if (!HttpRequestHeaders.TryHPackAppend(index, value, checkForNewlineChars: !indexOnly))
         {
             AppendHeader(name, value);
         }
@@ -692,5 +737,5 @@ internal abstract partial class Http2Stream : HttpProtocol, IThreadPoolWorkItem,
         Dispose();
     }
 
-    long IPooledStream.PoolExpirationTicks => DrainExpirationTicks;
+    long IPooledStream.PoolExpirationTimestamp => DrainExpirationTimestamp;
 }

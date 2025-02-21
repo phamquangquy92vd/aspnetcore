@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Internal;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Internal.Tests;
@@ -824,7 +824,6 @@ public class AdaptiveCapacityDictionaryTests
         Assert.Empty(dict);
         Assert.IsType<KeyValuePair<string, object?>[]>(dict._arrayStorage);
     }
-
 
     [Fact]
     public void Remove_KeyAndOutValue_EmptyStorage()

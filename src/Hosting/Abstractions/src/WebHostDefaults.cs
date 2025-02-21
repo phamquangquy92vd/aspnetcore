@@ -31,7 +31,6 @@ public static class WebHostDefaults
     /// <summary>
     /// The configuration key associated with the "DetailedErrors" configuration.
     /// </summary>
-
     public static readonly string DetailedErrorsKey = "detailedErrors";
 
     /// <summary>
@@ -53,6 +52,16 @@ public static class WebHostDefaults
     /// The configuration key associated with the "urls" configuration.
     /// </summary>
     public static readonly string ServerUrlsKey = "urls";
+
+    /// <summary>
+    /// The configuration key associated with the "http_ports" configuration.
+    /// </summary>
+    public static readonly string HttpPortsKey = "http_ports";
+
+    /// <summary>
+    /// The configuration key associated with the "https_ports" configuration.
+    /// </summary>
+    public static readonly string HttpsPortsKey = "https_ports";
 
     /// <summary>
     /// The configuration key associated with the "ContentRoot" configuration.

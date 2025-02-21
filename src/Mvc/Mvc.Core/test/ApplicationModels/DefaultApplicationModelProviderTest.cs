@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -14,7 +10,6 @@ using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
@@ -99,6 +94,15 @@ public class DefaultApplicationModelProviderTest
             },
             property =>
             {
+                Assert.Equal(nameof(ModelBinderController.Service), property.PropertyName);
+                Assert.Equal(BindingSource.Services, property.BindingInfo.BindingSource);
+                Assert.Same(controllerModel, property.Controller);
+
+                var attribute = Assert.Single(property.Attributes);
+                Assert.IsType<FromServicesAttribute>(attribute);
+            },
+            property =>
+            {
                 Assert.Equal(nameof(ModelBinderController.Unbound), property.PropertyName);
                 Assert.Null(property.BindingInfo);
                 Assert.Same(controllerModel, property.Controller);
@@ -109,7 +113,7 @@ public class DefaultApplicationModelProviderTest
     public void OnProvidersExecuting_ReadsBindingSourceForPropertiesFromModelMetadata()
     {
         // Arrange
-        var detailsProvider = new BindingSourceMetadataProvider(typeof(string), BindingSource.Services);
+        var detailsProvider = new BindingSourceMetadataProvider(typeof(string), BindingSource.Special);
         var modelMetadataProvider = TestModelMetadataProvider.CreateDefaultProvider(new[] { detailsProvider });
         var typeInfo = typeof(ModelBinderController).GetTypeInfo();
         var provider = new TestApplicationModelProvider(new MvcOptions(), modelMetadataProvider);
@@ -142,8 +146,17 @@ public class DefaultApplicationModelProviderTest
             },
             property =>
             {
-                Assert.Equal(nameof(ModelBinderController.Unbound), property.PropertyName);
+                Assert.Equal(nameof(ModelBinderController.Service), property.PropertyName);
                 Assert.Equal(BindingSource.Services, property.BindingInfo.BindingSource);
+                Assert.Same(controllerModel, property.Controller);
+
+                var attribute = Assert.Single(property.Attributes);
+                Assert.IsType<FromServicesAttribute>(attribute);
+            },
+            property =>
+            {
+                Assert.Equal(nameof(ModelBinderController.Unbound), property.PropertyName);
+                Assert.Equal(BindingSource.Special, property.BindingInfo.BindingSource);
                 Assert.Same(controllerModel, property.Controller);
             });
     }
@@ -362,7 +375,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(StoreController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         var filter = Assert.Single(model.Filters);
@@ -379,7 +392,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(NoFiltersController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         var filter = Assert.Single(model.Filters);
@@ -394,7 +407,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(SomeFiltersController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         Assert.Single(model.Filters, f => f is ControllerActionFilter);
@@ -409,7 +422,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(UnsupportedFiltersController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         Assert.Empty(model.Filters);
@@ -423,7 +436,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(DerivedClassInheritingRoutesController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         var attributeRoutes = GetAttributeRoutes(model.Selectors);
@@ -445,7 +458,7 @@ public class DefaultApplicationModelProviderTest
         var typeInfo = typeof(DerivedClassHidingRoutesController).GetTypeInfo();
 
         // Act
-        var model = builder.CreateControllerModel(typeInfo);
+        var model = DefaultApplicationModelProvider.CreateControllerModel(typeInfo);
 
         // Assert
         var attributeRoutes = GetAttributeRoutes(model.Selectors);
@@ -471,7 +484,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.Equal(expected, isValid);
@@ -486,7 +499,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(BaseController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(BaseController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -503,7 +516,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -519,7 +532,7 @@ public class DefaultApplicationModelProviderTest
         Assert.True(method.IsSpecialName);
 
         // Act
-        var isValid = builder.IsAction(typeof(OperatorOverloadingController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(OperatorOverloadingController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -534,7 +547,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -549,7 +562,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -570,7 +583,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -588,7 +601,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeInfo, method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
         // Assert
         Assert.False(isValid);
@@ -609,7 +622,7 @@ public class DefaultApplicationModelProviderTest
         foreach (var method in methods)
         {
             // Act
-            var isValid = builder.IsAction(typeInfo, method);
+            var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
             // Assert
             Assert.True(isValid);
@@ -626,7 +639,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeInfo, method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
         // Assert
         Assert.False(isValid);
@@ -642,7 +655,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeInfo, method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
         // Assert
         Assert.True(isValid);
@@ -660,7 +673,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeInfo, method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
         // Assert
         Assert.False(isValid);
@@ -681,7 +694,7 @@ public class DefaultApplicationModelProviderTest
         foreach (var method in methods)
         {
             // Act
-            var isValid = builder.IsAction(typeInfo, method);
+            var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
             // Assert
             Assert.True(isValid);
@@ -701,7 +714,7 @@ public class DefaultApplicationModelProviderTest
         foreach (var method in methods)
         {
             // Act
-            var isValid = builder.IsAction(typeInfo, method);
+            var isValid = DefaultApplicationModelProvider.IsAction(typeInfo, method);
 
             // Assert
             Assert.True(isValid);
@@ -722,7 +735,7 @@ public class DefaultApplicationModelProviderTest
         Assert.NotNull(method);
 
         // Act
-        var isValid = builder.IsAction(typeof(DerivedController).GetTypeInfo(), method);
+        var isValid = DefaultApplicationModelProvider.IsAction(typeof(DerivedController).GetTypeInfo(), method);
 
         // Assert
         Assert.False(isValid);
@@ -1231,6 +1244,45 @@ public class DefaultApplicationModelProviderTest
     }
 
     [Fact]
+    public void CreateActionModel_PopulatesReturnTypeEndpointMetadata() {
+        // Arrange
+        var builder = new TestApplicationModelProvider();
+        var typeInfo = typeof(TypedResultsReturningActionsController).GetTypeInfo();
+        var actionName = nameof(TypedResultsReturningActionsController.Get);
+
+        // Act
+        var action = builder.CreateActionModel(typeInfo, typeInfo.AsType().GetMethod(actionName));
+
+        // Assert
+        Assert.NotNull(action.Selectors);
+        Assert.All(action.Selectors, selector =>
+        {
+            Assert.NotNull(selector.EndpointMetadata);
+            Assert.Contains(selector.EndpointMetadata, m => m is ProducesResponseTypeMetadata);
+        });
+        var metadata = action.Selectors[0].EndpointMetadata.OfType<ProducesResponseTypeMetadata>().Single();
+        Assert.Equal(200, metadata.StatusCode);
+    }
+
+    [Fact]
+    public void AddReturnTypeMetadata_ExtractsMetadataFromReturnType()
+    {
+        // Arrange
+        var selector = new SelectorModel();
+        var selectors = new List<SelectorModel> { selector };
+        var actionMethod = typeof(TypedResultsReturningActionsController).GetMethod(nameof(TypedResultsReturningActionsController.Get));
+
+        // Act
+        DefaultApplicationModelProvider.AddReturnTypeMetadata(selectors, actionMethod);
+
+        // Assert
+        Assert.NotNull(selector.EndpointMetadata);
+        Assert.Single(selector.EndpointMetadata);
+        Assert.IsType<ProducesResponseTypeMetadata>(selector.EndpointMetadata.Single()); 
+        Assert.Equal(200, ((ProducesResponseTypeMetadata)selector.EndpointMetadata[0]).StatusCode);
+    }
+
+    [Fact]
     public void ControllerDispose_ExplicitlyImplemented_IDisposableMethods_AreTreatedAs_NonActions()
     {
         // Arrange
@@ -1324,7 +1376,6 @@ public class DefaultApplicationModelProviderTest
         Assert.Null(bindingInfo.BinderType);
         Assert.Same(BindingSource.Path, property.BindingInfo.BindingSource);
     }
-
 
     public class DerivedFromBindPropertyController : BindPropertyController
     {
@@ -1699,6 +1750,16 @@ public class DefaultApplicationModelProviderTest
         public void List() { }
     }
 
+    private class TypedResultsReturningActionsController : Controller
+    {
+        [HttpGet]
+        public Http.HttpResults.Ok<Foo> Get() => TypedResults.Ok<Foo>(new Foo { Info = "Hello" });
+    }
+
+    public class Foo {
+        public required string Info { get; set; }
+    }
+
     private class CustomHttpMethodsAttribute : Attribute, IActionHttpMethodProvider
     {
         private readonly string[] _methods;
@@ -1749,12 +1810,18 @@ public class DefaultApplicationModelProviderTest
     {
     }
 
+    public interface ITestService
+    { }
+
     public class ModelBinderController
     {
         [FromQuery]
         public string Bound { get; set; }
 
         public string Unbound { get; set; }
+
+        [FromServices]
+        public ITestService Service { get; set; }
 
         public IFormFile FormFile { get; set; }
 

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
@@ -13,7 +12,7 @@ namespace Microsoft.AspNetCore.Cryptography.SafeHandles;
 internal class LocalAllocHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
     // Called by P/Invoke when returning SafeHandles
-    protected LocalAllocHandle()
+    public LocalAllocHandle()
         : base(ownsHandle: true) { }
 
     // Do not provide a finalizer - SafeHandle's critical finalizer will call ReleaseHandle for you.

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -19,10 +18,7 @@ internal static class ExpressionHelper
 
     public static string GetExpressionText(LambdaExpression expression, ConcurrentDictionary<LambdaExpression, string> expressionTextCache)
     {
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(expression);
 
         if (expressionTextCache != null &&
             expressionTextCache.TryGetValue(expression, out var expressionText))
@@ -136,10 +132,7 @@ internal static class ExpressionHelper
         if (segmentCount == 0)
         {
             Debug.Assert(!doNotCache);
-            if (expressionTextCache != null)
-            {
-                expressionTextCache.TryAdd(expression, string.Empty);
-            }
+            expressionTextCache?.TryAdd(expression, string.Empty);
 
             return string.Empty;
         }
@@ -206,20 +199,9 @@ internal static class ExpressionHelper
         Expression indexExpression,
         LambdaExpression parentExpression)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-
-        if (indexExpression == null)
-        {
-            throw new ArgumentNullException(nameof(indexExpression));
-        }
-
-        if (parentExpression == null)
-        {
-            throw new ArgumentNullException(nameof(parentExpression));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(indexExpression);
+        ArgumentNullException.ThrowIfNull(parentExpression);
 
         if (parentExpression.Parameters == null)
         {

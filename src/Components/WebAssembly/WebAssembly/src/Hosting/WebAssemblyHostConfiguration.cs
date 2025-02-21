@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 
@@ -145,10 +142,7 @@ public class WebAssemblyHostConfiguration : IConfiguration, IConfigurationRoot, 
     /// <returns>The same <see cref="IConfigurationBuilder"/>.</returns>
     public IConfigurationBuilder Add(IConfigurationSource source)
     {
-        if (source == null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
+        ArgumentNullException.ThrowIfNull(source);
 
         // Adds this source and its associated provider to the source
         // and provider references in this class. We make sure to load
@@ -161,7 +155,7 @@ public class WebAssemblyHostConfiguration : IConfiguration, IConfigurationRoot, 
         // provider has reloaded data. This will invoke the RaiseChanged
         // method which maps changes in individual providers to the change
         // token on the WebAssemblyHostConfiguration object.
-        _changeTokenRegistrations.Add(ChangeToken.OnChange(() => provider.GetReloadToken(), () => RaiseChanged()));
+        _changeTokenRegistrations.Add(ChangeToken.OnChange(provider.GetReloadToken, RaiseChanged));
 
         // We keep a list of providers in this class so that we can map
         // set and get methods on this class to the set and get methods

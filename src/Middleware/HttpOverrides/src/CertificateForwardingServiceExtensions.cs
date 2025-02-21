@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.HttpOverrides;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -21,15 +20,8 @@ public static class CertificateForwardingServiceExtensions
         this IServiceCollection services,
         Action<CertificateForwardingOptions> configure)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-
-        if (configure == null)
-        {
-            throw new ArgumentNullException(nameof(configure));
-        }
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
 
         services.AddOptions<CertificateForwardingOptions>().Validate(o => !string.IsNullOrEmpty(o.CertificateHeader), "CertificateForwarderOptions.CertificateHeader cannot be null or empty.");
         return services.Configure(configure);

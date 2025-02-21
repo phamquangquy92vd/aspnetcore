@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
@@ -14,11 +14,8 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
 {
     public TagHelpersInCodeBlocksAnalyzer()
     {
-        TagHelperInCodeBlockDiagnostic = DiagnosticDescriptors.MVC1006_FunctionsContainingTagHelpersMustBeAsyncAndReturnTask;
-        SupportedDiagnostics = ImmutableArray.Create(new[] { TagHelperInCodeBlockDiagnostic });
+        SupportedDiagnostics = ImmutableArray.Create(DiagnosticDescriptors.MVC1006_FunctionsContainingTagHelpersMustBeAsyncAndReturnTask);
     }
-
-    private DiagnosticDescriptor TagHelperInCodeBlockDiagnostic { get; }
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; }
 
@@ -31,15 +28,15 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
         {
             if (!SymbolCache.TryCreate(context.Compilation, out var symbolCache))
             {
-                    // No-op if we can't find types we care about.
-                    return;
+                // No-op if we can't find types we care about.
+                return;
             }
 
             InitializeWorker(context, symbolCache);
         });
     }
 
-    private void InitializeWorker(CompilationStartAnalysisContext context, SymbolCache symbolCache)
+    private static void InitializeWorker(CompilationStartAnalysisContext context, SymbolCache symbolCache)
     {
         context.RegisterOperationBlockStartAction(startBlockContext =>
         {
@@ -81,8 +78,8 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
 
                 if (methodSymbol == null)
                 {
-                        // Unsupported operation type.
-                        return;
+                    // Unsupported operation type.
+                    return;
                 }
 
                 if (!methodSymbol.IsAsync ||
@@ -90,7 +87,6 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
                 {
                     capturedDiagnosticLocations.Add(parent.Syntax.GetLocation());
                 }
-
             }, OperationKind.Await);
 
             startBlockContext.RegisterOperationBlockEndAction(context =>
@@ -98,13 +94,13 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
                 foreach (var location in capturedDiagnosticLocations)
                 {
                     context.ReportDiagnostic(
-                        Diagnostic.Create(TagHelperInCodeBlockDiagnostic, location));
+                        Diagnostic.Create(DiagnosticDescriptors.MVC1006_FunctionsContainingTagHelpersMustBeAsyncAndReturnTask, location));
                 }
             });
         });
     }
 
-    private bool IsTagHelperRunnerRunAsync(IMethodSymbol method, SymbolCache symbolCache)
+    private static bool IsTagHelperRunnerRunAsync(IMethodSymbol method, SymbolCache symbolCache)
     {
         if (!SymbolEqualityComparer.Default.Equals(method, symbolCache.TagHelperRunnerRunAsyncMethodSymbol))
         {
@@ -114,7 +110,7 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    private bool IsParentMethod(IOperation operation)
+    private static bool IsParentMethod(IOperation operation)
     {
         if (operation.Kind == OperationKind.LocalFunction)
         {
@@ -147,7 +143,6 @@ public class TagHelpersInCodeBlocksAnalyzer : DiagnosticAnalyzer
         public IMethodSymbol TagHelperRunnerRunAsyncMethodSymbol { get; }
 
         public INamedTypeSymbol TaskType { get; }
-
 
         public static bool TryCreate(Compilation compilation, out SymbolCache symbolCache)
         {

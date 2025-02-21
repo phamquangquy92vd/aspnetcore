@@ -1,35 +1,40 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
+#if !COMPONENTS
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Matching;
+#else
+using Microsoft.AspNetCore.Components.Routing;
+#endif
 
 namespace Microsoft.AspNetCore.Routing.Constraints;
 
+#if !COMPONENTS
 /// <summary>
 /// Constrains a route parameter to represent only 32-bit floating-point values.
 /// </summary>
-public class FloatRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatchingPolicy
+public class FloatRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatchingPolicy, ICachableParameterPolicy
+#else
+internal class FloatRouteConstraint : IRouteConstraint
+#endif
 {
     /// <inheritdoc />
     public bool Match(
+#if !COMPONENTS
         HttpContext? httpContext,
         IRouter? route,
         string routeKey,
         RouteValueDictionary values,
         RouteDirection routeDirection)
+#else
+        string routeKey,
+        RouteValueDictionary values)
+#endif
     {
-        if (routeKey == null)
-        {
-            throw new ArgumentNullException(nameof(routeKey));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(routeKey);
+        ArgumentNullException.ThrowIfNull(values);
 
         if (values.TryGetValue(routeKey, out var value) && value != null)
         {
@@ -54,8 +59,10 @@ public class FloatRouteConstraint : IRouteConstraint, IParameterLiteralNodeMatch
             out _);
     }
 
+#if !COMPONENTS
     bool IParameterLiteralNodeMatchingPolicy.MatchesLiteral(string parameterName, string literal)
     {
         return CheckConstraintCore(literal);
     }
+#endif
 }

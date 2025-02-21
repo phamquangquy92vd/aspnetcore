@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Internal;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
@@ -22,10 +20,7 @@ public class EnumerableWrapperProviderFactory : IWrapperProviderFactory
     /// <param name="wrapperProviderFactories">List of <see cref="IWrapperProviderFactory"/>.</param>
     public EnumerableWrapperProviderFactory(IEnumerable<IWrapperProviderFactory> wrapperProviderFactories)
     {
-        if (wrapperProviderFactories == null)
-        {
-            throw new ArgumentNullException(nameof(wrapperProviderFactories));
-        }
+        ArgumentNullException.ThrowIfNull(wrapperProviderFactories);
 
         _wrapperProviderFactories = wrapperProviderFactories;
     }
@@ -38,10 +33,7 @@ public class EnumerableWrapperProviderFactory : IWrapperProviderFactory
     /// an interface and implements <see cref="IEnumerable{T}"/>.</returns>
     public IWrapperProvider? GetProvider(WrapperProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.IsSerialization)
         {

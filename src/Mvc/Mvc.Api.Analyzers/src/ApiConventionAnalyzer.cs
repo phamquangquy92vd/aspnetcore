@@ -4,8 +4,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
@@ -24,30 +22,30 @@ public class ApiConventionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(compilationStartAnalysisContext =>
+        context.RegisterCompilationStartAction(context =>
         {
-            if (!ApiControllerSymbolCache.TryCreate(compilationStartAnalysisContext.Compilation, out var symbolCache))
+            if (!ApiControllerSymbolCache.TryCreate(context.Compilation, out var symbolCache))
             {
-                    // No-op if we can't find types we care about.
-                    return;
+                // No-op if we can't find types we care about.
+                return;
             }
 
-            InitializeWorker(compilationStartAnalysisContext, symbolCache);
+            InitializeWorker(context, symbolCache);
         });
     }
 
-    private void InitializeWorker(CompilationStartAnalysisContext compilationStartAnalysisContext, ApiControllerSymbolCache symbolCache)
+    private static void InitializeWorker(CompilationStartAnalysisContext context, ApiControllerSymbolCache symbolCache)
     {
-        compilationStartAnalysisContext.RegisterOperationAction(operationStartContext =>
+        context.RegisterOperationAction(context =>
         {
-            var method = (IMethodSymbol)operationStartContext.ContainingSymbol;
+            var method = (IMethodSymbol)context.ContainingSymbol;
             if (!ApiControllerFacts.IsApiControllerAction(symbolCache, method))
             {
                 return;
             }
 
             var declaredResponseMetadata = SymbolApiResponseMetadataProvider.GetDeclaredResponseMetadata(symbolCache, method);
-            var hasUnreadableStatusCodes = !ActualApiResponseMetadataFactory.TryGetActualResponseMetadata(symbolCache, (IMethodBodyOperation)operationStartContext.Operation, operationStartContext.CancellationToken, out var actualResponseMetadata);
+            var hasUnreadableStatusCodes = !ActualApiResponseMetadataFactory.TryGetActualResponseMetadata(symbolCache, (IMethodBodyOperation)context.Operation, out var actualResponseMetadata);
 
             var hasUndocumentedStatusCodes = false;
             foreach (var actualMetadata in actualResponseMetadata)
@@ -59,13 +57,13 @@ public class ApiConventionAnalyzer : DiagnosticAnalyzer
                     hasUndocumentedStatusCodes = true;
                     if (actualMetadata.IsDefaultResponse)
                     {
-                        operationStartContext.ReportDiagnostic(Diagnostic.Create(
+                        context.ReportDiagnostic(Diagnostic.Create(
                             ApiDiagnosticDescriptors.API1001_ActionReturnsUndocumentedSuccessResult,
                             location));
                     }
                     else
                     {
-                        operationStartContext.ReportDiagnostic(Diagnostic.Create(
+                        context.ReportDiagnostic(Diagnostic.Create(
                             ApiDiagnosticDescriptors.API1000_ActionReturnsUndocumentedStatusCode,
                             location,
                                actualMetadata.StatusCode));
@@ -75,9 +73,9 @@ public class ApiConventionAnalyzer : DiagnosticAnalyzer
 
             if (hasUndocumentedStatusCodes || hasUnreadableStatusCodes)
             {
-                    // If we produced analyzer warnings about undocumented status codes, don't attempt to determine
-                    // if there are documented status codes that are missing from the method body.
-                    return;
+                // If we produced analyzer warnings about undocumented status codes, don't attempt to determine
+                // if there are documented status codes that are missing from the method body.
+                return;
             }
 
             for (var i = 0; i < declaredResponseMetadata.Count; i++)
@@ -85,13 +83,12 @@ public class ApiConventionAnalyzer : DiagnosticAnalyzer
                 var declaredMetadata = declaredResponseMetadata[i];
                 if (!Contains(actualResponseMetadata, declaredMetadata))
                 {
-                    operationStartContext.ReportDiagnostic(Diagnostic.Create(
+                    context.ReportDiagnostic(Diagnostic.Create(
                         ApiDiagnosticDescriptors.API1002_ActionDoesNotReturnDocumentedStatusCode,
                         method.Locations[0],
                         declaredMetadata.StatusCode));
                 }
             }
-
         }, OperationKind.MethodBody);
     }
 

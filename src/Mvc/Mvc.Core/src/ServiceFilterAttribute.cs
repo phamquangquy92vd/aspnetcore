@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +20,7 @@ namespace Microsoft.AspNetCore.Mvc;
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
-[DebuggerDisplay("ServiceFilter: Type={ServiceType} Order={Order}")]
+[DebuggerDisplay("Type = {ServiceType}, Order = {Order}")]
 public class ServiceFilterAttribute : Attribute, IFilterFactory, IOrderedFilter
 {
     /// <summary>
@@ -47,10 +46,7 @@ public class ServiceFilterAttribute : Attribute, IFilterFactory, IOrderedFilter
     /// <inheritdoc />
     public IFilterMetadata CreateInstance(IServiceProvider serviceProvider)
     {
-        if (serviceProvider == null)
-        {
-            throw new ArgumentNullException(nameof(serviceProvider));
-        }
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
         var filter = (IFilterMetadata)serviceProvider.GetRequiredService(ServiceType);
         if (filter is IFilterFactory filterFactory)

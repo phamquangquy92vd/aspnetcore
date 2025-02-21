@@ -28,8 +28,10 @@ public class TwitterPostConfigureOptions : IPostConfigureOptions<TwitterOptions>
     /// </summary>
     /// <param name="name">The name of the options instance being configured.</param>
     /// <param name="options">The options instance to configure.</param>
-    public void PostConfigure(string name, TwitterOptions options)
+    public void PostConfigure(string? name, TwitterOptions options)
     {
+        ArgumentNullException.ThrowIfNull(name);
+
         options.DataProtectionProvider = options.DataProtectionProvider ?? _dp;
 
         if (options.StateDataFormat == null)

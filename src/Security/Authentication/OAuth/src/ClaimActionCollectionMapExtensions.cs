@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
@@ -22,10 +21,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="jsonKey">The top level key to look for in the json user data.</param>
     public static void MapJsonKey(this ClaimActionCollection collection, string claimType, string jsonKey)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.MapJsonKey(claimType, jsonKey, ClaimValueTypes.String);
     }
@@ -40,10 +36,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="valueType">The value to use for Claim.ValueType when creating a Claim.</param>
     public static void MapJsonKey(this ClaimActionCollection collection, string claimType, string jsonKey, string valueType)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.Add(new JsonKeyClaimAction(claimType, valueType, jsonKey));
     }
@@ -58,10 +51,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="subKey">The second level key to look for in the json user data.</param>
     public static void MapJsonSubKey(this ClaimActionCollection collection, string claimType, string jsonKey, string subKey)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.MapJsonSubKey(claimType, jsonKey, subKey, ClaimValueTypes.String);
     }
@@ -77,10 +67,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="valueType">The value to use for Claim.ValueType when creating a Claim.</param>
     public static void MapJsonSubKey(this ClaimActionCollection collection, string claimType, string jsonKey, string subKey, string valueType)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.Add(new JsonSubKeyClaimAction(claimType, valueType, jsonKey, subKey));
     }
@@ -94,10 +81,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="resolver">The Func that will be called to select value from the given json user data.</param>
     public static void MapCustomJson(this ClaimActionCollection collection, string claimType, Func<JsonElement, string?> resolver)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.MapCustomJson(claimType, ClaimValueTypes.String, resolver);
     }
@@ -112,10 +96,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="resolver">The Func that will be called to select value from the given json user data.</param>
     public static void MapCustomJson(this ClaimActionCollection collection, string claimType, string valueType, Func<JsonElement, string?> resolver)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.Add(new CustomJsonClaimAction(claimType, valueType, resolver));
     }
@@ -126,10 +107,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="collection">The <see cref="ClaimActionCollection"/>.</param>
     public static void MapAll(this ClaimActionCollection collection)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.Clear();
         collection.Add(new MapAllClaimsAction());
@@ -142,10 +120,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="exclusions">The types to exclude.</param>
     public static void MapAllExcept(this ClaimActionCollection collection, params string[] exclusions)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.MapAll();
         collection.DeleteClaims(exclusions);
@@ -158,10 +133,7 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="claimType">The claim type to delete</param>
     public static void DeleteClaim(this ClaimActionCollection collection, string claimType)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
 
         collection.Add(new DeleteClaimAction(claimType));
     }
@@ -173,15 +145,8 @@ public static class ClaimActionCollectionMapExtensions
     /// <param name="claimTypes">The claim types to delete.</param>
     public static void DeleteClaims(this ClaimActionCollection collection, params string[] claimTypes)
     {
-        if (collection == null)
-        {
-            throw new ArgumentNullException(nameof(collection));
-        }
-
-        if (claimTypes == null)
-        {
-            throw new ArgumentNullException(nameof(claimTypes));
-        }
+        ArgumentNullException.ThrowIfNull(collection);
+        ArgumentNullException.ThrowIfNull(claimTypes);
 
         foreach (var claimType in claimTypes)
         {

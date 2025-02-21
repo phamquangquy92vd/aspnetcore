@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.Tracing;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 namespace Microsoft.AspNetCore.Hosting;
 
@@ -22,9 +20,8 @@ internal sealed class HostingEventSource : EventSource
     private long _failedRequests;
 
     internal HostingEventSource()
-        : this("Microsoft.AspNetCore.Hosting")
+        : base("Microsoft.AspNetCore.Hosting", EventSourceSettings.EtwManifestEventFormat)
     {
-
     }
 
     // Used for testing
@@ -75,6 +72,13 @@ internal sealed class HostingEventSource : EventSource
         WriteEvent(5);
     }
 
+    [Event(6, Level = EventLevel.Informational)]
+    public void ServerReady()
+    {
+        WriteEvent(6);
+    }
+
+    [NonEvent]
     internal void RequestFailed()
     {
         Interlocked.Increment(ref _failedRequests);

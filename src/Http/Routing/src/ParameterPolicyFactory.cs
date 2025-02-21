@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Routing.Patterns;
 
@@ -36,10 +35,7 @@ public abstract class ParameterPolicyFactory
     /// <returns>The <see cref="IParameterPolicy"/> for the parameter.</returns>
     public IParameterPolicy Create(RoutePatternParameterPart? parameter, RoutePatternParameterPolicyReference reference)
     {
-        if (reference == null)
-        {
-            throw new ArgumentNullException(nameof(reference));
-        }
+        ArgumentNullException.ThrowIfNull(reference);
 
         Debug.Assert(reference.ParameterPolicy != null || reference.Content != null);
 

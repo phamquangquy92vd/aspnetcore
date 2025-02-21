@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -23,7 +22,7 @@ namespace Microsoft.AspNetCore.Mvc;
 /// </para>
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = true)]
-[DebuggerDisplay("TypeFilter: Type={ImplementationType} Order={Order}")]
+[DebuggerDisplay("Type = {ImplementationType}, Order = {Order}")]
 public class TypeFilterAttribute : Attribute, IFilterFactory, IOrderedFilter
 {
     private ObjectFactory? _factory;
@@ -60,10 +59,7 @@ public class TypeFilterAttribute : Attribute, IFilterFactory, IOrderedFilter
     /// <inheritdoc />
     public IFilterMetadata CreateInstance(IServiceProvider serviceProvider)
     {
-        if (serviceProvider == null)
-        {
-            throw new ArgumentNullException(nameof(serviceProvider));
-        }
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
         if (_factory == null)
         {

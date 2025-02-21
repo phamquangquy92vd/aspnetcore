@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Routing;
@@ -38,15 +37,8 @@ public static class LinkParserEndpointNameAddressExtensions
         string endpointName,
         PathString path)
     {
-        if (parser == null)
-        {
-            throw new ArgumentNullException(nameof(parser));
-        }
-
-        if (endpointName == null)
-        {
-            throw new ArgumentNullException(nameof(endpointName));
-        }
+        ArgumentNullException.ThrowIfNull(parser);
+        ArgumentNullException.ThrowIfNull(endpointName);
 
         return parser.ParsePathByAddress<string>(endpointName, path);
     }

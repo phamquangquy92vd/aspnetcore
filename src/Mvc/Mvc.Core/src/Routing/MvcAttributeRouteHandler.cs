@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
@@ -13,7 +10,7 @@ using Resources = Microsoft.AspNetCore.Mvc.Core.Resources;
 
 namespace Microsoft.AspNetCore.Mvc.Routing;
 
-internal class MvcAttributeRouteHandler : IRouter
+internal sealed class MvcAttributeRouteHandler : IRouter
 {
     private readonly IActionInvokerFactory _actionInvokerFactory;
     private readonly IActionSelector _actionSelector;
@@ -29,17 +26,14 @@ internal class MvcAttributeRouteHandler : IRouter
         _actionInvokerFactory = actionInvokerFactory;
         _actionSelector = actionSelector;
         _diagnosticListener = diagnosticListener;
-        _logger = loggerFactory.CreateLogger<MvcAttributeRouteHandler>();
+        _logger = loggerFactory.CreateLogger(typeof(MvcAttributeRouteHandler));
     }
 
     public ActionDescriptor[]? Actions { get; set; }
 
     public VirtualPathData? GetVirtualPath(VirtualPathContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         // We return null here because we're not responsible for generating the url, the route is.
         return null;
@@ -47,10 +41,7 @@ internal class MvcAttributeRouteHandler : IRouter
 
     public Task RouteAsync(RouteContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (Actions == null)
         {

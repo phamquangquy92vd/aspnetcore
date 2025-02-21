@@ -3,10 +3,12 @@
 
 #nullable disable
 
-using System;
-using System.Collections.Generic;
+using System.Buffers;
 using System.Diagnostics;
-using System.Globalization;
+#if COMPONENTS
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Routing.Patterns;
+#endif
 
 namespace Microsoft.AspNetCore.Routing.Patterns;
 
@@ -16,24 +18,13 @@ internal static class RoutePatternParser
     private const char OpenBrace = '{';
     private const char CloseBrace = '}';
     private const char QuestionMark = '?';
-    private const char Asterisk = '*';
     private const string PeriodString = ".";
 
-    internal static readonly char[] InvalidParameterNameChars = new char[]
-    {
-            Separator,
-            OpenBrace,
-            CloseBrace,
-            QuestionMark,
-            Asterisk
-    };
+    internal static readonly SearchValues<char> InvalidParameterNameChars = SearchValues.Create("/{}?*");
 
     public static RoutePattern Parse(string pattern)
     {
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
+        ArgumentNullException.ThrowIfNull(pattern);
 
         var trimmedPattern = TrimPrefix(pattern);
 
@@ -223,7 +214,7 @@ internal static class RoutePatternParser
         var templatePart = RouteParameterParser.ParseRouteParameter(decoded);
 
         // See #475 - this is here because InlineRouteParameterParser can't return errors
-        if (decoded.StartsWith("*", StringComparison.Ordinal) && decoded.EndsWith("?", StringComparison.Ordinal))
+        if (decoded.StartsWith('*') && decoded.EndsWith('?'))
         {
             context.Error = Resources.TemplateRoute_CatchAllCannotBeOptional;
             return false;
@@ -434,7 +425,7 @@ internal static class RoutePatternParser
 
     private static bool IsValidParameterName(Context context, string parameterName)
     {
-        if (parameterName.Length == 0 || parameterName.IndexOfAny(InvalidParameterNameChars) >= 0)
+        if (parameterName.Length == 0 || parameterName.AsSpan().IndexOfAny(InvalidParameterNameChars) >= 0)
         {
             context.Error = Resources.FormatTemplateRoute_InvalidParameterName(parameterName);
             return false;
@@ -454,7 +445,7 @@ internal static class RoutePatternParser
         Debug.Assert(context != null);
         Debug.Assert(literal != null);
 
-        if (literal.IndexOf(QuestionMark) != -1)
+        if (literal.Contains(QuestionMark))
         {
             context.Error = Resources.FormatTemplateRoute_InvalidLiteral(literal);
             return false;
@@ -469,11 +460,11 @@ internal static class RoutePatternParser
         {
             return routePattern.Substring(2);
         }
-        else if (routePattern.StartsWith("/", StringComparison.Ordinal))
+        else if (routePattern.StartsWith('/'))
         {
             return routePattern.Substring(1);
         }
-        else if (routePattern.StartsWith("~", StringComparison.Ordinal))
+        else if (routePattern.StartsWith('~'))
         {
             throw new RoutePatternException(routePattern, Resources.TemplateRoute_InvalidRouteTemplate);
         }
@@ -481,7 +472,7 @@ internal static class RoutePatternParser
     }
 
     [DebuggerDisplay("{DebuggerToString()}")]
-    private class Context
+    private sealed class Context
     {
         private readonly string _template;
         private int _index;

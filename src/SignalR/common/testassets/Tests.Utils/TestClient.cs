@@ -1,19 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO.Pipelines;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.SignalR.Protocol;
 #if TESTUTILS
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 #else
 using System.Threading.Tasks.Extensions;
 #endif
@@ -35,7 +31,7 @@ internal
     private readonly CancellationTokenSource _cts;
 
     public DefaultConnectionContext Connection { get; }
-    public Task Connected => ((TaskCompletionSource<bool>)Connection.Items["ConnectedTask"]).Task;
+    public Task Connected => ((TaskCompletionSource)Connection.Items["ConnectedTask"]).Task;
     public HandshakeResponseMessage HandshakeResponseMessage { get; private set; }
 
     public TransferFormat SupportedFormats { get; set; } = TransferFormat.Text | TransferFormat.Binary;
@@ -61,7 +57,7 @@ internal
         }
 
         Connection.User = new ClaimsPrincipal(new ClaimsIdentity(claims));
-        Connection.Items["ConnectedTask"] = new TaskCompletionSource<bool>();
+        Connection.Items["ConnectedTask"] = new TaskCompletionSource();
 
         _protocol = protocol ?? new NewtonsoftJsonHubProtocol();
         _invocationBinder = invocationBinder ?? new DefaultInvocationBinder();
@@ -100,6 +96,12 @@ internal
     public async Task<IList<HubMessage>> StreamAsync(string methodName, string[] streamIds, params object[] args)
     {
         var invocationId = await SendStreamInvocationAsync(methodName, streamIds, args);
+        return await ListenAllAsync(invocationId);
+    }
+
+    public async Task<IList<HubMessage>> StreamAsync(string methodName, string[] streamIds, IDictionary<string, string> headers, params object[] args)
+    {
+        var invocationId = await SendStreamInvocationAsync(methodName, streamIds, headers, args);
         return await ListenAllAsync(invocationId);
     }
 
@@ -164,12 +166,18 @@ internal
 
             switch (message)
             {
-                case StreamItemMessage result:
+                case StreamItemMessage:
                     throw new NotSupportedException("Use 'StreamAsync' to call a streaming method");
                 case CompletionMessage completion:
                     return completion;
                 case PingMessage _:
                     // Pings are ignored
+                    break;
+                case AckMessage _:
+                    // Ignored for now
+                    break;
+                case SequenceMessage _:
+                    // Ignored for now
                     break;
                 default:
                     // Message implement ToString so this should be helpful.
@@ -183,10 +191,20 @@ internal
         return SendInvocationAsync(methodName, nonBlocking: false, args: args);
     }
 
+    public Task<string> SendInvocationAsync(string methodName, IDictionary<string, string> headers, params object[] args)
+    {
+        return SendInvocationAsync(methodName, nonBlocking: false, headers: headers, args: args);
+    }
+
     public Task<string> SendInvocationAsync(string methodName, bool nonBlocking, params object[] args)
     {
+        return SendInvocationAsync(methodName, nonBlocking: nonBlocking, headers: null, args: args);
+    }
+
+    public Task<string> SendInvocationAsync(string methodName, bool nonBlocking, IDictionary<string, string> headers, params object[] args)
+    {
         var invocationId = nonBlocking ? null : GetInvocationId();
-        return SendHubMessageAsync(new InvocationMessage(invocationId, methodName, args));
+        return SendHubMessageAsync(new InvocationMessage(invocationId, methodName, args) { Headers = headers });
     }
 
     public Task<string> SendStreamInvocationAsync(string methodName, params object[] args)
@@ -196,8 +214,13 @@ internal
 
     public Task<string> SendStreamInvocationAsync(string methodName, string[] streamIds, params object[] args)
     {
+        return SendStreamInvocationAsync(methodName, streamIds: streamIds, headers: null, args);
+    }
+
+    public Task<string> SendStreamInvocationAsync(string methodName, string[] streamIds, IDictionary<string, string> headers, params object[] args)
+    {
         var invocationId = GetInvocationId();
-        return SendHubMessageAsync(new StreamInvocationMessage(invocationId, methodName, args, streamIds));
+        return SendHubMessageAsync(new StreamInvocationMessage(invocationId, methodName, args, streamIds) { Headers = headers });
     }
 
     public Task<string> BeginUploadStreamAsync(string invocationId, string methodName, string[] streamIds, params object[] args)

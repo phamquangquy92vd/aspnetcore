@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Localization;
@@ -20,10 +18,7 @@ public class CustomRequestCultureProvider : RequestCultureProvider
     /// <param name="provider">The provider delegate.</param>
     public CustomRequestCultureProvider(Func<HttpContext, Task<ProviderCultureResult?>> provider)
     {
-        if (provider == null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
 
         _provider = provider;
     }
@@ -31,10 +26,7 @@ public class CustomRequestCultureProvider : RequestCultureProvider
     /// <inheritdoc />
     public override Task<ProviderCultureResult?> DetermineProviderCultureResult(HttpContext httpContext)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
 
         return _provider(httpContext);
     }

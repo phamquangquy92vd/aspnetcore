@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 
 namespace Microsoft.AspNetCore.Mvc.Filters;
@@ -37,14 +36,10 @@ public class FilterDescriptor
     /// </remarks>
     public FilterDescriptor(IFilterMetadata filter, int filterScope)
     {
-        if (filter == null)
-        {
-            throw new ArgumentNullException(nameof(filter));
-        }
+        ArgumentNullException.ThrowIfNull(filter);
 
         Filter = filter;
         Scope = filterScope;
-
 
         if (Filter is IOrderedFilter orderedFilter)
         {

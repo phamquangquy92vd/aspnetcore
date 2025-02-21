@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
@@ -36,10 +34,7 @@ public abstract class ParameterModelBase : IBindingModel
     /// <param name="other">The other instance to copy</param>
     protected ParameterModelBase(ParameterModelBase other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         ParameterType = other.ParameterType;
         Attributes = new List<object>(other.Attributes);

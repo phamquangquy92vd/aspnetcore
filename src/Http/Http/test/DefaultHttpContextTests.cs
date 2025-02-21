@@ -1,19 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Http;
 
@@ -175,7 +169,6 @@ public class DefaultHttpContextTests
         context.Uninitialize();
         TestCachedFeaturesAreNull(context, null);
 
-
         var newFeatures = new FeatureCollection();
         newFeatures.Set<IHttpRequestFeature>(new HttpRequestFeature());
         newFeatures.Set<IHttpResponseFeature>(new HttpResponseFeature());
@@ -278,6 +271,54 @@ public class DefaultHttpContextTests
         context.Uninitialize();
 
         Assert.False(context._active);
+    }
+
+    [Fact]
+    public void DebuggerToString_EmptyRequest()
+    {
+        var context = new DefaultHttpContext();
+
+        var debugText = HttpContextDebugFormatter.ContextToString(context, reasonPhrase: null);
+        Assert.Equal("(unspecified) 200", debugText);
+    }
+
+    [Fact]
+    public void DebuggerToString_HasReason()
+    {
+        var context = new DefaultHttpContext();
+
+        var debugText = HttpContextDebugFormatter.ContextToString(context, reasonPhrase: "OK");
+        Assert.Equal("(unspecified) 200 OK", debugText);
+    }
+
+    [Fact]
+    public void DebuggerToString_HasMethod()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+
+        var debugText = HttpContextDebugFormatter.ContextToString(context, reasonPhrase: null);
+        Assert.Equal("GET (unspecified) 200", debugText);
+    }
+
+    [Fact]
+    public void DebuggerToString_HasProtocol()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Protocol = "HTTP/2";
+
+        var debugText = HttpContextDebugFormatter.ContextToString(context, reasonPhrase: null);
+        Assert.Equal("(unspecified) HTTP/2 200", debugText);
+    }
+
+    [Fact]
+    public void DebuggerToString_HasContentType()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = "application/json";
+
+        var debugText = HttpContextDebugFormatter.ContextToString(context, reasonPhrase: null);
+        Assert.Equal("(unspecified) application/json 200", debugText);
     }
 
     void TestAllCachedFeaturesAreNull(HttpContext context, IFeatureCollection features)

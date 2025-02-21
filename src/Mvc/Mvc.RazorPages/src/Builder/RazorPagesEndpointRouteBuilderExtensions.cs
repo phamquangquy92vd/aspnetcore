@@ -1,9 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
@@ -18,6 +17,8 @@ namespace Microsoft.AspNetCore.Builder;
 /// </summary>
 public static class RazorPagesEndpointRouteBuilderExtensions
 {
+    internal const string EndpointRouteBuilderKey = "__EndpointRouteBuilder";
+
     /// <summary>
     /// Adds endpoints for Razor Pages to the <see cref="IEndpointRouteBuilder"/>.
     /// </summary>
@@ -25,14 +26,16 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// <returns>An <see cref="PageActionEndpointConventionBuilder"/> for endpoints associated with Razor Pages.</returns>
     public static PageActionEndpointConventionBuilder MapRazorPages(this IEndpointRouteBuilder endpoints)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
 
         EnsureRazorPagesServices(endpoints);
 
-        return GetOrCreateDataSource(endpoints).DefaultBuilder;
+        var builder = GetOrCreateDataSource(endpoints).DefaultBuilder;
+        if (!builder.Items.ContainsKey(EndpointRouteBuilderKey))
+        {
+            builder.Items[EndpointRouteBuilderKey] = endpoints;
+        }
+        return builder;
     }
 
     /// <summary>
@@ -61,15 +64,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// </remarks>
     public static IEndpointConventionBuilder MapFallbackToPage(this IEndpointRouteBuilder endpoints, string page)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(page);
 
         PageConventionCollection.EnsureValidPageName(page, nameof(page));
 
@@ -85,8 +81,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
         var builder = endpoints.MapFallback(context => Task.CompletedTask);
         builder.Add(b =>
         {
-                // MVC registers a policy that looks for this metadata.
-                b.Metadata.Add(CreateDynamicPageMetadata(page, area: null));
+            // MVC registers a policy that looks for this metadata.
+            b.Metadata.Add(CreateDynamicPageMetadata(page, area: null));
             b.Metadata.Add(new PageEndpointDataSourceIdMetadata(pageDataSource.DataSourceId));
         });
         return builder;
@@ -122,23 +118,12 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// </remarks>
     public static IEndpointConventionBuilder MapFallbackToPage(
         this IEndpointRouteBuilder endpoints,
-        string pattern,
+        [StringSyntax("Route")] string pattern,
         string page)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(page);
 
         PageConventionCollection.EnsureValidPageName(page, nameof(page));
 
@@ -154,8 +139,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
         var builder = endpoints.MapFallback(pattern, context => Task.CompletedTask);
         builder.Add(b =>
         {
-                // MVC registers a policy that looks for this metadata.
-                b.Metadata.Add(CreateDynamicPageMetadata(page, area: null));
+            // MVC registers a policy that looks for this metadata.
+            b.Metadata.Add(CreateDynamicPageMetadata(page, area: null));
             b.Metadata.Add(new PageEndpointDataSourceIdMetadata(pageDataSource.DataSourceId));
         });
         return builder;
@@ -191,15 +176,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
         string page,
         string area)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(page);
 
         PageConventionCollection.EnsureValidPageName(page, nameof(page));
 
@@ -215,8 +193,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
         var builder = endpoints.MapFallback(context => Task.CompletedTask);
         builder.Add(b =>
         {
-                // MVC registers a policy that looks for this metadata.
-                b.Metadata.Add(CreateDynamicPageMetadata(page, area));
+            // MVC registers a policy that looks for this metadata.
+            b.Metadata.Add(CreateDynamicPageMetadata(page, area));
             b.Metadata.Add(new PageEndpointDataSourceIdMetadata(pageDataSource.DataSourceId));
         });
         return builder;
@@ -253,24 +231,13 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// </remarks>
     public static IEndpointConventionBuilder MapFallbackToAreaPage(
         this IEndpointRouteBuilder endpoints,
-        string pattern,
+        [StringSyntax("Route")] string pattern,
         string page,
         string area)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(pattern);
+        ArgumentNullException.ThrowIfNull(page);
 
         PageConventionCollection.EnsureValidPageName(page, nameof(page));
 
@@ -286,8 +253,8 @@ public static class RazorPagesEndpointRouteBuilderExtensions
         var builder = endpoints.MapFallback(pattern, context => Task.CompletedTask);
         builder.Add(b =>
         {
-                // MVC registers a policy that looks for this metadata.
-                b.Metadata.Add(CreateDynamicPageMetadata(page, area));
+            // MVC registers a policy that looks for this metadata.
+            b.Metadata.Add(CreateDynamicPageMetadata(page, area));
             b.Metadata.Add(new PageEndpointDataSourceIdMetadata(pageDataSource.DataSourceId));
         });
         return builder;
@@ -310,7 +277,7 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// Register <typeparamref name="TTransformer"/> with the desired service lifetime in <c>ConfigureServices</c>.
     /// </para>
     /// </remarks>
-    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, string pattern)
+    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern)
         where TTransformer : DynamicRouteValueTransformer
     {
         MapDynamicPageRoute<TTransformer>(endpoints, pattern, state: null);
@@ -334,18 +301,11 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// Register <typeparamref name="TTransformer"/> with the desired service lifetime in <c>ConfigureServices</c>.
     /// </para>
     /// </remarks>
-    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, string pattern, object? state)
+    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern, object? state)
         where TTransformer : DynamicRouteValueTransformer
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(pattern);
 
         EnsureRazorPagesServices(endpoints);
 
@@ -375,18 +335,11 @@ public static class RazorPagesEndpointRouteBuilderExtensions
     /// Register <typeparamref name="TTransformer"/> with the desired service lifetime in <c>ConfigureServices</c>.
     /// </para>
     /// </remarks>
-    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, string pattern, object state, int order)
+    public static void MapDynamicPageRoute<TTransformer>(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern, object state, int order)
         where TTransformer : DynamicRouteValueTransformer
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
+        ArgumentNullException.ThrowIfNull(pattern);
 
         EnsureRazorPagesServices(endpoints);
 

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 
 namespace Microsoft.AspNetCore.Mvc.Rendering;
@@ -19,10 +17,7 @@ public static class HtmlHelperDisplayNameExtensions
     /// <returns>A <see cref="string"/> containing the display name.</returns>
     public static string DisplayNameForModel(this IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DisplayName(expression: null);
     }
@@ -42,15 +37,8 @@ public static class HtmlHelperDisplayNameExtensions
         this IHtmlHelper<IEnumerable<TModelItem>> htmlHelper,
         Expression<Func<TModelItem, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayNameForInnerType(expression);
     }

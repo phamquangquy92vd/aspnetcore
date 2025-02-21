@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Microsoft.AspNetCore.NodeServices.Util;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +14,7 @@ namespace Microsoft.AspNetCore.NodeServices.Npm;
 /// Executes the <c>script</c> entries defined in a <c>package.json</c> file,
 /// capturing any output written to stdio.
 /// </summary>
-internal class NodeScriptRunner : IDisposable
+internal sealed class NodeScriptRunner : IDisposable
 {
     private Process? _npmProcess;
     public EventedStreamReader StdOut { get; }
@@ -26,20 +24,9 @@ internal class NodeScriptRunner : IDisposable
 
     public NodeScriptRunner(string workingDirectory, string scriptName, string? arguments, IDictionary<string, string>? envVars, string pkgManagerCommand, DiagnosticSource diagnosticSource, CancellationToken applicationStoppingToken)
     {
-        if (string.IsNullOrEmpty(workingDirectory))
-        {
-            throw new ArgumentException("Cannot be null or empty.", nameof(workingDirectory));
-        }
-
-        if (string.IsNullOrEmpty(scriptName))
-        {
-            throw new ArgumentException("Cannot be null or empty.", nameof(scriptName));
-        }
-
-        if (string.IsNullOrEmpty(pkgManagerCommand))
-        {
-            throw new ArgumentException("Cannot be null or empty.", nameof(pkgManagerCommand));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(workingDirectory);
+        ArgumentException.ThrowIfNullOrEmpty(scriptName);
+        ArgumentException.ThrowIfNullOrEmpty(pkgManagerCommand);
 
         var exeToRun = pkgManagerCommand;
         var completeArguments = $"run {scriptName} -- {arguments ?? string.Empty}";
@@ -78,7 +65,8 @@ internal class NodeScriptRunner : IDisposable
 
         if (diagnosticSource.IsEnabled("Microsoft.AspNetCore.NodeServices.Npm.NpmStarted"))
         {
-            diagnosticSource.Write(
+            WriteDiagnosticEvent(
+                diagnosticSource,
                 "Microsoft.AspNetCore.NodeServices.Npm.NpmStarted",
                 new
                 {
@@ -86,6 +74,11 @@ internal class NodeScriptRunner : IDisposable
                     process = _npmProcess
                 });
         }
+
+        [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026",
+            Justification = "The values being passed into Write have the commonly used properties being preserved with DynamicDependency.")]
+        static void WriteDiagnosticEvent<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] TValue>(DiagnosticSource diagnosticSource, string name, TValue value)
+            => diagnosticSource.Write(name, value);
     }
 
     public void AttachToLogger(ILogger logger)
@@ -93,11 +86,11 @@ internal class NodeScriptRunner : IDisposable
         // When the node task emits complete lines, pass them through to the real logger
         StdOut.OnReceivedLine += line =>
         {
-            if (!string.IsNullOrWhiteSpace(line))
+            if (!string.IsNullOrWhiteSpace(line) && logger.IsEnabled(LogLevel.Information))
             {
-                    // Node tasks commonly emit ANSI colors, but it wouldn't make sense to forward
-                    // those to loggers (because a logger isn't necessarily any kind of terminal)
-                    logger.LogInformation(StripAnsiColors(line));
+                // Node tasks commonly emit ANSI colors, but it wouldn't make sense to forward
+                // those to loggers (because a logger isn't necessarily any kind of terminal)
+                logger.LogInformation(StripAnsiColors(line));
             }
         };
 

@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 /// <summary>
@@ -24,15 +22,11 @@ public class BindingSourceMetadataProvider : IBindingMetadataProvider
     /// </param>
     public BindingSourceMetadataProvider(Type type, BindingSource? bindingSource)
     {
-        if (type == null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         Type = type;
         BindingSource = bindingSource;
     }
-
 
     /// <summary>
     /// The <see cref="Type"/>. The provider sets <see cref="BindingSource"/> of the given <see cref="Type"/> or
@@ -48,10 +42,7 @@ public class BindingSourceMetadataProvider : IBindingMetadataProvider
     /// <inheritdoc />
     public void CreateBindingMetadata(BindingMetadataProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (Type.IsAssignableFrom(context.Key.ModelType))
         {

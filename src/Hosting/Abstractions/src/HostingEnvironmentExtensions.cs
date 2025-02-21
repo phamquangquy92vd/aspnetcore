@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 #pragma warning disable CS0618 // Type or member is obsolete
 namespace Microsoft.AspNetCore.Hosting;
 
@@ -18,10 +16,7 @@ public static class HostingEnvironmentExtensions
     /// <returns>True if the environment name is <see cref="EnvironmentName.Development"/>, otherwise false.</returns>
     public static bool IsDevelopment(this IHostingEnvironment hostingEnvironment)
     {
-        if (hostingEnvironment == null)
-        {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
-        }
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
 
         return hostingEnvironment.IsEnvironment(EnvironmentName.Development);
     }
@@ -33,10 +28,7 @@ public static class HostingEnvironmentExtensions
     /// <returns>True if the environment name is <see cref="EnvironmentName.Staging"/>, otherwise false.</returns>
     public static bool IsStaging(this IHostingEnvironment hostingEnvironment)
     {
-        if (hostingEnvironment == null)
-        {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
-        }
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
 
         return hostingEnvironment.IsEnvironment(EnvironmentName.Staging);
     }
@@ -48,10 +40,7 @@ public static class HostingEnvironmentExtensions
     /// <returns>True if the environment name is <see cref="EnvironmentName.Production"/>, otherwise false.</returns>
     public static bool IsProduction(this IHostingEnvironment hostingEnvironment)
     {
-        if (hostingEnvironment == null)
-        {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
-        }
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
 
         return hostingEnvironment.IsEnvironment(EnvironmentName.Production);
     }
@@ -66,10 +55,7 @@ public static class HostingEnvironmentExtensions
         this IHostingEnvironment hostingEnvironment,
         string environmentName)
     {
-        if (hostingEnvironment == null)
-        {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
-        }
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
 
         return string.Equals(
             hostingEnvironment.EnvironmentName,

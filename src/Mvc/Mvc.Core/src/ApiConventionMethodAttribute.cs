@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -40,10 +39,7 @@ public sealed class ApiConventionMethodAttribute : Attribute
         ConventionType = conventionType ?? throw new ArgumentNullException(nameof(conventionType));
         ApiConventionTypeAttribute.EnsureValid(conventionType);
 
-        if (string.IsNullOrEmpty(methodName))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(methodName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(methodName);
 
         Method = GetConventionMethod(conventionType, methodName);
     }

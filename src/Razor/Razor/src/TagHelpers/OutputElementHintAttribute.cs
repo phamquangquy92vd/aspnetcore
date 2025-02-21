@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Razor.TagHelpers;
 
 /// <summary>
@@ -19,10 +17,7 @@ public sealed class OutputElementHintAttribute : Attribute
     /// </param>
     public OutputElementHintAttribute(string outputElement)
     {
-        if (outputElement == null)
-        {
-            throw new ArgumentNullException(nameof(outputElement));
-        }
+        ArgumentNullException.ThrowIfNull(outputElement);
 
         OutputElement = outputElement;
     }

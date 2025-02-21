@@ -1,12 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 
 namespace Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -22,7 +18,7 @@ public class UserOnlyStore<TUser> : UserOnlyStore<TUser, DbContext, string> wher
     /// </summary>
     /// <param name="context">The <see cref="DbContext"/>.</param>
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-    public UserOnlyStore(DbContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+    public UserOnlyStore(DbContext context, IdentityErrorDescriber? describer = null) : base(context, describer) { }
 }
 
 /// <summary>
@@ -39,7 +35,7 @@ public class UserOnlyStore<TUser, TContext> : UserOnlyStore<TUser, TContext, str
     /// </summary>
     /// <param name="context">The <see cref="DbContext"/>.</param>
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-    public UserOnlyStore(TContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+    public UserOnlyStore(TContext context, IdentityErrorDescriber? describer = null) : base(context, describer) { }
 }
 
 /// <summary>
@@ -58,7 +54,7 @@ public class UserOnlyStore<TUser, TContext, TKey> : UserOnlyStore<TUser, TContex
     /// </summary>
     /// <param name="context">The <see cref="DbContext"/>.</param>
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/>.</param>
-    public UserOnlyStore(TContext context, IdentityErrorDescriber describer = null) : base(context, describer) { }
+    public UserOnlyStore(TContext context, IdentityErrorDescriber? describer = null) : base(context, describer) { }
 }
 
 /// <summary>
@@ -97,12 +93,9 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// </summary>
     /// <param name="context">The context used to access the store.</param>
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/> used to describe store errors.</param>
-    public UserOnlyStore(TContext context, IdentityErrorDescriber describer = null) : base(describer ?? new IdentityErrorDescriber())
+    public UserOnlyStore(TContext context, IdentityErrorDescriber? describer = null) : base(describer ?? new IdentityErrorDescriber())
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
         Context = context;
     }
 
@@ -157,10 +150,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
         Context.Add(user);
         await SaveChanges(cancellationToken);
         return IdentityResult.Success;
@@ -176,10 +166,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
 
         Context.Attach(user);
         user.ConcurrencyStamp = Guid.NewGuid().ToString();
@@ -205,10 +192,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
 
         Context.Remove(user);
         try
@@ -230,12 +214,12 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <returns>
     /// The <see cref="Task"/> that represents the asynchronous operation, containing the user matching the specified <paramref name="userId"/> if it exists.
     /// </returns>
-    public override Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken = default(CancellationToken))
+    public override Task<TUser?> FindByIdAsync(string userId, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
         var id = ConvertIdFromString(userId);
-        return UsersSet.FindAsync(new object[] { id }, cancellationToken).AsTask();
+        return UsersSet.FindAsync(new object?[] { id }, cancellationToken).AsTask();
     }
 
     /// <summary>
@@ -246,7 +230,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <returns>
     /// The <see cref="Task"/> that represents the asynchronous operation, containing the user matching the specified <paramref name="normalizedUserName"/> if it exists.
     /// </returns>
-    public override Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken = default(CancellationToken))
+    public override Task<TUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
@@ -268,7 +252,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <param name="userId">The user's id.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user if it exists.</returns>
-    protected override Task<TUser> FindUserAsync(TKey userId, CancellationToken cancellationToken)
+    protected override Task<TUser?> FindUserAsync(TKey userId, CancellationToken cancellationToken)
     {
         return Users.SingleOrDefaultAsync(u => u.Id.Equals(userId), cancellationToken);
     }
@@ -281,7 +265,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <param name="providerKey">The key provided by the <paramref name="loginProvider"/> to identify a user.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user login if it exists.</returns>
-    protected override Task<TUserLogin> FindUserLoginAsync(TKey userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
+    protected override Task<TUserLogin?> FindUserLoginAsync(TKey userId, string loginProvider, string providerKey, CancellationToken cancellationToken)
     {
         return UserLogins.SingleOrDefaultAsync(userLogin => userLogin.UserId.Equals(userId) && userLogin.LoginProvider == loginProvider && userLogin.ProviderKey == providerKey, cancellationToken);
     }
@@ -293,7 +277,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <param name="providerKey">The key provided by the <paramref name="loginProvider"/> to identify a user.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user login if it exists.</returns>
-    protected override Task<TUserLogin> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
+    protected override Task<TUserLogin?> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
     {
         return UserLogins.SingleOrDefaultAsync(userLogin => userLogin.LoginProvider == loginProvider && userLogin.ProviderKey == providerKey, cancellationToken);
     }
@@ -307,10 +291,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     public override async Task<IList<Claim>> GetClaimsAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
 
         return await UserClaims.Where(uc => uc.UserId.Equals(user.Id)).Select(c => c.ToClaim()).ToListAsync(cancellationToken);
     }
@@ -325,14 +306,8 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     public override Task AddClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken = default(CancellationToken))
     {
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (claims == null)
-        {
-            throw new ArgumentNullException(nameof(claims));
-        }
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(claims);
         foreach (var claim in claims)
         {
             UserClaims.Add(CreateUserClaim(user, claim));
@@ -351,18 +326,9 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     public override async Task ReplaceClaimAsync(TUser user, Claim claim, Claim newClaim, CancellationToken cancellationToken = default(CancellationToken))
     {
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (claim == null)
-        {
-            throw new ArgumentNullException(nameof(claim));
-        }
-        if (newClaim == null)
-        {
-            throw new ArgumentNullException(nameof(newClaim));
-        }
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(claim);
+        ArgumentNullException.ThrowIfNull(newClaim);
 
         var matchedClaims = await UserClaims.Where(uc => uc.UserId.Equals(user.Id) && uc.ClaimValue == claim.Value && uc.ClaimType == claim.Type).ToListAsync(cancellationToken);
         foreach (var matchedClaim in matchedClaims)
@@ -382,14 +348,8 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     public override async Task RemoveClaimsAsync(TUser user, IEnumerable<Claim> claims, CancellationToken cancellationToken = default(CancellationToken))
     {
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (claims == null)
-        {
-            throw new ArgumentNullException(nameof(claims));
-        }
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(claims);
         foreach (var claim in claims)
         {
             var matchedClaims = await UserClaims.Where(uc => uc.UserId.Equals(user.Id) && uc.ClaimValue == claim.Value && uc.ClaimType == claim.Type).ToListAsync(cancellationToken);
@@ -412,14 +372,8 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (login == null)
-        {
-            throw new ArgumentNullException(nameof(login));
-        }
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentNullException.ThrowIfNull(login);
         UserLogins.Add(CreateUserLogin(user, login));
         return Task.FromResult(false);
     }
@@ -437,10 +391,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
         var entry = await FindUserLoginAsync(user.Id, loginProvider, providerKey, cancellationToken);
         if (entry != null)
         {
@@ -460,10 +411,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullException.ThrowIfNull(user);
         var userId = user.Id;
         return await UserLogins.Where(l => l.UserId.Equals(userId))
             .Select(l => new UserLoginInfo(l.LoginProvider, l.ProviderKey, l.ProviderDisplayName)).ToListAsync(cancellationToken);
@@ -478,7 +426,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <returns>
     /// The <see cref="Task"/> for the asynchronous operation, containing the user, if any which matched the specified login provider and key.
     /// </returns>
-    public override async Task<TUser> FindByLoginAsync(string loginProvider, string providerKey,
+    public override async Task<TUser?> FindByLoginAsync(string loginProvider, string providerKey,
         CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -499,12 +447,12 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <returns>
     /// The task object containing the results of the asynchronous lookup operation, the user if any associated with the specified normalized email address.
     /// </returns>
-    public override Task<TUser> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default(CancellationToken))
+    public override Task<TUser?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        return Task.FromResult(Users.Where(u => u.NormalizedEmail == normalizedEmail).SingleOrDefault());
+        return Users.SingleOrDefaultAsync(u => u.NormalizedEmail == normalizedEmail, cancellationToken);
     }
 
     /// <summary>
@@ -519,10 +467,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (claim == null)
-        {
-            throw new ArgumentNullException(nameof(claim));
-        }
+        ArgumentNullException.ThrowIfNull(claim);
 
         var query = from userclaims in UserClaims
                     join user in Users on userclaims.UserId equals user.Id
@@ -541,7 +486,7 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
     /// <param name="name">The name of the token.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user token if it exists.</returns>
-    protected override Task<TUserToken> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
+    protected override Task<TUserToken?> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
         => UserTokens.FindAsync(new object[] { user.Id, loginProvider, name }, cancellationToken).AsTask();
 
     /// <summary>
@@ -554,7 +499,6 @@ public class UserOnlyStore<TUser, TContext, TKey, TUserClaim, TUserLogin, TUserT
         UserTokens.Add(token);
         return Task.CompletedTask;
     }
-
 
     /// <summary>
     /// Remove a new user token.

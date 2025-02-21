@@ -3,7 +3,6 @@
 
 using System.Buffers;
 using System.Net;
-using System.Threading;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
@@ -21,7 +20,8 @@ internal class BaseHttpConnectionContext
         IFeatureCollection connectionFeatures,
         MemoryPool<byte> memoryPool,
         IPEndPoint? localEndPoint,
-        IPEndPoint? remoteEndPoint)
+        IPEndPoint? remoteEndPoint,
+        ConnectionMetricsContext metricsContext)
     {
         ConnectionId = connectionId;
         Protocols = protocols;
@@ -32,6 +32,7 @@ internal class BaseHttpConnectionContext
         MemoryPool = memoryPool;
         LocalEndPoint = localEndPoint;
         RemoteEndPoint = remoteEndPoint;
+        MetricsContext = metricsContext;
     }
 
     public string ConnectionId { get; set; }
@@ -43,6 +44,7 @@ internal class BaseHttpConnectionContext
     public MemoryPool<byte> MemoryPool { get; }
     public IPEndPoint? LocalEndPoint { get; }
     public IPEndPoint? RemoteEndPoint { get; }
+    public ConnectionMetricsContext MetricsContext { get; }
 
     public ITimeoutControl TimeoutControl { get; set; } = default!; // Always set by HttpConnection
     public ExecutionContext? InitialExecutionContext { get; set; }

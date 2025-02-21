@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 
 /// <summary>
@@ -14,7 +11,7 @@ public class AccessToken
     /// <summary>
     /// Gets or sets the list of granted scopes for the token.
     /// </summary>
-    public IReadOnlyList<string> GrantedScopes { get; set; }
+    public IReadOnlyList<string> GrantedScopes { get; set; } = default!;
 
     /// <summary>
     /// Gets the expiration time of the token.
@@ -24,5 +21,5 @@ public class AccessToken
     /// <summary>
     /// Gets the serialized representation of the token.
     /// </summary>
-    public string Value { get; set; }
+    public string Value { get; set; } = default!;
 }

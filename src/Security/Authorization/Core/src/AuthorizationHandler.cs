@@ -21,7 +21,7 @@ public abstract class AuthorizationHandler<TRequirement> : IAuthorizationHandler
     {
         foreach (var req in context.Requirements.OfType<TRequirement>())
         {
-            await HandleRequirementAsync(context, req);
+            await HandleRequirementAsync(context, req).ConfigureAwait(false);
         }
     }
 
@@ -48,11 +48,11 @@ public abstract class AuthorizationHandler<TRequirement, TResource> : IAuthoriza
     /// <param name="context">The authorization context.</param>
     public virtual async Task HandleAsync(AuthorizationHandlerContext context)
     {
-        if (context.Resource is TResource)
+        if (context.Resource is TResource resource)
         {
             foreach (var req in context.Requirements.OfType<TRequirement>())
             {
-                await HandleRequirementAsync(context, req, (TResource)context.Resource);
+                await HandleRequirementAsync(context, req, resource).ConfigureAwait(false);
             }
         }
     }

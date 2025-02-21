@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -57,15 +55,8 @@ public class BodyModelBinderProvider : IModelBinderProvider
         ILoggerFactory loggerFactory,
         MvcOptions? options)
     {
-        if (formatters == null)
-        {
-            throw new ArgumentNullException(nameof(formatters));
-        }
-
-        if (readerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(readerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(formatters);
+        ArgumentNullException.ThrowIfNull(readerFactory);
 
         _formatters = formatters;
         _readerFactory = readerFactory;
@@ -76,10 +67,7 @@ public class BodyModelBinderProvider : IModelBinderProvider
     /// <inheritdoc />
     public IModelBinder? GetBinder(ModelBinderProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.BindingInfo.BindingSource != null &&
             context.BindingInfo.BindingSource.CanAcceptDataFrom(BindingSource.Body))

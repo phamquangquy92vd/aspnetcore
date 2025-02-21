@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 /// <summary>
@@ -22,10 +19,7 @@ public class ValidationMetadataProviderContext
         ModelMetadataIdentity key,
         ModelAttributes attributes)
     {
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(attributes);
 
         Key = key;
         Attributes = attributes.Attributes;

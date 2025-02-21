@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
@@ -61,10 +59,7 @@ public class PartialViewResult : ActionResult, IStatusCodeActionResult
     /// <inheritdoc />
     public override Task ExecuteResultAsync(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var services = context.HttpContext.RequestServices;
         var executor = services.GetService<IActionResultExecutor<PartialViewResult>>();

@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Authentication;
 
@@ -33,6 +31,38 @@ public class ClaimActionTests
         var identity = new ClaimsIdentity();
 
         var action = new JsonKeyClaimAction("role", "role", "role");
+        action.Run(userData.RootElement, identity, "iss");
+
+        var roleClaims = identity.FindAll("role").ToList();
+        Assert.Equal(2, roleClaims.Count);
+        Assert.Equal("role", roleClaims[0].Type);
+        Assert.Equal("role1", roleClaims[0].Value);
+        Assert.Equal("role", roleClaims[1].Type);
+        Assert.Equal("role2", roleClaims[1].Value);
+    }
+
+    [Fact]
+    public void CanMapSingleSubValueUserDataToClaim()
+    {
+        var userData = JsonDocument.Parse("{ \"name\": { \"subkey\": \"test\" } }");
+
+        var identity = new ClaimsIdentity();
+
+        var action = new JsonSubKeyClaimAction("name", "name", "name", "subkey");
+        action.Run(userData.RootElement, identity, "iss");
+
+        Assert.Equal("name", identity.FindFirst("name").Type);
+        Assert.Equal("test", identity.FindFirst("name").Value);
+    }
+
+    [Fact]
+    public void CanMapArraySubValueUserDataToClaims()
+    {
+        var userData = JsonDocument.Parse("{ \"role\": { \"subkey\": [ \"role1\", null, \"role2\" ] } }");
+
+        var identity = new ClaimsIdentity();
+
+        var action = new JsonSubKeyClaimAction("role", "role", "role", "subkey");
         action.Run(userData.RootElement, identity, "iss");
 
         var roleClaims = identity.FindAll("role").ToList();

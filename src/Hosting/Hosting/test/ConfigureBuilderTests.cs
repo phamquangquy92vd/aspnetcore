@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Hosting.Tests;
 
@@ -25,7 +23,7 @@ public class ConfigureBuilderTests
 
         var builder = new ConfigureBuilder(methodInfo);
         Action<IApplicationBuilder> action = builder.Build(instance: null);
-        var ex = Assert.Throws<Exception>(() => action.Invoke(applicationBuilder));
+        var ex = Assert.Throws<InvalidOperationException>(() => action.Invoke(applicationBuilder));
 
         Assert.NotNull(ex);
         Assert.Equal($"Could not resolve a service of type '{typeof(CrasherService).FullName}' for the parameter"

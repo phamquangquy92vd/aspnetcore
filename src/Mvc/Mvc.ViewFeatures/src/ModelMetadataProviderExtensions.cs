@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -26,15 +25,8 @@ public static class ModelMetadataProviderExtensions
         Type modelType,
         object model)
     {
-        if (provider == null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
-
-        if (modelType == null)
-        {
-            throw new ArgumentNullException(nameof(modelType));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(modelType);
 
         var modelMetadata = provider.GetMetadataForType(modelType);
         return new ModelExplorer(provider, modelMetadata, model);

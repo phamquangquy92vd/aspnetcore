@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -182,7 +179,7 @@ public abstract class EnumerableValueProviderTest
         var result = valueProvider.GetValue("some");
 
         // Assert
-        Assert.Equal(new[] { "someValue1", "someValue2" }, result.Values);
+        Assert.Equal(new[] { "someValue1", "someValue2" }, result.Values.ToArray());
         Assert.Equal("someValue1,someValue2", (string)result);
         Assert.Equal(culture, result.Culture);
     }
@@ -218,7 +215,7 @@ public abstract class EnumerableValueProviderTest
         var result = valueProvider.GetValue("key");
 
         // Assert
-        Assert.Equal(new[] { null, null, "value" }, result.Values);
+        Assert.Equal(new[] { null, null, "value" }, result.Values.ToArray());
     }
 
     [Fact]

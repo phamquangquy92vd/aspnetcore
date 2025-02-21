@@ -1,15 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using BasicTestApp.HttpClientTest;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
-using Microsoft.AspNetCore.Testing;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -39,7 +35,7 @@ public class BinaryHttpClientTest : BrowserTestBase,
 
     protected override void InitializeAsyncCore()
     {
-        Browser.Navigate(_devHostServerFixture.RootUri, "/subdir", noReload: true);
+        Browser.Navigate(_devHostServerFixture.RootUri, "/subdir");
         _appElement = Browser.MountTestComponent<BinaryHttpRequestsComponent>();
     }
 

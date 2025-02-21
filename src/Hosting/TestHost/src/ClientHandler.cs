@@ -1,16 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.Contracts;
-using System.IO;
 using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
@@ -25,6 +20,7 @@ namespace Microsoft.AspNetCore.TestHost;
 public class ClientHandler : HttpMessageHandler
 {
     private readonly ApplicationWrapper _application;
+    private readonly Action<HttpContext> _additionalContextConfiguration;
     private readonly PathString _pathBase;
 
     /// <summary>
@@ -32,9 +28,11 @@ public class ClientHandler : HttpMessageHandler
     /// </summary>
     /// <param name="pathBase">The base path.</param>
     /// <param name="application">The <see cref="IHttpApplication{TContext}"/>.</param>
-    internal ClientHandler(PathString pathBase, ApplicationWrapper application)
+    /// <param name="additionalContextConfiguration">The action to additionally configure <see cref="HttpContext"/>.</param>
+    internal ClientHandler(PathString pathBase, ApplicationWrapper application, Action<HttpContext>? additionalContextConfiguration = null)
     {
         _application = application ?? throw new ArgumentNullException(nameof(application));
+        _additionalContextConfiguration = additionalContextConfiguration ?? NoExtraConfiguration;
 
         // PathString.StartsWithSegments that we use below requires the base path to not end in a slash.
         if (pathBase.HasValue && pathBase.Value.EndsWith('/'))
@@ -49,20 +47,35 @@ public class ClientHandler : HttpMessageHandler
     internal bool PreserveExecutionContext { get; set; }
 
     /// <summary>
+    /// This synchronous method is not supported due to the risk of threadpool exhaustion when running multiple tests in parallel. 
+    /// </summary>
+    /// <param name="request">The <see cref="HttpRequestMessage"/>.</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/>.</param>
+    /// <exception cref="NotSupportedException">Thrown unconditionally.</exception>
+    /// <remarks>
+    /// Use the asynchronous version of this method, <see cref="SendAsync(HttpRequestMessage, CancellationToken)"/>, instead.
+    /// </remarks>
+    protected override HttpResponseMessage Send(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        throw new NotSupportedException(
+            "This synchronous method is not supported due to the risk of threadpool exhaustion " +
+            "when running multiple tests in parallel. Use the asynchronous version of this method instead.");
+    }
+
+    /// <summary>
     /// This adapts HttpRequestMessages to ASP.NET Core requests, dispatches them through the pipeline, and returns the
     /// associated HttpResponseMessage.
     /// </summary>
-    /// <param name="request"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
+    /// <param name="request">The <see cref="HttpRequestMessage"/>.</param>
+    /// <param name="cancellationToken">The <see cref="CancellationToken"/>.</param>
+    /// <returns>A <see cref="Task{TResult}"/> returning the <see cref="HttpResponseMessage"/>.</returns>
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        if (request == null)
-        {
-            throw new ArgumentNullException(nameof(request));
-        }
+        ArgumentNullException.ThrowIfNull(request);
 
         var contextBuilder = new HttpContextBuilder(_application, AllowSynchronousIO, PreserveExecutionContext);
 
@@ -70,19 +83,17 @@ public class ClientHandler : HttpMessageHandler
 
         if (requestContent != null)
         {
-            // Read content from the request HttpContent into a pipe in a background task. This will allow the request
-            // delegate to start before the request HttpContent is complete. A background task allows duplex streaming scenarios.
             contextBuilder.SendRequestStream(async writer =>
             {
                 if (requestContent is StreamContent)
                 {
-                        // This is odd but required for backwards compat. If StreamContent is passed in then seek to beginning.
-                        // This is safe because StreamContent.ReadAsStreamAsync doesn't block. It will return the inner stream.
-                        var body = await requestContent.ReadAsStreamAsync();
+                    // This is odd but required for backwards compat. If StreamContent is passed in then seek to beginning.
+                    // This is safe because StreamContent.ReadAsStreamAsync doesn't block. It will return the inner stream.
+                    var body = await requestContent.ReadAsStreamAsync();
                     if (body.CanSeek)
                     {
-                            // This body may have been consumed before, rewind it.
-                            body.Seek(0, SeekOrigin.Begin);
+                        // This body may have been consumed before, rewind it.
+                        body.Seek(0, SeekOrigin.Begin);
                     }
 
                     await body.CopyToAsync(writer);
@@ -108,21 +119,27 @@ public class ClientHandler : HttpMessageHandler
             if (requestContent != null)
             {
                 canHaveBody = true;
-                    // Chunked takes precedence over Content-Length, don't create a request with both Content-Length and chunked.
-                    if (request.Headers.TransferEncodingChunked != true)
+                // Chunked takes precedence over Content-Length, don't create a request with both Content-Length and chunked.
+                if (request.Headers.TransferEncodingChunked != true)
                 {
-                        // Reading the ContentLength will add it to the Headers‼
-                        // https://github.com/dotnet/runtime/blob/874399ab15e47c2b4b7c6533cc37d27d47cb5242/src/libraries/System.Net.Http/src/System/Net/Http/Headers/HttpContentHeaders.cs#L68-L87
-                        var contentLength = requestContent.Headers.ContentLength;
+                    // Reading the ContentLength will add it to the Headers‼
+                    // https://github.com/dotnet/runtime/blob/874399ab15e47c2b4b7c6533cc37d27d47cb5242/src/libraries/System.Net.Http/src/System/Net/Http/Headers/HttpContentHeaders.cs#L68-L87
+                    var contentLength = requestContent.Headers.ContentLength;
                     if (!contentLength.HasValue && request.Version == HttpVersion.Version11)
                     {
-                            // HTTP/1.1 requests with a body require either Content-Length or Transfer-Encoding: chunked.
-                            request.Headers.TransferEncodingChunked = true;
+                        // HTTP/1.1 requests with a body require either Content-Length or Transfer-Encoding: chunked.
+                        request.Headers.TransferEncodingChunked = true;
                     }
                     else if (contentLength == 0)
                     {
                         canHaveBody = false;
                     }
+                }
+                else
+                {
+                    // https://www.rfc-editor.org/rfc/rfc9112#section-6.2-2
+                    // A sender MUST NOT send a Content-Length header field in any message that contains a Transfer-Encoding header field.
+                    requestContent.Headers.Remove(HeaderNames.ContentLength);
                 }
 
                 foreach (var header in requestContent.Headers)
@@ -139,10 +156,10 @@ public class ClientHandler : HttpMessageHandler
 
             foreach (var header in request.Headers)
             {
-                    // User-Agent is a space delineated single line header but HttpRequestHeaders parses it as multiple elements.
-                    if (string.Equals(header.Key, HeaderNames.UserAgent, StringComparison.OrdinalIgnoreCase))
+                // User-Agent is a space delineated single line header but HttpRequestHeaders parses it as multiple elements.
+                if (string.Equals(header.Key, HeaderNames.UserAgent, StringComparison.OrdinalIgnoreCase))
                 {
-                    req.Headers.Append(header.Key, string.Join(" ", header.Value));
+                    req.Headers.Append(header.Key, string.Join(' ', header.Value));
                 }
                 else
                 {
@@ -152,8 +169,8 @@ public class ClientHandler : HttpMessageHandler
 
             if (!req.Host.HasValue)
             {
-                    // If Host wasn't explicitly set as a header, let's infer it from the Uri
-                    req.Host = HostString.FromUriComponent(request.RequestUri);
+                // If Host wasn't explicitly set as a header, let's infer it from the Uri
+                req.Host = HostString.FromUriComponent(request.RequestUri);
                 if (request.RequestUri.IsDefaultPort)
                 {
                     req.Host = new HostString(req.Host.Host);
@@ -170,6 +187,8 @@ public class ClientHandler : HttpMessageHandler
             req.QueryString = QueryString.FromUriComponent(request.RequestUri);
         });
 
+        contextBuilder.Configure((context, _) => _additionalContextConfiguration(context));
+
         var response = new HttpResponseMessage();
 
         // Copy trailers to the response message when the response stream is complete
@@ -177,8 +196,8 @@ public class ClientHandler : HttpMessageHandler
         {
             var responseTrailersFeature = context.Features.Get<IHttpResponseTrailersFeature>();
 
-                // Trailers collection is settable so double check the app hasn't set it to null.
-                if (responseTrailersFeature?.Trailers != null)
+            // Trailers collection is settable so double check the app hasn't set it to null.
+            if (responseTrailersFeature?.Trailers != null)
             {
                 foreach (var trailer in responseTrailersFeature.Trailers)
                 {
@@ -191,7 +210,7 @@ public class ClientHandler : HttpMessageHandler
         var httpContext = await contextBuilder.SendAsync(cancellationToken);
 
         response.StatusCode = (HttpStatusCode)httpContext.Response.StatusCode;
-        response.ReasonPhrase = httpContext.Features.Get<IHttpResponseFeature>()!.ReasonPhrase;
+        response.ReasonPhrase = httpContext.Features.GetRequiredFeature<IHttpResponseFeature>().ReasonPhrase;
         response.RequestMessage = request;
         response.Version = request.Version;
 
@@ -206,5 +225,10 @@ public class ClientHandler : HttpMessageHandler
             }
         }
         return response;
+    }
+
+    private static void NoExtraConfiguration(HttpContext context)
+    {
+        // Intentional no op
     }
 }

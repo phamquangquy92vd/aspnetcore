@@ -1,28 +1,21 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using OpenQA.Selenium;
-using DevHostServerProgram = Microsoft.AspNetCore.Components.WebAssembly.DevServer.Server.Program;
+using Microsoft.Playwright;
 
 namespace Wasm.Performance.Driver;
 
 public class Program
 {
+    private const bool RunHeadless = true;
+
     internal static TaskCompletionSource<BenchmarkResult> BenchmarkResultTask;
 
     public static async Task<int> Main(string[] args)
@@ -59,7 +52,18 @@ public class Program
         // This write is required for the benchmarking infrastructure.
         Console.WriteLine("Application started.");
 
-        using var browser = await Selenium.CreateBrowser(default, captureBrowserMemory: isStressRun);
+        var browserArgs = new List<string>();
+        if (isStressRun)
+        {
+            browserArgs.Add("--enable-precise-memory-info");
+        }
+
+        using var playwright = await Playwright.CreateAsync();
+        await using var browser = await playwright.Chromium.LaunchAsync(new()
+        {
+            Headless = RunHeadless,
+            Args = browserArgs,
+        });
         using var testApp = StartTestApp();
         using var benchmarkReceiver = StartBenchmarkResultReceiver();
         var testAppUrl = GetListeningUrl(testApp);
@@ -75,25 +79,26 @@ public class Program
         var timeForEachRun = TimeSpan.FromMinutes(3);
 
         var launchUrl = $"{testAppUrl}?resultsUrl={UrlEncoder.Default.Encode(receiverUrl)}#automated";
-        browser.Url = launchUrl;
-        browser.Navigate();
+        var page = await browser.NewPageAsync();
+        await page.GotoAsync(launchUrl);
+        page.Console += WriteBrowserConsoleMessage;
 
         do
         {
             BenchmarkResultTask = new TaskCompletionSource<BenchmarkResult>();
             using var runCancellationToken = new CancellationTokenSource(timeForEachRun);
-            using var registration = runCancellationToken.Token.Register(() =>
+            using var registration = runCancellationToken.Token.Register(async () =>
             {
-                string exceptionMessage = $"Timed out after {timeForEachRun}.";
+                var exceptionMessage = $"Timed out after {timeForEachRun}.";
                 try
                 {
-                    var innerHtml = browser.FindElement(By.CssSelector(":first-child")).GetAttribute("innerHTML");
+                    var innerHtml = await page.GetAttributeAsync(":first-child", "innerHTML");
                     exceptionMessage += Environment.NewLine + "Browser state: " + Environment.NewLine + innerHtml;
                 }
                 catch
                 {
-                        // Do nothing;
-                    }
+                    // Do nothing;
+                }
                 BenchmarkResultTask.TrySetException(new TimeoutException(exceptionMessage));
             });
 
@@ -115,11 +120,15 @@ public class Program
         return 0;
     }
 
+    private static void WriteBrowserConsoleMessage(object sender, IConsoleMessage message)
+    {
+        Console.WriteLine($"[Browser Log]: {message.Text}");
+    }
+
     private static void FormatAsBenchmarksOutput(BenchmarkResult benchmarkResult, bool includeMetadata, bool isStressRun)
     {
         // Sample of the the format: https://github.com/aspnet/Benchmarks/blob/e55f9e0312a7dd019d1268c1a547d1863f0c7237/src/Benchmarks/Program.cs#L51-L67
         var output = new BenchmarkOutput();
-
 
         if (benchmarkResult.DownloadSize != null)
         {
@@ -261,31 +270,20 @@ public class Program
         }
     }
 
-    static IHost StartTestApp()
+    static WebApplication StartTestApp()
     {
-        var args = new[]
-        {
-                "--urls", "http://127.0.0.1:0",
-                "--applicationpath", typeof(TestApp.Program).Assembly.Location,
-#if DEBUG
-                "--contentroot",
-                Path.GetFullPath(typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-                    .First(f => f.Key == "TestAppLocatiion")
-                    .Value)
-#endif
-            };
+        string[] args = ["--urls", "http://127.0.0.1:0"];
+        var app = WebApplication.Create(args);
+        app.MapStaticAssets();
+        app.MapFallbackToFile("index.html");
 
-        var host = DevHostServerProgram.BuildWebHost(args);
-        RunInBackgroundThread(host.Start);
-        return host;
+        RunInBackgroundThread(app.Start);
+        return app;
     }
 
     static IHost StartBenchmarkResultReceiver()
     {
-        var args = new[]
-        {
-                "--urls", "http://127.0.0.1:0",
-            };
+        string[] args = ["--urls", "http://127.0.0.1:0"];
 
         var host = Host.CreateDefaultBuilder(args)
             .ConfigureWebHostDefaults(builder => builder.UseStartup<BenchmarkDriverStartup>())

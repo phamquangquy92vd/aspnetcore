@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 /// <summary>
@@ -21,20 +19,9 @@ public class ModelValidationContextBase
         ModelMetadata modelMetadata,
         IModelMetadataProvider metadataProvider)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (modelMetadata == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadata));
-        }
-
-        if (metadataProvider == null)
-        {
-            throw new ArgumentNullException(nameof(metadataProvider));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(modelMetadata);
+        ArgumentNullException.ThrowIfNull(metadataProvider);
 
         ActionContext = actionContext;
         ModelMetadata = modelMetadata;

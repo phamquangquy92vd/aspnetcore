@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Localization;
 
 namespace Microsoft.AspNetCore.Builder;
@@ -22,15 +21,8 @@ public static class RequestLocalizationOptionsExtensions
         this RequestLocalizationOptions requestLocalizationOptions,
         RequestCultureProvider requestCultureProvider)
     {
-        if (requestLocalizationOptions == null)
-        {
-            throw new ArgumentNullException(nameof(requestLocalizationOptions));
-        }
-
-        if (requestCultureProvider == null)
-        {
-            throw new ArgumentNullException(nameof(requestCultureProvider));
-        }
+        ArgumentNullException.ThrowIfNull(requestLocalizationOptions);
+        ArgumentNullException.ThrowIfNull(requestCultureProvider);
 
         requestLocalizationOptions.RequestCultureProviders.Insert(0, requestCultureProvider);
 

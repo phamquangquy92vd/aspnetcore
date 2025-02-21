@@ -1,10 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
 public class SimpleValueProviderFactory : IValueProviderFactory
@@ -18,10 +14,7 @@ public class SimpleValueProviderFactory : IValueProviderFactory
 
     public SimpleValueProviderFactory(IValueProvider valueProvider)
     {
-        if (valueProvider == null)
-        {
-            throw new ArgumentNullException(nameof(valueProvider));
-        }
+        ArgumentNullException.ThrowIfNull(valueProvider);
 
         _valueProvider = valueProvider;
     }

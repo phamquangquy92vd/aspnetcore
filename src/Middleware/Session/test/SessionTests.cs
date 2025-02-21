@@ -1,12 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -22,7 +17,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Session;
 
@@ -469,7 +463,7 @@ public class SessionTests
                         else if (context.Request.Path == new PathString("/AccessSessionData"))
                         {
                             var value = context.Session.GetInt32("Key");
-                            responseData = (value == null) ? "No value found in session." : value.ToString();
+                            responseData = (value == null) ? "No value found in session." : value.Value.ToString(CultureInfo.InvariantCulture);
                         }
                         else if (context.Request.Path == new PathString("/DoNotAccessSessionData"))
                         {
@@ -1020,7 +1014,7 @@ public class SessionTests
         Assert.Contains("Session stored", sessionLogMessages[1].State.ToString());
         Assert.Equal(LogLevel.Debug, sessionLogMessages[1].LogLevel);
 
-        Assert.Empty(sink.Writes.Where(message => message.LoggerName.Equals(typeof(SessionMiddleware).FullName, StringComparison.Ordinal)));
+        Assert.DoesNotContain(sink.Writes, message => message.LoggerName.Equals(typeof(SessionMiddleware).FullName, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1084,7 +1078,7 @@ public class SessionTests
         Assert.Contains("Session stored", sessionLogMessages[1].State.ToString());
         Assert.Equal(LogLevel.Debug, sessionLogMessages[1].LogLevel);
 
-        Assert.Empty(sink.Writes.Where(message => message.LoggerName.Equals(typeof(SessionMiddleware).FullName, StringComparison.Ordinal)));
+        Assert.DoesNotContain(sink.Writes, message => message.LoggerName.Equals(typeof(SessionMiddleware).FullName, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1104,8 +1098,8 @@ public class SessionTests
                     app.UseSession();
                     app.Run(context =>
                     {
-                            // The middleware calls context.Session.CommitAsync() once per request
-                            return Task.FromResult(0);
+                        // The middleware calls context.Session.CommitAsync() once per request
+                        return Task.FromResult(0);
                     });
                 })
                 .ConfigureServices(services =>

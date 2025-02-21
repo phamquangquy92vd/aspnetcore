@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.SpaServices.StaticFiles;
 using Microsoft.Extensions.FileProviders;
@@ -28,12 +26,12 @@ public static class SpaStaticFilesExtensions
     {
         services.AddSingleton<ISpaStaticFileProvider>(serviceProvider =>
         {
-                // Use the options configured in DI (or blank if none was configured)
-                var optionsProvider = serviceProvider.GetService<IOptions<SpaStaticFilesOptions>>()!;
+            // Use the options configured in DI (or blank if none was configured)
+            var optionsProvider = serviceProvider.GetService<IOptions<SpaStaticFilesOptions>>()!;
             var options = optionsProvider.Value;
 
-                // Allow the developer to perform further configuration
-                configuration?.Invoke(options);
+            // Allow the developer to perform further configuration
+            configuration?.Invoke(options);
 
             if (string.IsNullOrEmpty(options.RootPath))
             {
@@ -63,15 +61,8 @@ public static class SpaStaticFilesExtensions
     /// <param name="options">Specifies options for serving the static files.</param>
     public static void UseSpaStaticFiles(this IApplicationBuilder applicationBuilder, StaticFileOptions options)
     {
-        if (applicationBuilder == null)
-        {
-            throw new ArgumentNullException(nameof(applicationBuilder));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(applicationBuilder);
+        ArgumentNullException.ThrowIfNull(options);
 
         UseSpaStaticFilesInternal(applicationBuilder,
             staticFileOptions: options,
@@ -83,10 +74,7 @@ public static class SpaStaticFilesExtensions
         StaticFileOptions staticFileOptions,
         bool allowFallbackOnServingWebRootFiles)
     {
-        if (staticFileOptions == null)
-        {
-            throw new ArgumentNullException(nameof(staticFileOptions));
-        }
+        ArgumentNullException.ThrowIfNull(staticFileOptions);
 
         // If the file provider was explicitly supplied, that takes precedence over any other
         // configured file provider. This is most useful if the application hosts multiple SPAs

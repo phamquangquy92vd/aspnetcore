@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
 using Microsoft.AspNetCore.Http;
@@ -55,7 +53,7 @@ public class TwitterOptions : RemoteAuthenticationOptions
     /// Enables the retrieval user details during the authentication process, including
     /// e-mail addresses. Retrieving e-mail addresses requires special permissions
     /// from Twitter Support on a per application basis. The default is false.
-    /// See https://dev.twitter.com/rest/reference/get/account/verify_credentials
+    /// See <see href="https://dev.twitter.com/rest/reference/get/account/verify_credentials"/>.
     /// </summary>
     public bool RetrieveUserDetails { get; set; }
 
@@ -82,6 +80,18 @@ public class TwitterOptions : RemoteAuthenticationOptions
     /// Determines the settings used to create the state cookie before the
     /// cookie gets added to the response.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// If an explicit <see cref="CookieBuilder.Name"/> is not provided, the system will automatically generate a
+    /// unique name that begins with <c>__TwitterState</c>.
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><see cref="CookieBuilder.SameSite"/> defaults to <see cref="SameSiteMode.Lax"/>.</description></item>
+    /// <item><description><see cref="CookieBuilder.HttpOnly"/> defaults to <c>true</c>.</description></item>
+    /// <item><description><see cref="CookieBuilder.IsEssential"/> defaults to <c>true</c>.</description></item>
+    /// <item><description><see cref="CookieBuilder.SecurePolicy"/> defaults to <see cref="CookieSecurePolicy.SameAsRequest"/>.</description></item>
+    /// </list>
+    /// </remarks>
     public CookieBuilder StateCookie
     {
         get => _stateCookieBuilder;
@@ -94,18 +104,11 @@ public class TwitterOptions : RemoteAuthenticationOptions
     public override void Validate()
     {
         base.Validate();
-        if (string.IsNullOrEmpty(ConsumerKey))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(ConsumerKey)), nameof(ConsumerKey));
-        }
-
-        if (string.IsNullOrEmpty(ConsumerSecret))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(ConsumerSecret)), nameof(ConsumerSecret));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(ConsumerKey);
+        ArgumentException.ThrowIfNullOrEmpty(ConsumerSecret);
     }
 
-    private class TwitterCookieBuilder : CookieBuilder
+    private sealed class TwitterCookieBuilder : CookieBuilder
     {
         private readonly TwitterOptions _twitterOptions;
 

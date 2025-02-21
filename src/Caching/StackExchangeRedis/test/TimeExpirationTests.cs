@@ -2,9 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Threading;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Xunit;
@@ -21,7 +21,7 @@ public class TimeExpirationTests
     public void AbsoluteExpirationInThePastThrows()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         var expected = DateTimeOffset.Now - TimeSpan.FromMinutes(1);
@@ -39,7 +39,7 @@ public class TimeExpirationTests
     public void AbsoluteExpirationExpires()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(1)));
@@ -57,10 +57,10 @@ public class TimeExpirationTests
     }
 
     [Fact(Skip = SkipReason)]
-    public void AbsoluteSubSecondExpirationExpiresImmidately()
+    public void AbsoluteSubSecondExpirationExpiresImmediately()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(0.25)));
@@ -73,7 +73,7 @@ public class TimeExpirationTests
     public void NegativeRelativeExpirationThrows()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         ExceptionAssert.ThrowsArgumentOutOfRange(() =>
@@ -89,7 +89,7 @@ public class TimeExpirationTests
     public void ZeroRelativeExpirationThrows()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         ExceptionAssert.ThrowsArgumentOutOfRange(
@@ -106,7 +106,7 @@ public class TimeExpirationTests
     public void RelativeExpirationExpires()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(1)));
@@ -126,7 +126,7 @@ public class TimeExpirationTests
     public void RelativeSubSecondExpirationExpiresImmediately()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetAbsoluteExpiration(TimeSpan.FromSeconds(0.25)));
@@ -139,7 +139,7 @@ public class TimeExpirationTests
     public void NegativeSlidingExpirationThrows()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         ExceptionAssert.ThrowsArgumentOutOfRange(() =>
@@ -152,7 +152,7 @@ public class TimeExpirationTests
     public void ZeroSlidingExpirationThrows()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         ExceptionAssert.ThrowsArgumentOutOfRange(
@@ -169,7 +169,7 @@ public class TimeExpirationTests
     public void SlidingExpirationExpiresIfNotAccessed()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromSeconds(1)));
@@ -177,7 +177,7 @@ public class TimeExpirationTests
         var result = cache.Get(key);
         Assert.Equal(value, result);
 
-        Thread.Sleep(TimeSpan.FromSeconds(3));
+        Thread.Sleep(TimeSpan.FromSeconds(3.5));
 
         result = cache.Get(key);
         Assert.Null(result);
@@ -187,7 +187,7 @@ public class TimeExpirationTests
     public void SlidingSubSecondExpirationExpiresImmediately()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromSeconds(0.25)));
@@ -200,7 +200,7 @@ public class TimeExpirationTests
     public void SlidingExpirationRenewedByAccess()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromSeconds(1)));
@@ -225,13 +225,14 @@ public class TimeExpirationTests
     public void SlidingExpirationRenewedByAccessUntilAbsoluteExpiration()
     {
         var cache = RedisTestConfig.CreateCacheInstance(GetType().Name);
-        var key = "myKey";
+        var key = GetNameAndReset(cache);
         var value = new byte[1];
 
         cache.Set(key, value, new DistributedCacheEntryOptions()
             .SetSlidingExpiration(TimeSpan.FromSeconds(1))
             .SetAbsoluteExpiration(TimeSpan.FromSeconds(3)));
 
+        var setTime = DateTime.Now;
         var result = cache.Get(key);
         Assert.Equal(value, result);
 
@@ -240,12 +241,22 @@ public class TimeExpirationTests
             Thread.Sleep(TimeSpan.FromSeconds(0.5));
 
             result = cache.Get(key);
+            Assert.NotNull(result);
             Assert.Equal(value, result);
         }
 
-        Thread.Sleep(TimeSpan.FromSeconds(.6));
+        while ((DateTime.Now - setTime).TotalSeconds < 4)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(0.5));
+        }
 
         result = cache.Get(key);
         Assert.Null(result);
+    }
+
+    static string GetNameAndReset(IDistributedCache cache, [CallerMemberName] string caller = "")
+    {
+        cache.Remove(caller);
+        return caller;
     }
 }

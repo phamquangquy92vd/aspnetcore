@@ -1,23 +1,26 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+/*
+ * For a detailed explanation regarding each configuration property, visit:
+ * https://jestjs.io/docs/configuration
+ */
+
+path = require('path');
+
+const ROOT_DIR = path.resolve(__dirname, '..', '..', '..');
+
+/** @type {import('jest').Config} */
 
 module.exports = {
-  globals: {
-    transform: {
-      '^.+\\.ts?$': 'ts-jest',
-    },
-    transformIgnorePatterns: ['Microsoft.JSInterop.js'],
-    "ts-jest": {
-      "tsConfig": "./tests/tsconfig.json",
-      "babelConfig": true,
-      "isolatedModules": true,
-      "diagnostics": true
-    }
-  },
-  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/src','<rootDir>/test'],
+  testMatch: ['**/*.test.ts'],
+  moduleFileExtensions: ['js', 'ts'],
   transform: {
-    '^.+\\.(ts|tsx)?$': 'ts-jest',
-    "^.+\\.(js|jsx)$": "babel-jest",
+    '^.+\\.(js|ts)$': 'babel-jest',
   },
-  testEnvironment: 'jsdom'
-};
+  moduleDirectories: ['node_modules', 'src'],
+  testEnvironment: "jsdom",
+  reporters: [
+      "default",
+      [path.resolve(ROOT_DIR, "node_modules", "jest-junit", "index.js"), { "outputDirectory": path.resolve(ROOT_DIR, "artifacts", "log"), "outputName": `${process.platform}` + ".components-webjs.junit.xml" }]
+  ],
+}

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Razor.Hosting;
 
 /// <summary>
@@ -24,15 +22,8 @@ public sealed class RazorCompiledItemAttribute : Attribute
     /// </param>
     public RazorCompiledItemAttribute(Type type, string kind, string identifier)
     {
-        if (type == null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
-
-        if (kind == null)
-        {
-            throw new ArgumentNullException(nameof(kind));
-        }
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(kind);
 
         Type = type;
         Kind = kind;

@@ -1,12 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.Extensions.Primitives;
-using NuGet.Frameworks;
-using Xunit;
 
 namespace Microsoft.Net.Http.Headers;
 
@@ -54,7 +49,7 @@ public class MediaTypeHeaderValueTest
 
     [Theory]
     [MemberData(nameof(MediaTypesWithSuffixes))]
-    public void Ctor_CanParseSuffixedMediaTypes(string mediaType, string expectedSubTypeWithoutSuffix, string expectedSubTypeSuffix)
+    public void Ctor_CanParseSuffixedMediaTypes(string mediaType, string expectedSubTypeWithoutSuffix, string? expectedSubTypeSuffix)
     {
         var result = new MediaTypeHeaderValue(mediaType);
 
@@ -107,8 +102,8 @@ public class MediaTypeHeaderValueTest
     public void Ctor_MediaTypeValidFormat_SuccessfullyCreated()
     {
         var mediaType = new MediaTypeHeaderValue("text/plain");
-        Assert.Equal("text/plain", mediaType.MediaType);
-        Assert.Equal(0, mediaType.Parameters.Count);
+        Assert.Equal("text/plain", mediaType.MediaType.AsSpan());
+        Assert.Empty(mediaType.Parameters);
         Assert.Null(mediaType.Charset.Value);
     }
 
@@ -117,8 +112,8 @@ public class MediaTypeHeaderValueTest
     {
         var mediaType = new MediaTypeHeaderValue("application/xml", 0.08);
         Assert.Equal(0.08, mediaType.Quality);
-        Assert.Equal("application/xml", mediaType.MediaType);
-        Assert.Equal(1, mediaType.Parameters.Count);
+        Assert.Equal("application/xml", mediaType.MediaType.AsSpan());
+        Assert.Single(mediaType.Parameters);
     }
 
     [Fact]
@@ -226,10 +221,10 @@ public class MediaTypeHeaderValueTest
     public void MediaType_SetAndGetMediaType_MatchExpectations()
     {
         var mediaType = new MediaTypeHeaderValue("text/plain");
-        Assert.Equal("text/plain", mediaType.MediaType);
+        Assert.Equal("text/plain", mediaType.MediaType.AsSpan());
 
         mediaType.MediaType = "application/xml";
-        Assert.Equal("application/xml", mediaType.MediaType);
+        Assert.Equal("application/xml", mediaType.MediaType.AsSpan());
     }
 
     [Fact]
@@ -237,13 +232,13 @@ public class MediaTypeHeaderValueTest
     {
         var mediaType = new MediaTypeHeaderValue("text/plain");
         mediaType.Charset = "mycharset";
-        Assert.Equal("mycharset", mediaType.Charset);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("charset", mediaType.Parameters.First().Name);
+        Assert.Equal("mycharset", mediaType.Charset.AsSpan());
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("charset", mediaType.Parameters.First().Name.AsSpan());
 
         mediaType.Charset = null;
         Assert.Null(mediaType.Charset.Value);
-        Assert.Equal(0, mediaType.Parameters.Count);
+        Assert.Empty(mediaType.Parameters);
         mediaType.Charset = null; // It's OK to set it again to null; no exception.
     }
 
@@ -255,13 +250,13 @@ public class MediaTypeHeaderValueTest
         // Note that uppercase letters are used. Comparison should happen case-insensitive.
         var charset = new NameValueHeaderValue("CHARSET", "old_charset");
         mediaType.Parameters.Add(charset);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("CHARSET", mediaType.Parameters.First().Name);
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("CHARSET", mediaType.Parameters.First().Name.AsSpan());
 
         mediaType.Charset = "new_charset";
-        Assert.Equal("new_charset", mediaType.Charset);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("CHARSET", mediaType.Parameters.First().Name);
+        Assert.Equal("new_charset", mediaType.Charset.AsSpan());
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("CHARSET", mediaType.Parameters.First().Name.AsSpan());
 
         mediaType.Parameters.Remove(charset);
         Assert.Null(mediaType.Charset.Value);
@@ -273,13 +268,13 @@ public class MediaTypeHeaderValueTest
         var mediaType = new MediaTypeHeaderValue("text/plain");
         mediaType.Quality = 0.563156454;
         Assert.Equal(0.563, mediaType.Quality);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("q", mediaType.Parameters.First().Name);
-        Assert.Equal("0.563", mediaType.Parameters.First().Value);
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("q", mediaType.Parameters.First().Name.AsSpan());
+        Assert.Equal("0.563", mediaType.Parameters.First().Value.AsSpan());
 
         mediaType.Quality = null;
         Assert.Null(mediaType.Quality);
-        Assert.Equal(0, mediaType.Parameters.Count);
+        Assert.Empty(mediaType.Parameters);
         mediaType.Quality = null; // It's OK to set it again to null; no exception.
     }
 
@@ -290,14 +285,14 @@ public class MediaTypeHeaderValueTest
 
         var quality = new NameValueHeaderValue("q", "0.132");
         mediaType.Parameters.Add(quality);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("q", mediaType.Parameters.First().Name);
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("q", mediaType.Parameters.First().Name.AsSpan());
         Assert.Equal(0.132, mediaType.Quality);
 
         mediaType.Quality = 0.9;
         Assert.Equal(0.9, mediaType.Quality);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("q", mediaType.Parameters.First().Name);
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("q", mediaType.Parameters.First().Name.AsSpan());
 
         mediaType.Parameters.Remove(quality);
         Assert.Null(mediaType.Quality);
@@ -310,8 +305,8 @@ public class MediaTypeHeaderValueTest
 
         var quality = new NameValueHeaderValue("Q", "0.132");
         mediaType.Parameters.Add(quality);
-        Assert.Equal(1, mediaType.Parameters.Count);
-        Assert.Equal("Q", mediaType.Parameters.First().Name);
+        Assert.Single(mediaType.Parameters);
+        Assert.Equal("Q", mediaType.Parameters.First().Name.AsSpan());
         Assert.Equal(0.132, mediaType.Quality);
     }
 
@@ -523,15 +518,15 @@ public class MediaTypeHeaderValueTest
     {
         var results = MediaTypeHeaderValue.ParseList(null);
         Assert.NotNull(results);
-        Assert.Equal(0, results.Count);
+        Assert.Empty(results);
 
         results = MediaTypeHeaderValue.ParseList(new string[0]);
         Assert.NotNull(results);
-        Assert.Equal(0, results.Count);
+        Assert.Empty(results);
 
         results = MediaTypeHeaderValue.ParseList(new string[] { "" });
         Assert.NotNull(results);
-        Assert.Equal(0, results.Count);
+        Assert.Empty(results);
     }
 
     [Fact]

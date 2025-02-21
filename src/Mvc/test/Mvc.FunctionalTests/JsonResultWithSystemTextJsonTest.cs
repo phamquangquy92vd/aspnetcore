@@ -1,30 +1,39 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
+using System.Reflection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class JsonResultWithSystemTextJsonTest : IClassFixture<MvcTestFixture<BasicWebSite.StartupWithSystemTextJson>>
+public class JsonResultWithSystemTextJsonTest : LoggedTest
 {
     private IServiceCollection _serviceCollection;
 
-    public JsonResultWithSystemTextJsonTest(MvcTestFixture<BasicWebSite.StartupWithSystemTextJson> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        var factory = fixture.Factories.FirstOrDefault() ?? fixture.WithWebHostBuilder(b => b.UseStartup<BasicWebSite.StartupWithSystemTextJson>());
-        factory = factory.WithWebHostBuilder(b => b.ConfigureTestServices(serviceCollection => _serviceCollection = serviceCollection));
-
-        Client = factory.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<BasicWebSite.StartupWithSystemTextJson>(LoggerFactory)
+            .WithWebHostBuilder(b => b.ConfigureTestServices(serviceCollection => _serviceCollection = serviceCollection))
+            .WithWebHostBuilder(b => b.UseStartup<BasicWebSite.StartupWithSystemTextJson>());
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<BasicWebSite.StartupWithSystemTextJson> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task JsonResult_UsesDefaultContentType()

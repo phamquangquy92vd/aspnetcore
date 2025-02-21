@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using System.Linq.Expressions;
-using System.Reflection;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -13,10 +11,7 @@ internal static class ViewDataDictionaryFactory
 {
     public static Func<IModelMetadataProvider, ModelStateDictionary, ViewDataDictionary> CreateFactory(Type modelType)
     {
-        if (modelType == null)
-        {
-            throw new ArgumentNullException(nameof(modelType));
-        }
+        ArgumentNullException.ThrowIfNull(modelType);
 
         var type = typeof(ViewDataDictionary<>).MakeGenericType(modelType);
         var constructor = type.GetConstructor(new[] { typeof(IModelMetadataProvider), typeof(ModelStateDictionary) });
@@ -37,10 +32,7 @@ internal static class ViewDataDictionaryFactory
 
     public static Func<ViewDataDictionary, ViewDataDictionary> CreateNestedFactory(Type modelType)
     {
-        if (modelType == null)
-        {
-            throw new ArgumentNullException(nameof(modelType));
-        }
+        ArgumentNullException.ThrowIfNull(modelType);
 
         var type = typeof(ViewDataDictionary<>).MakeGenericType(modelType);
         var constructor = type.GetConstructor(new[] { typeof(ViewDataDictionary) });

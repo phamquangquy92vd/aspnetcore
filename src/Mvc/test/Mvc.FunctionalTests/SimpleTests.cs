@@ -1,22 +1,30 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
-using Xunit;
+using System.Reflection;
+using Microsoft.AspNetCore.InternalTesting;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class SimpleTests : IClassFixture<MvcTestFixture<SimpleWebSite.Startup>>
+public class SimpleTests : LoggedTest
 {
-    public SimpleTests(MvcTestFixture<SimpleWebSite.Startup> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Client = fixture.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<SimpleWebSite.Startup>(LoggerFactory);
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public MvcTestFixture<SimpleWebSite.Startup> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task JsonSerializeFormatted()

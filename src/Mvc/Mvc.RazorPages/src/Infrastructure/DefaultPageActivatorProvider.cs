@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
@@ -12,7 +10,7 @@ namespace Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 /// <summary>
 /// <see cref="IPageActivatorProvider"/> that uses type activation to create Pages.
 /// </summary>
-internal class DefaultPageActivatorProvider : IPageActivatorProvider
+internal sealed class DefaultPageActivatorProvider : IPageActivatorProvider
 {
     private readonly Action<PageContext, ViewContext, object> _disposer = Dispose;
     private readonly Func<PageContext, ViewContext, object, ValueTask> _asyncDisposer = AsyncDispose;
@@ -21,10 +19,7 @@ internal class DefaultPageActivatorProvider : IPageActivatorProvider
     /// <inheritdoc />
     public Func<PageContext, ViewContext, object> CreateActivator(CompiledPageActionDescriptor actionDescriptor)
     {
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         var pageTypeInfo = actionDescriptor.PageTypeInfo?.AsType();
         if (pageTypeInfo == null)
@@ -40,10 +35,7 @@ internal class DefaultPageActivatorProvider : IPageActivatorProvider
 
     public Action<PageContext, ViewContext, object>? CreateReleaser(CompiledPageActionDescriptor actionDescriptor)
     {
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         if (typeof(IDisposable).GetTypeInfo().IsAssignableFrom(actionDescriptor.PageTypeInfo))
         {
@@ -55,10 +47,7 @@ internal class DefaultPageActivatorProvider : IPageActivatorProvider
 
     public Func<PageContext, ViewContext, object, ValueTask>? CreateAsyncReleaser(CompiledPageActionDescriptor actionDescriptor)
     {
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         if (typeof(IAsyncDisposable).GetTypeInfo().IsAssignableFrom(actionDescriptor.PageTypeInfo))
         {
@@ -90,20 +79,9 @@ internal class DefaultPageActivatorProvider : IPageActivatorProvider
 
     private static void Dispose(PageContext context, ViewContext viewContext, object page)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(page);
 
         ((IDisposable)page).Dispose();
     }
@@ -116,20 +94,9 @@ internal class DefaultPageActivatorProvider : IPageActivatorProvider
 
     private static ValueTask AsyncDispose(PageContext context, ViewContext viewContext, object page)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (page == null)
-        {
-            throw new ArgumentNullException(nameof(page));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(page);
 
         return ((IAsyncDisposable)page).DisposeAsync();
     }

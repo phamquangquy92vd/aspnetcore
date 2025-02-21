@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
 
@@ -12,6 +11,8 @@ namespace Microsoft.AspNetCore.Authentication;
 /// </summary>
 public class AuthenticateResult
 {
+    private static readonly AuthenticateResult _noResult = new() { None = true };
+
     /// <summary>
     /// Creates a new <see cref="AuthenticateResult"/> instance.
     /// </summary>
@@ -77,10 +78,7 @@ public class AuthenticateResult
     /// <returns>The result.</returns>
     public static AuthenticateResult Success(AuthenticationTicket ticket)
     {
-        if (ticket == null)
-        {
-            throw new ArgumentNullException(nameof(ticket));
-        }
+        ArgumentNullException.ThrowIfNull(ticket);
         return new AuthenticateResult() { Ticket = ticket, Properties = ticket.Properties };
     }
 
@@ -90,7 +88,7 @@ public class AuthenticateResult
     /// <returns>The result.</returns>
     public static AuthenticateResult NoResult()
     {
-        return new AuthenticateResult() { None = true };
+        return _noResult;
     }
 
     /// <summary>
@@ -120,7 +118,7 @@ public class AuthenticateResult
     /// <param name="failureMessage">The failure message.</param>
     /// <returns>The result.</returns>
     public static AuthenticateResult Fail(string failureMessage)
-        => Fail(new Exception(failureMessage));
+        => Fail(new AuthenticationFailureException(failureMessage));
 
     /// <summary>
     /// Indicates that there was a failure during authentication.
@@ -129,5 +127,5 @@ public class AuthenticateResult
     /// <param name="properties">Additional state values for the authentication session.</param>
     /// <returns>The result.</returns>
     public static AuthenticateResult Fail(string failureMessage, AuthenticationProperties? properties)
-        => Fail(new Exception(failureMessage), properties);
+        => Fail(new AuthenticationFailureException(failureMessage), properties);
 }

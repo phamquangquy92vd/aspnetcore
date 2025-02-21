@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Components.Routing;
 
 // This is very similar to Microsoft.Extensions.Primitives.StringValues, except it works in terms
@@ -19,11 +16,7 @@ internal struct StringSegmentAccumulator
     {
         get
         {
-            if (index >= count)
-            {
-                throw new IndexOutOfRangeException();
-            }
-
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, count);
             return count == 1 ? _single : _multiple![index];
         }
     }

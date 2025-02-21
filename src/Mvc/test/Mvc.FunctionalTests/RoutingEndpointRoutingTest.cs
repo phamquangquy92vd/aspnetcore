@@ -1,23 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
 public class RoutingEndpointRoutingTest : RoutingTestsBase<RoutingWebSite.Startup>
 {
-    public RoutingEndpointRoutingTest(MvcTestFixture<RoutingWebSite.Startup> fixture)
-        : base(fixture)
-    {
-    }
-
     [Fact]
     public async Task AttributeRoutedAction_ContainsPage_RouteMatched()
     {
@@ -406,7 +397,6 @@ public class RoutingEndpointRoutingTest : RoutingTestsBase<RoutingWebSite.Startu
 
         Assert.Equal("/EndpointName/LinkToConventionalRouted", body);
     }
-
 
     [Fact]
     public async Task LinkGenerator_EndpointName_LinkToAttributeRoutedAction()

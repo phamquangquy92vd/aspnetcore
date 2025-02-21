@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Authentication;
@@ -15,7 +14,7 @@ public interface IAuthenticationHandler
     /// Initialize the authentication handler. The handler should initialize anything it needs from the request and scheme as part of this method.
     /// </summary>
     /// <param name="scheme">The <see cref="AuthenticationScheme"/> scheme.</param>
-    /// <param name="context">The <see cref="HttpContext"/> context.</param>
+    /// <param name="context">The <see cref="HttpContext"/> context for the current request.</param>
     Task InitializeAsync(AuthenticationScheme scheme, HttpContext context);
 
     /// <summary>

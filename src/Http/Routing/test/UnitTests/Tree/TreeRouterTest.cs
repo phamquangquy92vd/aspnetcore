@@ -1,12 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.AspNetCore.Routing.TestObjects;
 using Microsoft.Extensions.Logging;
@@ -14,7 +12,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing.Tree;
 
@@ -104,7 +101,7 @@ public class TreeRouterTest
 
         // We setup the route entries in reverse order of precedence to ensure that when we
         // try to route the request, the route with a higher precedence gets tried first.
-        foreach (var template in routes.Reverse())
+        foreach (var template in Enumerable.Reverse(routes))
         {
             MapInboundEntry(builder, template);
         }
@@ -151,7 +148,7 @@ public class TreeRouterTest
 
         // We setup the route entries in reverse order of precedence to ensure that when we
         // try to route the request, the route with a higher precedence gets tried first.
-        foreach (var template in routes.Reverse())
+        foreach (var template in Enumerable.Reverse(routes))
         {
             MapInboundEntry(builder, template);
         }
@@ -203,7 +200,7 @@ public class TreeRouterTest
 
         // We setup the route entries in reverse order of precedence to ensure that when we
         // try to route the request, the route with a higher precedence gets tried first.
-        foreach (var template in routes.Reverse())
+        foreach (var template in Enumerable.Reverse(routes))
         {
             MapInboundEntry(builder, template);
         }
@@ -246,7 +243,7 @@ public class TreeRouterTest
 
         // We setup the route entries in reverse order of precedence to ensure that when we
         // try to route the request, the route with a higher precedence gets tried first.
-        foreach (var template in routes.Reverse())
+        foreach (var template in Enumerable.Reverse(routes))
         {
             MapInboundEntry(builder, template);
         }
@@ -344,7 +341,7 @@ public class TreeRouterTest
 
         // We setup the route entries in reverse order of precedence to ensure that when we
         // try to route the request, the route with a higher precedence gets tried first.
-        foreach (var template in routes.Reverse())
+        foreach (var template in Enumerable.Reverse(routes))
         {
             MapInboundEntry(builder, template);
         }
@@ -1110,7 +1107,6 @@ public class TreeRouterTest
         Assert.Equal("/a/b/3/d", result.VirtualPath);
     }
 
-
     [Fact]
     public void TreeRouter_GeneratesLink_ForMultipleNamedEntriesWithTheSameTemplate()
     {
@@ -1751,7 +1747,7 @@ public class TreeRouterTest
                 nestedValues = new RouteValueDictionary(c.RouteData.Values);
                 nestedRouters = new List<IRouter>(c.RouteData.Routers);
                 c.Handler = null; // Not a match
-                })
+            })
             .Returns(Task.CompletedTask);
 
         var builder = CreateBuilder();
@@ -1788,7 +1784,7 @@ public class TreeRouterTest
                 nestedValues = new RouteValueDictionary(c.RouteData.Values);
                 nestedRouters = new List<IRouter>(c.RouteData.Routers);
                 c.Handler = null; // Not a match
-                })
+            })
             .Returns(Task.CompletedTask);
 
         var builder = CreateBuilder();
@@ -2054,7 +2050,6 @@ public class TreeRouterTest
         return entry;
     }
 
-
     private static string CreateRouteGroup(int order, string template)
     {
         return string.Format(CultureInfo.InvariantCulture, "{0}&{1}", order, template);
@@ -2063,6 +2058,8 @@ public class TreeRouterTest
     private static DefaultInlineConstraintResolver CreateConstraintResolver()
     {
         var options = new RouteOptions();
+        options.SetParameterPolicy<RegexInlineRouteConstraint>("regex");
+
         var optionsMock = new Mock<IOptions<RouteOptions>>();
         optionsMock.SetupGet(o => o.Value).Returns(options);
 

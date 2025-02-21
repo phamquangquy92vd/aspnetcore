@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.Net.Http.Headers;
@@ -18,10 +17,7 @@ public static class ContentDispositionHeaderValueIdentityExtensions
     /// <returns>True if the header is file disposition, false otherwise</returns>
     public static bool IsFileDisposition(this ContentDispositionHeaderValue header)
     {
-        if (header == null)
-        {
-            throw new ArgumentNullException(nameof(header));
-        }
+        ArgumentNullException.ThrowIfNull(header);
 
         return header.DispositionType.Equals("form-data")
             && (!StringSegment.IsNullOrEmpty(header.FileName) || !StringSegment.IsNullOrEmpty(header.FileNameStar));
@@ -34,10 +30,7 @@ public static class ContentDispositionHeaderValueIdentityExtensions
     /// <returns>True if the header is form disposition, false otherwise</returns>
     public static bool IsFormDisposition(this ContentDispositionHeaderValue header)
     {
-        if (header == null)
-        {
-            throw new ArgumentNullException(nameof(header));
-        }
+        ArgumentNullException.ThrowIfNull(header);
 
         return header.DispositionType.Equals("form-data")
            && StringSegment.IsNullOrEmpty(header.FileName) && StringSegment.IsNullOrEmpty(header.FileNameStar);

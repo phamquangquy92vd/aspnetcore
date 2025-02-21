@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 
@@ -16,6 +14,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 public class FormValueProvider : BindingSourceValueProvider, IEnumerableValueProvider
 {
     private readonly IFormCollection _values;
+    private readonly HashSet<string?>? _invariantValueKeys;
     private PrefixContainer? _prefixContainer;
 
     /// <summary>
@@ -30,17 +29,16 @@ public class FormValueProvider : BindingSourceValueProvider, IEnumerableValuePro
         CultureInfo? culture)
         : base(bindingSource)
     {
-        if (bindingSource == null)
-        {
-            throw new ArgumentNullException(nameof(bindingSource));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(bindingSource);
+        ArgumentNullException.ThrowIfNull(values);
 
         _values = values;
+
+        if (_values.TryGetValue(FormValueHelper.CultureInvariantFieldName, out var invariantKeys) && invariantKeys.Count > 0)
+        {
+            _invariantValueKeys = new(invariantKeys, StringComparer.OrdinalIgnoreCase);
+        }
+
         Culture = culture;
     }
 
@@ -74,10 +72,7 @@ public class FormValueProvider : BindingSourceValueProvider, IEnumerableValuePro
     /// <inheritdoc />
     public virtual IDictionary<string, string> GetKeysFromPrefix(string prefix)
     {
-        if (prefix == null)
-        {
-            throw new ArgumentNullException(nameof(prefix));
-        }
+        ArgumentNullException.ThrowIfNull(prefix);
 
         return PrefixContainer.GetKeysFromPrefix(prefix);
     }
@@ -85,10 +80,7 @@ public class FormValueProvider : BindingSourceValueProvider, IEnumerableValuePro
     /// <inheritdoc />
     public override ValueProviderResult GetValue(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         if (key.Length == 0)
         {
@@ -106,7 +98,8 @@ public class FormValueProvider : BindingSourceValueProvider, IEnumerableValuePro
         }
         else
         {
-            return new ValueProviderResult(values, Culture);
+            var culture = _invariantValueKeys?.Contains(key) == true ? CultureInfo.InvariantCulture : Culture;
+            return new ValueProviderResult(values, culture);
         }
     }
 }

@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -21,15 +18,8 @@ internal sealed class DbContextHealthCheck<TContext> : IHealthCheck where TConte
 
     public DbContextHealthCheck(TContext dbContext, IOptionsMonitor<DbContextHealthCheckOptions<TContext>> options)
     {
-        if (dbContext == null)
-        {
-            throw new ArgumentNullException(nameof(dbContext));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(dbContext);
+        ArgumentNullException.ThrowIfNull(options);
 
         _dbContext = dbContext;
         _options = options;
@@ -37,19 +27,23 @@ internal sealed class DbContextHealthCheck<TContext> : IHealthCheck where TConte
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var options = _options.Get(context.Registration.Name);
         var testQuery = options.CustomTestQuery ?? DefaultTestQuery;
 
-        if (await testQuery(_dbContext, cancellationToken))
+        try
         {
-            return HealthCheckResult.Healthy();
-        }
+            if (await testQuery(_dbContext, cancellationToken))
+            {
+                return HealthCheckResult.Healthy();
+            }
 
-        return new HealthCheckResult(context.Registration.FailureStatus);
+            return new HealthCheckResult(context.Registration.FailureStatus);
+        }
+        catch (Exception exception)
+        {
+            return HealthCheckResult.Unhealthy(exception.Message, exception);
+        }
     }
 }

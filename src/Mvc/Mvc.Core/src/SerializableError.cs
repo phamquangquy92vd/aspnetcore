@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -30,10 +28,7 @@ public sealed class SerializableError : Dictionary<string, object>
     public SerializableError(ModelStateDictionary modelState)
         : this()
     {
-        if (modelState == null)
-        {
-            throw new ArgumentNullException(nameof(modelState));
-        }
+        ArgumentNullException.ThrowIfNull(modelState);
 
         if (modelState.IsValid)
         {

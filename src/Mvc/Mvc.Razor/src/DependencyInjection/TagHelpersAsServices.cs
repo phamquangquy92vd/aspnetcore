@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -14,15 +13,8 @@ internal static class TagHelpersAsServices
 {
     public static void AddTagHelpersAsServices(ApplicationPartManager manager, IServiceCollection services)
     {
-        if (manager == null)
-        {
-            throw new ArgumentNullException(nameof(manager));
-        }
-
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(manager);
+        ArgumentNullException.ThrowIfNull(services);
 
         var feature = new TagHelperFeature();
         manager.PopulateFeature(feature);

@@ -1,20 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.AspNetCore.Mvc.Routing;
 
-internal class DynamicControllerRouteValueTransformerMetadata : IDynamicEndpointMetadata
+internal sealed class DynamicControllerRouteValueTransformerMetadata : IDynamicEndpointMetadata
 {
     public DynamicControllerRouteValueTransformerMetadata(Type selectorType, object? state)
     {
-        if (selectorType == null)
-        {
-            throw new ArgumentNullException(nameof(selectorType));
-        }
+        ArgumentNullException.ThrowIfNull(selectorType);
 
         if (!typeof(DynamicRouteValueTransformer).IsAssignableFrom(selectorType))
         {

@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -17,7 +15,6 @@ namespace Microsoft.AspNetCore.Authentication;
 /// provider.
 /// </summary>
 /// <typeparam name="TOptions">The type for the options used to configure the authentication handler.</typeparam>
-
 public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHandler<TOptions>, IAuthenticationRequestHandler
     where TOptions : RemoteAuthenticationOptions, new()
 {
@@ -47,9 +44,18 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
     /// <param name="logger">The <see cref="ILoggerFactory"/>.</param>
     /// <param name="encoder">The <see cref="UrlEncoder"/>.</param>
     /// <param name="clock">The <see cref="ISystemClock"/>.</param>
+    [Obsolete("ISystemClock is obsolete, use TimeProvider on AuthenticationSchemeOptions instead.")]
     protected RemoteAuthenticationHandler(IOptionsMonitor<TOptions> options, ILoggerFactory logger, UrlEncoder encoder, ISystemClock clock)
         : base(options, logger, encoder, clock) { }
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="RemoteAuthenticationHandler{TOptions}" />.
+    /// </summary>
+    /// <param name="options">The monitor for the options instance.</param>
+    /// <param name="logger">The <see cref="ILoggerFactory"/>.</param>
+    /// <param name="encoder">The <see cref="UrlEncoder"/>.</param>
+    protected RemoteAuthenticationHandler(IOptionsMonitor<TOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+        : base(options, logger, encoder) { }
 
     /// <inheritdoc />
     protected override Task<object> CreateEventsAsync()
@@ -125,13 +131,13 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
                 }
                 else if (errorContext.Result.Failure != null)
                 {
-                    throw new Exception("An error was returned from the RemoteFailure event.", errorContext.Result.Failure);
+                    throw new AuthenticationFailureException("An error was returned from the RemoteFailure event.", errorContext.Result.Failure);
                 }
             }
 
             if (errorContext.Failure != null)
             {
-                throw new Exception("An error was encountered while handling the remote login.", errorContext.Failure);
+                throw new AuthenticationFailureException("An error was encountered while handling the remote login.", errorContext.Failure);
             }
         }
 
@@ -203,7 +209,7 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
                     ticket.Properties, Scheme.Name));
             }
 
-            return AuthenticateResult.Fail("Not authenticated");
+            return AuthenticateResult.NoResult();
         }
 
         return AuthenticateResult.Fail("Remote authentication does not directly support AuthenticateAsync");
@@ -219,16 +225,13 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
     /// <param name="properties"></param>
     protected virtual void GenerateCorrelationId(AuthenticationProperties properties)
     {
-        if (properties == null)
-        {
-            throw new ArgumentNullException(nameof(properties));
-        }
+        ArgumentNullException.ThrowIfNull(properties);
 
         var bytes = new byte[32];
         RandomNumberGenerator.Fill(bytes);
         var correlationId = Base64UrlTextEncoder.Encode(bytes);
 
-        var cookieOptions = Options.CorrelationCookie.Build(Context, Clock.UtcNow);
+        var cookieOptions = Options.CorrelationCookie.Build(Context, TimeProvider.GetUtcNow());
 
         properties.Items[CorrelationProperty] = correlationId;
 
@@ -244,10 +247,7 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
     /// <returns></returns>
     protected virtual bool ValidateCorrelationId(AuthenticationProperties properties)
     {
-        if (properties == null)
-        {
-            throw new ArgumentNullException(nameof(properties));
-        }
+        ArgumentNullException.ThrowIfNull(properties);
 
         if (!properties.Items.TryGetValue(CorrelationProperty, out var correlationId))
         {
@@ -266,7 +266,7 @@ public abstract class RemoteAuthenticationHandler<TOptions> : AuthenticationHand
             return false;
         }
 
-        var cookieOptions = Options.CorrelationCookie.Build(Context, Clock.UtcNow);
+        var cookieOptions = Options.CorrelationCookie.Build(Context, TimeProvider.GetUtcNow());
 
         Response.Cookies.Delete(cookieName, cookieOptions);
 

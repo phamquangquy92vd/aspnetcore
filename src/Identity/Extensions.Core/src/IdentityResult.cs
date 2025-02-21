@@ -4,7 +4,6 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Identity;
 
@@ -41,6 +40,16 @@ public class IdentityResult
     /// <param name="errors">An optional array of <see cref="IdentityError"/>s which caused the operation to fail.</param>
     /// <returns>An <see cref="IdentityResult"/> indicating a failed identity operation, with a list of <paramref name="errors"/> if applicable.</returns>
     public static IdentityResult Failed(params IdentityError[] errors)
+    {
+        var result = new IdentityResult { Succeeded = false };
+        if (errors != null)
+        {
+            result._errors.AddRange(errors);
+        }
+        return result;
+    }
+
+    internal static IdentityResult Failed(List<IdentityError>? errors)
     {
         var result = new IdentityResult { Succeeded = false };
         if (errors != null)

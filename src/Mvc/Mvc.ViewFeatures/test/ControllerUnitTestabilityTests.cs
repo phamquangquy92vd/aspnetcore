@@ -1,16 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Routing;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc;
 
@@ -85,6 +81,7 @@ public class ControllerUnitTestabilityTests
     [Theory]
     [InlineData("/Created_1", "<html>CreatedBody</html>")]
     [InlineData("/Created_2", null)]
+    [InlineData(null, null)]
     public void ControllerCreated_InvokedInUnitTests(string uri, string content)
     {
         // Arrange
@@ -557,7 +554,7 @@ public class ControllerUnitTestabilityTests
         controller = new TestabilityController();
 
         // Act && Assert
-        Assert.Throws<ArgumentException>(() => controller.Redirect_Action(null));
+        Assert.Throws<ArgumentNullException>(() => controller.Redirect_Action(null));
     }
 
     [Fact]

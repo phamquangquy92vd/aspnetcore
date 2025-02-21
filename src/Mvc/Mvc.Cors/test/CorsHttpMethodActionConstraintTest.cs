@@ -1,19 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Cors;
 
 public class CorsHttpMethodActionConstraintTest
 {
-    public static TheoryData AcceptCaseInsensitiveData =
+    public static TheoryData<IEnumerable<string>, string> AcceptCaseInsensitiveData =
         new TheoryData<IEnumerable<string>, string>
         {
                 { new string[] { "get", "Get", "GET", "GEt"}, "gEt" },

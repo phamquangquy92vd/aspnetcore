@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
 /// <summary>
@@ -23,10 +21,7 @@ public class ApiExplorerModel
     /// <param name="other">The <see cref="ApiExplorerModel"/> to copy.</param>
     public ApiExplorerModel(ApiExplorerModel other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         GroupName = other.GroupName;
         IsVisible = other.IsVisible;

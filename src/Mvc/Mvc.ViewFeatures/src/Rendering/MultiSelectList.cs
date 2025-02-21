@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -27,10 +25,7 @@ public class MultiSelectList : IEnumerable<SelectListItem>
     public MultiSelectList(IEnumerable items)
         : this(items, selectedValues: null)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
     }
 
     /// <summary>
@@ -41,10 +36,7 @@ public class MultiSelectList : IEnumerable<SelectListItem>
     public MultiSelectList(IEnumerable items, IEnumerable selectedValues)
         : this(items, dataValueField: null, dataTextField: null, selectedValues: selectedValues)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
     }
 
     /// <summary>
@@ -56,10 +48,7 @@ public class MultiSelectList : IEnumerable<SelectListItem>
     public MultiSelectList(IEnumerable items, string dataValueField, string dataTextField)
         : this(items, dataValueField, dataTextField, selectedValues: null)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
     }
 
     /// <summary>
@@ -76,10 +65,7 @@ public class MultiSelectList : IEnumerable<SelectListItem>
         IEnumerable selectedValues)
         : this(items, dataValueField, dataTextField, selectedValues, dataGroupField: null)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
     }
 
     /// <summary>
@@ -102,10 +88,7 @@ public class MultiSelectList : IEnumerable<SelectListItem>
         IEnumerable selectedValues,
         string dataGroupField)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
 
         Items = items;
         DataValueField = dataValueField;

@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.NodeServices.Npm;
 using Microsoft.AspNetCore.NodeServices.Util;
@@ -33,10 +30,7 @@ public class AngularCliBuilder : ISpaPrerendererBuilder
     /// <param name="npmScript">The name of the script in your package.json file that builds the server-side bundle for your Angular application.</param>
     public AngularCliBuilder(string npmScript)
     {
-        if (string.IsNullOrEmpty(npmScript))
-        {
-            throw new ArgumentException("Cannot be null or empty.", nameof(npmScript));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(npmScript);
 
         _scriptName = npmScript;
     }

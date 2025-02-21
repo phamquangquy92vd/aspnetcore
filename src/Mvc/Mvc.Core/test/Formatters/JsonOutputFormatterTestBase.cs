@@ -1,18 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters;
 
@@ -90,7 +85,6 @@ public abstract class JsonOutputFormatterTestBase
         var mediaType = MediaTypeHeaderValue.Parse(string.Format(CultureInfo.InvariantCulture, "application/json; charset={0}", encodingAsString));
         var encoding = CreateOrGetSupportedEncoding(formatter, encodingAsString, isDefaultEncoding);
 
-
         var body = new MemoryStream();
         var actionContext = GetActionContext(mediaType, body);
 
@@ -129,7 +123,7 @@ public abstract class JsonOutputFormatterTestBase
         var outputFormatterContext = new OutputFormatterWriteContext(
             actionContext.HttpContext,
             new TestHttpResponseStreamWriterFactory().CreateWriter,
-            typeof(string),
+            typeof(object),
             content)
         {
             ContentType = new StringSegment(mediaType.ToString()),
@@ -172,7 +166,6 @@ public abstract class JsonOutputFormatterTestBase
         var httpContext = new DefaultHttpContext();
         httpContext.Request.ContentType = contentType.ToString();
         httpContext.Request.Headers.AcceptCharset = contentType.Charset.ToString();
-
 
         httpContext.Response.Body = responseStream ?? new MemoryStream();
         return new ActionContext(httpContext, new RouteData(), new ActionDescriptor());

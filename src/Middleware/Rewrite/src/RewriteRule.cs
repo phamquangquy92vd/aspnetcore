@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -9,7 +8,7 @@ using Microsoft.AspNetCore.Rewrite.Logging;
 
 namespace Microsoft.AspNetCore.Rewrite;
 
-internal class RewriteRule : IRule
+internal sealed class RewriteRule : IRule
 {
     private readonly TimeSpan _regexTimeout = TimeSpan.FromSeconds(1);
     public Regex InitialMatch { get; }
@@ -17,22 +16,15 @@ internal class RewriteRule : IRule
     public bool StopProcessing { get; }
     public RewriteRule(string regex, string replacement, bool stopProcessing)
     {
-        if (string.IsNullOrEmpty(regex))
-        {
-            throw new ArgumentNullException(nameof(regex));
-        }
-
-        if (string.IsNullOrEmpty(replacement))
-        {
-            throw new ArgumentNullException(nameof(replacement));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(regex);
+        ArgumentException.ThrowIfNullOrEmpty(replacement);
 
         InitialMatch = new Regex(regex, RegexOptions.Compiled | RegexOptions.CultureInvariant, _regexTimeout);
         Replacement = replacement;
         StopProcessing = stopProcessing;
     }
 
-    public virtual void ApplyRule(RewriteContext context)
+    public void ApplyRule(RewriteContext context)
     {
         var path = context.HttpContext.Request.Path;
         Match initMatchResults;
@@ -60,14 +52,13 @@ internal class RewriteRule : IRule
                 result = "/";
             }
 
-            if (result.IndexOf(Uri.SchemeDelimiter, StringComparison.Ordinal) >= 0)
+            if (result.Contains(Uri.SchemeDelimiter, StringComparison.Ordinal))
             {
                 string scheme;
                 HostString host;
                 PathString pathString;
                 QueryString query;
-                FragmentString fragment;
-                UriHelper.FromAbsolute(result, out scheme, out host, out pathString, out query, out fragment);
+                UriHelper.FromAbsolute(result, out scheme, out host, out pathString, out query, out _);
 
                 request.Scheme = scheme;
                 request.Host = host;

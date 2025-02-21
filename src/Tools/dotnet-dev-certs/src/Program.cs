@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
@@ -13,8 +10,10 @@ using Microsoft.Extensions.Tools.Internal;
 
 namespace Microsoft.AspNetCore.DeveloperCertificates.Tools;
 
-internal class Program
+internal sealed class Program
 {
+    // NOTE: Exercise caution when touching these exit codes, since existing tooling
+    // might depend on some of these values.
     private const int CriticalError = -1;
     private const int Success = 0;
     private const int ErrorCreatingTheCertificate = 1;
@@ -72,8 +71,8 @@ internal class Program
                     "Password to use when exporting the certificate with the private key into a pfx file or to encrypt the Pem exported key",
                     CommandOptionType.SingleValue);
 
-                    // We want to force generating a key without a password to not be an accident.
-                    var noPassword = c.Option("-np|--no-password",
+                // We want to force generating a key without a password to not be an accident.
+                var noPassword = c.Option("-np|--no-password",
                     "Explicitly request that you don't use a password for the key when exporting a certificate to a PEM format",
                     CommandOptionType.NoValue);
 
@@ -99,7 +98,8 @@ internal class Program
 
                 CommandOption trust = null;
                 trust = c.Option("-t|--trust",
-                    "Trust the certificate on the current platform. When combined with the --check option, validates that the certificate is trusted.",
+                    "When not combined with the --check option, trusts the certificate on the current platform, creating one if necessary.\n" +
+                    "                     When combined with the --check option, validates that there is a certificate and it is trusted.",
                     CommandOptionType.NoValue);
 
                 var verbose = c.Option("-v|--verbose",
@@ -165,15 +165,15 @@ internal class Program
 
                     if (check.HasValue())
                     {
-                        return CheckHttpsCertificate(trust, reporter);
+                        return CheckHttpsCertificate(trust, verbose, reporter);
                     }
 
                     if (clean.HasValue())
                     {
-                        var clean = CleanHttpsCertificates(reporter);
-                        if (clean != Success || !import.HasValue())
+                        var cleanResult = CleanHttpsCertificates(reporter);
+                        if (cleanResult != Success || !import.HasValue())
                         {
-                            return clean;
+                            return cleanResult;
                         }
 
                         return ImportCertificate(import, password, reporter);
@@ -253,6 +253,12 @@ internal class Program
                 reporter.Output("Cleaning HTTPS development certificates from the machine. This operation might " +
                     "require elevated privileges. If that is the case, a prompt for credentials will be displayed.");
             }
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                reporter.Output("Cleaning HTTPS development certificates from the machine. You may wish to update the " +
+                    "SSL_CERT_DIR environment variable. " +
+                    "See https://aka.ms/dev-certs-trust for more information.");
+            }
 
             manager.CleanupHttpsCertificates();
             reporter.Output("HTTPS development certificates successfully removed from the machine.");
@@ -267,7 +273,7 @@ internal class Program
         }
     }
 
-    private static int CheckHttpsCertificate(CommandOption trust, IReporter reporter)
+    private static int CheckHttpsCertificate(CommandOption trust, CommandOption verbose, IReporter reporter)
     {
         var certificateManager = CertificateManager.Instance;
         var certificates = certificateManager.ListCertificates(StoreName.My, StoreLocation.CurrentUser, isValid: true);
@@ -284,7 +290,7 @@ internal class Program
                 // We never want check to require interaction.
                 // When IDEs run dotnet dev-certs https after calling --check, we will try to access the key and
                 // that will trigger a prompt if necessary.
-                var status = certificateManager.CheckCertificateState(certificate, interactive: false);
+                var status = certificateManager.CheckCertificateState(certificate);
                 if (!status.Success)
                 {
                     reporter.Warn(status.FailureMessage);
@@ -296,32 +302,25 @@ internal class Program
 
         if (trust != null && trust.HasValue())
         {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            var trustedCertificates = certificates.Where(cert => certificateManager.GetTrustLevel(cert) == CertificateManager.TrustLevel.Full).ToList();
+            if (trustedCertificates.Count == 0)
             {
-                var trustedCertificates = certificates.Where(c => certificateManager.IsTrusted(c)).ToList();
-                if (!trustedCertificates.Any())
+                reporter.Output($@"The following certificates were found, but none of them is trusted: {CertificateManager.ToCertificateDescription(certificates)}");
+                if (verbose == null || !verbose.HasValue())
                 {
-                    reporter.Output($@"The following certificates were found, but none of them is trusted: {CertificateManager.ToCertificateDescription(certificates)}");
-                    return ErrorCertificateNotTrusted;
+                    reporter.Output($@"Run the command with --verbose for more details.");
                 }
-                else
-                {
-                    ReportCertificates(reporter, trustedCertificates, "trusted");
-                }
+                return ErrorCertificateNotTrusted;
             }
             else
             {
-                reporter.Warn("Checking the HTTPS development certificate trust status was requested. Checking whether the certificate is trusted or not is not supported on Linux distributions." +
-                    "For instructions on how to manually validate the certificate is trusted on your Linux distribution, go to https://aka.ms/dev-certs-trust");
+                ReportCertificates(reporter, trustedCertificates, "trusted");
             }
         }
         else
         {
             ReportCertificates(reporter, validCertificates, "valid");
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                reporter.Output("Run the command with both --check and --trust options to ensure that the certificate is not only valid but also trusted.");
-            }
+            reporter.Output("Run the command with both --check and --trust options to ensure that the certificate is not only valid but also trusted.");
         }
 
         return Success;
@@ -346,7 +345,7 @@ internal class Program
             var certificates = manager.ListCertificates(StoreName.My, StoreLocation.CurrentUser, isValid: true, exportPath.HasValue());
             foreach (var certificate in certificates)
             {
-                var status = manager.CheckCertificateState(certificate, interactive: true);
+                var status = manager.CheckCertificateState(certificate);
                 if (!status.Success)
                 {
                     reporter.Warn("One or more certificates might be in an invalid state. We will try to access the certificate key " +
@@ -359,15 +358,17 @@ internal class Program
             }
         }
 
-        if (trust?.HasValue() == true)
+        var isTrustOptionSet = trust?.HasValue() == true;
+
+        if (isTrustOptionSet)
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 reporter.Warn("Trusting the HTTPS development certificate was requested. If the certificate is not " +
                     "already trusted we will run the following command:" + Environment.NewLine +
-                    "'sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <<certificate>>'" +
+                    "'security add-trusted-cert -p basic -p ssl -k <<login-keychain>> <<certificate>>'" +
                     Environment.NewLine + "This command might prompt you for your password to install the certificate " +
-                    "on the system keychain. To undo these changes: 'sudo security remove-trusted-cert -d <<certificate>>'");
+                    "on the keychain. To undo these changes: 'security remove-trusted-cert <<certificate>>'" + Environment.NewLine);
             }
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -378,8 +379,9 @@ internal class Program
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                reporter.Warn("Trusting the HTTPS development certificate was requested. Trusting the certificate on Linux distributions automatically is not supported. " +
-                    "For instructions on how to manually trust the certificate on your Linux distribution, go to https://aka.ms/dev-certs-trust");
+                reporter.Warn("Trusting the HTTPS development certificate was requested. " +
+                    "Trust is per-user and may require additional configuration. " +
+                    "See https://aka.ms/dev-certs-trust for more information.");
             }
         }
 
@@ -394,7 +396,7 @@ internal class Program
             now,
             now.Add(HttpsCertificateValidity),
             exportPath.Value(),
-            trust == null ? false : trust.HasValue() && !RuntimeInformation.IsOSPlatform(OSPlatform.Linux),
+            isTrustOptionSet,
             password.HasValue() || (noPassword.HasValue() && format == CertificateKeyExportFormat.Pem),
             password.Value(),
             exportFormat.HasValue() ? format : CertificateKeyExportFormat.Pfx);
@@ -422,14 +424,28 @@ internal class Program
                 reporter.Error("There was an error saving the HTTPS developer certificate to the current user personal certificate store.");
                 return ErrorSavingTheCertificate;
             case EnsureCertificateResult.ErrorExportingTheCertificate:
-                reporter.Warn("There was an error exporting HTTPS developer certificate to a file.");
+                reporter.Warn("There was an error exporting the HTTPS developer certificate to a file.");
                 return ErrorExportingTheCertificate;
+            case EnsureCertificateResult.ErrorExportingTheCertificateToNonExistentDirectory:
+                // A distinct warning is useful, but a distinct error code is probably not.
+                reporter.Warn("There was an error exporting the HTTPS developer certificate to a file. Please create the target directory before exporting. Choose permissions carefully when creating it.");
+                return ErrorExportingTheCertificate;
+            case EnsureCertificateResult.PartiallyFailedToTrustTheCertificate:
+                // A distinct warning is useful, but a distinct error code is probably not.
+                reporter.Warn("There was an error trusting the HTTPS developer certificate. It will be trusted by some clients but not by others.");
+                return ErrorTrustingTheCertificate;
             case EnsureCertificateResult.FailedToTrustTheCertificate:
-                reporter.Warn("There was an error trusting HTTPS developer certificate.");
+                reporter.Warn("There was an error trusting the HTTPS developer certificate.");
                 return ErrorTrustingTheCertificate;
             case EnsureCertificateResult.UserCancelledTrustStep:
                 reporter.Warn("The user cancelled the trust step.");
                 return ErrorUserCancelledTrustPrompt;
+            case EnsureCertificateResult.ExistingHttpsCertificateTrusted:
+                reporter.Output("Successfully trusted the existing HTTPS certificate.");
+                return Success;
+            case EnsureCertificateResult.NewHttpsCertificateTrusted:
+                reporter.Output("Successfully created and trusted a new HTTPS certificate.");
+                return Success;
             default:
                 reporter.Error("Something went wrong. The HTTPS developer certificate could not be created.");
                 return CriticalError;

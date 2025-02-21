@@ -2,8 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Internal;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.AspNetCore.Http;
@@ -11,7 +12,9 @@ namespace Microsoft.AspNetCore.Http;
 /// <summary>
 /// The HttpRequest query string collection
 /// </summary>
-internal class QueryCollectionInternal : IQueryCollection
+[DebuggerDisplay("Count = {Count}")]
+[DebuggerTypeProxy(typeof(StringValuesDictionaryDebugView))]
+internal sealed class QueryCollectionInternal : IQueryCollection
 {
     private AdaptiveCapacityDictionary<string, StringValues> Store { get; }
 

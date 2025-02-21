@@ -2,8 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -48,6 +50,7 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
     private const string RevokeAllKeysValue = "*";
 
     private readonly IActivator _activator;
+    private readonly ITypeNameResolver _typeNameResolver;
     private readonly AlgorithmConfiguration _authenticatedEncryptorConfiguration;
     private readonly IKeyEscrowSink? _keyEscrowSink;
     private readonly IInternalXmlKeyManager _internalKeyManager;
@@ -55,6 +58,7 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
     private readonly ILogger _logger;
     private readonly IEnumerable<IAuthenticatedEncryptorFactory> _encryptorFactories;
     private readonly IDefaultKeyStorageDirectories _keyStorageDirectories;
+    private readonly ConcurrentDictionary<Guid, Key> _knownKeyMap = new(); // Grows unboundedly, like the key ring
 
     private CancellationTokenSource? _cacheExpirationTokenSource;
 
@@ -95,15 +99,10 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         var keyEncryptor = keyManagementOptions.Value.XmlEncryptor;
         if (keyRepository == null)
         {
-            if (keyEncryptor != null)
+            var keyRepositoryEncryptorPair = GetFallbackKeyRepositoryEncryptorPair();
+            keyRepository = keyRepositoryEncryptorPair.Key;
+            if (keyEncryptor == null)
             {
-                throw new InvalidOperationException(
-                    Resources.FormatXmlKeyManager_IXmlRepositoryNotFound(nameof(IXmlRepository), nameof(IXmlEncryptor)));
-            }
-            else
-            {
-                var keyRepositoryEncryptorPair = GetFallbackKeyRepositoryEncryptorPair();
-                keyRepository = keyRepositoryEncryptorPair.Key;
                 keyEncryptor = keyRepositoryEncryptorPair.Value;
             }
         }
@@ -116,6 +115,8 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         var escrowSinks = keyManagementOptions.Value.KeyEscrowSinks;
         _keyEscrowSink = escrowSinks.Count > 0 ? new AggregateKeyEscrowSink(escrowSinks) : null;
         _activator = activator;
+        // Note: ITypeNameResolver is only implemented on the activator in tests. In production, it's always DefaultTypeNameResolver.
+        _typeNameResolver = activator as ITypeNameResolver ?? DefaultTypeNameResolver.Instance;
         TriggerAndResetCacheExpirationToken(suppressLogging: true);
         _internalKeyManager = _internalKeyManager ?? this;
         _encryptorFactories = keyManagementOptions.Value.AuthenticatedEncryptorFactories;
@@ -136,12 +137,19 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
 
     internal IXmlRepository KeyRepository { get; }
 
+    // Internal for testing
+    // Can't use TimeProvider since it's not available in framework
+    internal Func<DateTimeOffset> GetUtcNow { get; set; } = () => DateTimeOffset.UtcNow;
+
     /// <inheritdoc />
     public IKey CreateNewKey(DateTimeOffset activationDate, DateTimeOffset expirationDate)
     {
+        // For an immediately-activated key, the caller's Now may be slightly before ours,
+        // so we'll compensate to ensure that activation is never before creation.
+        var now = GetUtcNow();
         return _internalKeyManager.CreateNewKey(
             keyId: Guid.NewGuid(),
-            creationDate: DateTimeOffset.UtcNow,
+            creationDate: activationDate < now ? activationDate : now,
             activationDate: activationDate,
             expirationDate: expirationDate);
     }
@@ -156,19 +164,38 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
     public IReadOnlyCollection<IKey> GetAllKeys()
     {
         var allElements = KeyRepository.GetAllElements();
+        var processed = ProcessAllElements(allElements, out _);
+        return processed.OfType<IKey>().ToList().AsReadOnly();
+    }
 
-        // We aggregate all the information we read into three buckets
-        Dictionary<Guid, KeyBase> keyIdToKeyMap = new Dictionary<Guid, KeyBase>();
+    /// <summary>
+    /// Returns an array paralleling <paramref name="allElements"/> but:
+    ///  1. Key elements become IKeys (with revocation data)
+    ///  2. KeyId-based revocations become Guids
+    ///  3. Date-based revocations become DateTimeOffsets
+    ///  4. Unknown elements become null
+    /// </summary>
+    private object?[] ProcessAllElements(IReadOnlyCollection<XElement> allElements, out DateTimeOffset? mostRecentMassRevocationDate)
+    {
+        var elementCount = allElements.Count;
+
+        var results = new object?[elementCount];
+
+        Dictionary<Guid, Key> keyIdToKeyMap = [];
         HashSet<Guid>? revokedKeyIds = null;
-        DateTimeOffset? mostRecentMassRevocationDate = null;
 
+        mostRecentMassRevocationDate = null;
+
+        var pos = 0;
         foreach (var element in allElements)
         {
+            object? result;
             if (element.Name == KeyElementName)
             {
                 // ProcessKeyElement can return null in the case of failure, and if this happens we'll move on.
                 // Still need to throw if we see duplicate keys with the same id.
                 var key = ProcessKeyElement(element);
+                result = key;
                 if (key != null)
                 {
                     if (keyIdToKeyMap.ContainsKey(key.KeyId))
@@ -181,19 +208,20 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
             else if (element.Name == RevocationElementName)
             {
                 var revocationInfo = ProcessRevocationElement(element);
-                if (revocationInfo is Guid)
+                result = revocationInfo;
+                if (revocationInfo is Guid revocationGuid)
                 {
                     // a single key was revoked
-                    if (revokedKeyIds == null)
+                    revokedKeyIds ??= [];
+                    if (!revokedKeyIds.Add(revocationGuid))
                     {
-                        revokedKeyIds = new HashSet<Guid>();
+                        _logger.KeyRevokedMultipleTimes(revocationGuid);
                     }
-                    revokedKeyIds.Add((Guid)revocationInfo);
                 }
                 else
                 {
                     // all keys as of a certain date were revoked
-                    DateTimeOffset thisMassRevocationDate = (DateTimeOffset)revocationInfo;
+                    var thisMassRevocationDate = (DateTimeOffset)revocationInfo;
                     if (!mostRecentMassRevocationDate.HasValue || mostRecentMassRevocationDate < thisMassRevocationDate)
                     {
                         mostRecentMassRevocationDate = thisMassRevocationDate;
@@ -204,16 +232,18 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
             {
                 // Skip unknown elements.
                 _logger.UnknownElementWithNameFoundInKeyringSkipping(element.Name);
+                result = null;
             }
+
+            results[pos++] = result;
         }
 
         // Apply individual revocations
-        if (revokedKeyIds != null)
+        if (revokedKeyIds is not null)
         {
-            foreach (Guid revokedKeyId in revokedKeyIds)
+            foreach (var revokedKeyId in revokedKeyIds)
             {
-                keyIdToKeyMap.TryGetValue(revokedKeyId, out var key);
-                if (key != null)
+                if (keyIdToKeyMap.TryGetValue(revokedKeyId, out var key))
                 {
                     key.SetRevoked();
                     _logger.MarkedKeyAsRevokedInTheKeyring(revokedKeyId);
@@ -244,7 +274,7 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         }
 
         // And we're finished!
-        return keyIdToKeyMap.Values.ToList().AsReadOnly();
+        return results;
     }
 
     /// <inheritdoc/>
@@ -255,7 +285,7 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         return Interlocked.CompareExchange<CancellationTokenSource?>(ref _cacheExpirationTokenSource, null, null).Token;
     }
 
-    private KeyBase? ProcessKeyElement(XElement keyElement)
+    private Key? ProcessKeyElement(XElement keyElement)
     {
         Debug.Assert(keyElement.Name == KeyElementName);
 
@@ -263,13 +293,20 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         {
             // Read metadata and prepare the key for deferred instantiation
             Guid keyId = (Guid)keyElement.Attribute(IdAttributeName)!;
+
+            _logger.FoundKey(keyId);
+
+            if (_knownKeyMap.TryGetValue(keyId, out var oldKey))
+            {
+                // Keys are immutable (other than revocation), so there's no need to read it again
+                return oldKey.Clone();
+            }
+
             DateTimeOffset creationDate = (DateTimeOffset)keyElement.Element(CreationDateElementName)!;
             DateTimeOffset activationDate = (DateTimeOffset)keyElement.Element(ActivationDateElementName)!;
             DateTimeOffset expirationDate = (DateTimeOffset)keyElement.Element(ExpirationDateElementName)!;
 
-            _logger.FoundKey(keyId);
-
-            return new DeferredKey(
+            var key = new Key(
                 keyId: keyId,
                 creationDate: creationDate,
                 activationDate: activationDate,
@@ -277,6 +314,10 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
                 keyManager: this,
                 keyElement: keyElement,
                 encryptorFactories: _encryptorFactories);
+
+            RecordKey(key);
+
+            return key;
         }
         catch (Exception ex)
         {
@@ -284,6 +325,18 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
 
             // Don't include this key in the key ring
             return null;
+        }
+    }
+
+    private void RecordKey(Key key)
+    {
+        if (!_knownKeyMap.TryAdd(key.KeyId, key))
+        {
+            // If we lost the race, the winner inserted an equivalent key
+            Debug.Assert(_knownKeyMap.TryGetValue(key.KeyId, out var existingKey));
+            Debug.Assert(existingKey.CreationDate == key.CreationDate);
+            Debug.Assert(existingKey.ActivationDate == key.ActivationDate);
+            Debug.Assert(existingKey.ExpirationDate == key.ExpirationDate);
         }
     }
 
@@ -350,8 +403,78 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
     {
         _internalKeyManager.RevokeSingleKey(
             keyId: keyId,
-            revocationDate: DateTimeOffset.UtcNow,
+            revocationDate: GetUtcNow(),
             reason: reason);
+    }
+
+    /// <inheritdoc/>
+    public bool CanDeleteKeys => KeyRepository is IDeletableXmlRepository;
+
+    /// <inheritdoc/>
+    public bool DeleteKeys(Func<IKey, bool> shouldDelete)
+    {
+        if (KeyRepository is not IDeletableXmlRepository xmlRepositoryWithDeletion)
+        {
+            throw Error.XmlKeyManager_DoesNotSupportKeyDeletion();
+        }
+
+        return xmlRepositoryWithDeletion.DeleteElements((deletableElements) =>
+        {
+            // It is important to delete key elements before the corresponding revocation elements,
+            // in case the deletion fails part way - we don't want to accidentally unrevoke a key
+            // and then not delete it.
+            // Start at a non-zero value just to make it a little clearer in the debugger that it
+            // was set explicitly.
+            const int deletionOrderKey = 1;
+            const int deletionOrderRevocation = 2;
+            const int deletionOrderMassRevocation = 3;
+
+            var deletableElementsArray = deletableElements.ToArray();
+
+            var allElements = deletableElements.Select(d => d.Element).ToArray();
+            var processed = ProcessAllElements(allElements, out var mostRecentMassRevocationDate);
+
+            var allKeyIds = new HashSet<Guid>();
+            var deletedKeyIds = new HashSet<Guid>();
+
+            for (var i = 0; i < deletableElementsArray.Length; i++)
+            {
+                var obj = processed[i];
+                if (obj is IKey key)
+                {
+                    var keyId = key.KeyId;
+                    allKeyIds.Add(keyId);
+
+                    if (shouldDelete(key))
+                    {
+                        _logger.DeletingKey(keyId);
+                        deletedKeyIds.Add(keyId);
+                        deletableElementsArray[i].DeletionOrder = deletionOrderKey;
+                    }
+                }
+                else if (obj is DateTimeOffset massRevocationDate)
+                {
+                    if (massRevocationDate < mostRecentMassRevocationDate)
+                    {
+                        // Delete superceded mass revocation elements
+                        deletableElementsArray[i].DeletionOrder = deletionOrderMassRevocation;
+                    }
+                }
+            }
+
+            // Separate loop since deletedKeyIds and allKeyIds need to have been populated.
+            for (var i = 0; i < deletableElementsArray.Length; i++)
+            {
+                if (processed[i] is Guid revocationId)
+                {
+                    // Delete individual revocations of keys that don't (still) exist
+                    if (deletedKeyIds.Contains(revocationId) || !allKeyIds.Contains(revocationId))
+                    {
+                        deletableElementsArray[i].DeletionOrder = deletionOrderRevocation;
+                    }
+                }
+            }
+        });
     }
 
     private void TriggerAndResetCacheExpirationToken([CallerMemberName] string? opName = null, bool suppressLogging = false)
@@ -376,7 +499,6 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
 
         // write full <key> element
         _logger.AnExceptionOccurredWhileProcessingElementDebug(keyElement, error);
-
     }
 
     IKey IInternalXmlKeyManager.CreateNewKey(Guid keyId, DateTimeOffset creationDate, DateTimeOffset activationDate, DateTimeOffset expirationDate)
@@ -433,13 +555,17 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
         TriggerAndResetCacheExpirationToken();
 
         // And we're done!
-        return new Key(
+        var key = new Key(
             keyId: keyId,
             creationDate: creationDate,
             activationDate: activationDate,
             expirationDate: expirationDate,
             descriptor: newDescriptor,
             encryptorFactories: _encryptorFactories);
+
+        RecordKey(key);
+
+        return key;
     }
 
     IAuthenticatedEncryptorDescriptor IInternalXmlKeyManager.DeserializeDescriptorFromKeyElement(XElement keyElement)
@@ -452,7 +578,8 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
 
             // Decrypt the descriptor element and pass it to the descriptor for consumption
             var unencryptedInputToDeserializer = descriptorElement.Elements().Single().DecryptElement(_activator);
-            var deserializerInstance = _activator.CreateInstance<IAuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
+
+            var deserializerInstance = CreateDeserializer(descriptorDeserializerTypeName);
             var descriptorInstance = deserializerInstance.ImportFromXml(unencryptedInputToDeserializer);
 
             return descriptorInstance ?? CryptoUtil.Fail<IAuthenticatedEncryptorDescriptor>("ImportFromXml returned null.");
@@ -462,6 +589,34 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
             WriteKeyDeserializationErrorToLog(ex, keyElement);
             throw;
         }
+    }
+
+    private IAuthenticatedEncryptorDescriptorDeserializer CreateDeserializer(string descriptorDeserializerTypeName)
+    {
+        // typeNameToMatch will be used for matching against known types but not passed to the activator.
+        // The activator will do its own forwarding.
+        var typeNameToMatch = TypeForwardingActivator.TryForwardTypeName(descriptorDeserializerTypeName, out var forwardedTypeName)
+            ? forwardedTypeName
+            : descriptorDeserializerTypeName;
+
+        if (typeof(AuthenticatedEncryptorDescriptorDeserializer).MatchName(typeNameToMatch, _typeNameResolver))
+        {
+            return _activator.CreateInstance<AuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && typeof(CngCbcAuthenticatedEncryptorDescriptorDeserializer).MatchName(typeNameToMatch, _typeNameResolver))
+        {
+            return _activator.CreateInstance<CngCbcAuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && typeof(CngGcmAuthenticatedEncryptorDescriptorDeserializer).MatchName(typeNameToMatch, _typeNameResolver))
+        {
+            return _activator.CreateInstance<CngGcmAuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
+        }
+        else if (typeof(ManagedAuthenticatedEncryptorDescriptorDeserializer).MatchName(typeNameToMatch, _typeNameResolver))
+        {
+            return _activator.CreateInstance<ManagedAuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
+        }
+
+        return _activator.CreateInstance<IAuthenticatedEncryptorDescriptorDeserializer>(descriptorDeserializerTypeName);
     }
 
     void IInternalXmlKeyManager.RevokeSingleKey(Guid keyId, DateTimeOffset revocationDate, string? reason)
@@ -489,7 +644,7 @@ public sealed class XmlKeyManager : IKeyManager, IInternalXmlKeyManager
 
     internal KeyValuePair<IXmlRepository, IXmlEncryptor?> GetFallbackKeyRepositoryEncryptorPair()
     {
-        IXmlRepository? repository = null;
+        IXmlRepository? repository;
         IXmlEncryptor? encryptor = null;
 
         // If we're running in Azure Web Sites, the key repository goes in the %HOME% directory.

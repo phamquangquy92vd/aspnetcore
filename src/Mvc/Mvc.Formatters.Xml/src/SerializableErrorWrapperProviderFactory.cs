@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
 
 /// <summary>
@@ -23,10 +21,7 @@ public class SerializableErrorWrapperProviderFactory : IWrapperProviderFactory
     /// </returns>
     public IWrapperProvider? GetProvider(WrapperProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.DeclaredType == typeof(SerializableError))
         {

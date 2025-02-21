@@ -1,25 +1,26 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using System.Xml.Linq;
+using Microsoft.AspNetCore.Authentication.Tests;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -71,6 +72,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                 ValidAudience = "audience.contoso.com",
                 IssuerSigningKey = key,
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         var newBearerToken = "Bearer " + tokenText;
@@ -108,6 +110,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                 ValidAudience = "audience.contoso.com",
                 IssuerSigningKey = key,
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         var newBearerToken = "Bearer " + tokenText;
@@ -122,9 +125,20 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         var options = new JwtBearerOptions();
         Assert.True(options.MapInboundClaims);
+
+#pragma warning disable CS0618 // Type or member is obsolete
         var jwtHandler = options.SecurityTokenValidators.First() as JwtSecurityTokenHandler;
+#pragma warning restore CS0618 // Type or member is obsolete
         Assert.NotNull(jwtHandler);
         Assert.True(jwtHandler.MapInboundClaims);
+
+        var tokenHandler = options.TokenHandlers.First() as JsonWebTokenHandler;
+        Assert.NotNull(tokenHandler);
+        Assert.True(tokenHandler.MapInboundClaims);
+
+        options.MapInboundClaims = false;
+        Assert.False(jwtHandler.MapInboundClaims);
+        Assert.False(tokenHandler.MapInboundClaims);
     }
 
     [Fact]
@@ -133,7 +147,9 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
         var options = new JwtBearerOptions();
         options.MapInboundClaims = false;
         Assert.False(options.MapInboundClaims);
+#pragma warning disable CS0618 // Type or member is obsolete
         var jwtHandler = options.SecurityTokenValidators.First() as JwtSecurityTokenHandler;
+#pragma warning restore CS0618 // Type or member is obsolete
         Assert.NotNull(jwtHandler);
         Assert.False(jwtHandler.MapInboundClaims);
     }
@@ -174,15 +190,18 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult(0);
                 }
             };
+            o.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             o.SecurityTokenValidators.Clear();
             o.SecurityTokenValidators.Insert(0, new InvalidTokenValidator());
+#pragma warning restore CS0618 // Type or member is obsolete
         },
         async (context, next) =>
         {
             try
             {
                 await next();
-                Assert.False(true, "Expected exception is not thrown");
+                Assert.Fail("Expected exception is not thrown");
             }
             catch (Exception)
             {
@@ -219,6 +238,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult<object>(null);
                 }
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         using var server = host.GetTestServer();
@@ -230,7 +250,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     [Fact]
     public async Task NoHeaderReceived()
     {
-        using var host = await CreateHost();
+        using var host = await CreateHost(o => o.UseSecurityTokenValidators = true);
         using var server = host.GetTestServer();
         var response = await SendAsync(server, "http://example.com/oauth");
         Assert.Equal(HttpStatusCode.Unauthorized, response.Response.StatusCode);
@@ -239,7 +259,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     [Fact]
     public async Task HeaderWithoutBearerReceived()
     {
-        using var host = await CreateHost();
+        using var host = await CreateHost(o => o.UseSecurityTokenValidators = true);
         using var server = host.GetTestServer();
         var response = await SendAsync(server, "http://example.com/oauth", "Token");
         Assert.Equal(HttpStatusCode.Unauthorized, response.Response.StatusCode);
@@ -248,7 +268,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     [Fact]
     public async Task UnrecognizedTokenReceived()
     {
-        using var host = await CreateHost();
+        using var host = await CreateHost(o => o.UseSecurityTokenValidators = true);
         using var server = host.GetTestServer();
         var response = await SendAsync(server, "http://example.com/oauth", "Bearer someblob");
         Assert.Equal(HttpStatusCode.Unauthorized, response.Response.StatusCode);
@@ -260,8 +280,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new InvalidTokenValidator());
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -284,8 +307,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new InvalidTokenValidator(errorType));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -305,8 +331,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new DetailedInvalidTokenValidator(errorType));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -322,8 +351,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new InvalidTokenValidator(errorType));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -338,9 +370,12 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new InvalidTokenValidator(typeof(SecurityTokenInvalidAudienceException)));
             options.SecurityTokenValidators.Add(new InvalidTokenValidator(typeof(SecurityTokenSignatureKeyNotFoundException)));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -373,6 +408,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult(0);
                 }
             };
+            options.UseSecurityTokenValidators = true;
         });
 
         using var server = host.GetTestServer();
@@ -421,6 +457,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
         using var host = await CreateHost(o =>
         {
             o.IncludeErrorDetails = false;
+            o.UseSecurityTokenValidators = true;
         });
 
         using var server = host.GetTestServer();
@@ -433,7 +470,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     [Fact]
     public async Task ExceptionNotReportedInHeaderWhenTokenWasMissing()
     {
-        using var host = await CreateHost();
+        using var host = await CreateHost(o => o.UseSecurityTokenValidators = true);
 
         using var server = host.GetTestServer();
         var response = await SendAsync(server, "http://example.com/oauth");
@@ -451,25 +488,28 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
             {
                 OnTokenValidated = context =>
                 {
-                        // Retrieve the NameIdentifier claim from the identity
-                        // returned by the custom security token validator.
-                        var identity = (ClaimsIdentity)context.Principal.Identity;
+                    // Retrieve the NameIdentifier claim from the identity
+                    // returned by the custom security token validator.
+                    var identity = (ClaimsIdentity)context.Principal.Identity;
                     var identifier = identity.FindFirst(ClaimTypes.NameIdentifier);
 
                     Assert.Equal("Bob le Tout Puissant", identifier.Value);
 
-                        // Remove the existing NameIdentifier claim and replace it
-                        // with a new one containing a different value.
-                        identity.RemoveClaim(identifier);
-                        // Make sure to use a different name identifier
-                        // than the one defined by BlobTokenValidator.
-                        identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, "Bob le Magnifique"));
+                    // Remove the existing NameIdentifier claim and replace it
+                    // with a new one containing a different value.
+                    identity.RemoveClaim(identifier);
+                    // Make sure to use a different name identifier
+                    // than the one defined by BlobTokenValidator.
+                    identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, "Bob le Magnifique"));
 
                     return Task.FromResult<object>(null);
                 }
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator(JwtBearerDefaults.AuthenticationScheme));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -491,11 +531,14 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult<object>(null);
                 }
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator("JWT", token =>
             {
                 Assert.Equal("CustomToken", token);
             }));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -509,6 +552,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
             options.Events = new JwtBearerEvents()
             {
                 OnMessageReceived = context =>
@@ -542,6 +586,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     {
         using var host = await CreateHost(options =>
         {
+            options.UseSecurityTokenValidators = true;
             options.Events = new JwtBearerEvents()
             {
                 OnMessageReceived = context =>
@@ -595,8 +640,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     throw new NotImplementedException();
                 },
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator("JWT"));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -627,8 +675,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     throw new NotImplementedException();
                 },
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator("JWT"));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -661,8 +712,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     throw new NotImplementedException();
                 },
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator("JWT"));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -693,8 +747,11 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     throw new NotImplementedException();
                 },
             };
+            options.UseSecurityTokenValidators = true;
+#pragma warning disable CS0618 // Type or member is obsolete
             options.SecurityTokenValidators.Clear();
             options.SecurityTokenValidators.Add(new BlobTokenValidator("JWT"));
+#pragma warning restore CS0618 // Type or member is obsolete
         });
 
         using var server = host.GetTestServer();
@@ -719,6 +776,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult(0);
                 },
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         using var server = host.GetTestServer();
@@ -741,6 +799,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                 ValidAudience = "audience.contoso.com",
                 IssuerSigningKey = tokenData.key,
             };
+            o.UseSecurityTokenValidators = true;
         });
         var newBearerToken = "Bearer " + tokenData.tokenText;
         using var server = host.GetTestServer();
@@ -767,6 +826,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return Task.FromResult(0);
                 }
             };
+            o.UseSecurityTokenValidators = true;
         });
         var newBearerToken = "Bearer " + tokenData.tokenText;
         using var server = host.GetTestServer();
@@ -794,12 +854,63 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                     return context.Response.WriteAsync("You Shall Not Pass");
                 }
             };
+            o.UseSecurityTokenValidators = true;
         });
         var newBearerToken = "Bearer " + tokenData.tokenText;
         using var server = host.GetTestServer();
         var response = await SendAsync(server, "http://example.com/forbidden", newBearerToken);
         Assert.Equal(418, (int)response.Response.StatusCode);
         Assert.Equal("You Shall Not Pass", await response.Response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task EventOnForbidden_ResponseForMultipleAuthenticationSchemas()
+    {
+        var onForbiddenCallCount = 0;
+        var jwtBearerEvents = new JwtBearerEvents()
+        {
+            OnForbidden = context =>
+            {
+                onForbiddenCallCount++;
+
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = 418;
+                    return context.Response.WriteAsync("You Shall Not Pass");
+                }
+                return Task.CompletedTask;
+            }
+        };
+
+        using var host = new HostBuilder()
+            .ConfigureWebHost(builder =>
+                builder.UseTestServer()
+                    .Configure(app =>
+                    {
+                        app.UseAuthentication();
+                        app.Run(async (context) =>
+                        {
+                            // Simulate Forbidden By Multiple Authentication Schemas
+                            await context.ForbidAsync("JwtAuthSchemaOne");
+                            await context.ForbidAsync("JwtAuthSchemaTwo");
+                        });
+                    })
+                    .ConfigureServices(services =>
+                    {
+                        services.AddAuthentication()
+                                .AddJwtBearer("JwtAuthSchemaOne", o => { o.Events = jwtBearerEvents; o.UseSecurityTokenValidators = true; })
+                                .AddJwtBearer("JwtAuthSchemaTwo", o => { o.Events = jwtBearerEvents; o.UseSecurityTokenValidators = true; });
+                    }))
+            .Build();
+
+        await host.StartAsync();
+
+        using var server = host.GetTestServer();
+        var response = await server.CreateClient().SendAsync(new HttpRequestMessage(HttpMethod.Get, string.Empty));
+
+        Assert.Equal(418, (int)response.StatusCode);
+        Assert.Equal("You Shall Not Pass", await response.Content.ReadAsStringAsync());
+        Assert.Equal(2, onForbiddenCallCount);
     }
 
     [Fact]
@@ -832,6 +943,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                 ValidAudience = "audience.contoso.com",
                 IssuerSigningKey = key,
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         var newBearerToken = "Bearer " + tokenText;
@@ -847,15 +959,15 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
     }
 
     [Fact]
-    public async Task ExpirationAndIssuedNullWhenMinOrMaxValue()
+    public async Task ExpirationAndIssuedWhenMinOrMaxValue()
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(new string('a', 128)));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
-                new Claim(ClaimTypes.NameIdentifier, "Bob")
-            };
+            new Claim(ClaimTypes.NameIdentifier, "Bob")
+        };
 
         var token = new JwtSecurityToken(
             issuer: "issuer.contoso.com",
@@ -875,6 +987,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                 ValidAudience = "audience.contoso.com",
                 IssuerSigningKey = key,
             };
+            o.UseSecurityTokenValidators = true;
         });
 
         var newBearerToken = "Bearer " + tokenText;
@@ -883,8 +996,18 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
         Assert.Equal(HttpStatusCode.OK, response.Response.StatusCode);
         var responseBody = await response.Response.Content.ReadAsStringAsync();
         using var dom = JsonDocument.Parse(responseBody);
-        Assert.Equal(JsonValueKind.Null, dom.RootElement.GetProperty("expires").ValueKind);
         Assert.Equal(JsonValueKind.Null, dom.RootElement.GetProperty("issued").ValueKind);
+
+        var expiresElement = dom.RootElement.GetProperty("expires");
+        Assert.Equal(JsonValueKind.String, expiresElement.ValueKind);
+
+        var elementValue = DateTime.Parse(expiresElement.GetString(), CultureInfo.InvariantCulture);
+        var elementValueUtc = elementValue.ToUniversalTime();
+        // roundtrip DateTime.MaxValue through parsing because it is lossy and we
+        // need equivalent values to compare against.
+        var max = DateTime.Parse(DateTime.MaxValue.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+
+        Assert.Equal(max, elementValueUtc);
     }
 
     class InvalidTokenValidator : ISecurityTokenValidator
@@ -1051,7 +1174,7 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                             if (context.Request.Path == new PathString("/checkforerrors"))
                             {
                                 var result = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme); // this used to be "Automatic"
-                                    if (result.Failure != null)
+                                if (result.Failure != null)
                                 {
                                     throw new Exception("Failed to authenticate", result.Failure);
                                 }
@@ -1064,8 +1187,8 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                                     !context.User.Identity.IsAuthenticated)
                                 {
                                     context.Response.StatusCode = 401;
-                                        // REVIEW: no more automatic challenge
-                                        await context.ChallengeAsync(JwtBearerDefaults.AuthenticationScheme);
+                                    // REVIEW: no more automatic challenge
+                                    await context.ChallengeAsync(JwtBearerDefaults.AuthenticationScheme);
                                     return;
                                 }
 
@@ -1085,14 +1208,14 @@ public class JwtBearerTests : SharedAuthenticationTests<JwtBearerOptions>
                             }
                             else if (context.Request.Path == new PathString("/unauthorized"))
                             {
-                                    // Simulate Authorization failure
-                                    var result = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
+                                // Simulate Authorization failure
+                                var result = await context.AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
                                 await context.ChallengeAsync(JwtBearerDefaults.AuthenticationScheme);
                             }
                             else if (context.Request.Path == new PathString("/forbidden"))
                             {
-                                    // Simulate Forbidden
-                                    await context.ForbidAsync(JwtBearerDefaults.AuthenticationScheme);
+                                // Simulate Forbidden
+                                await context.ForbidAsync(JwtBearerDefaults.AuthenticationScheme);
                             }
                             else if (context.Request.Path == new PathString("/signIn"))
                             {

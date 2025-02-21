@@ -8,7 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Resources;
-using Microsoft.Extensions.Localization.Internal;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Extensions.Localization;
@@ -18,7 +18,7 @@ namespace Microsoft.Extensions.Localization;
 /// <see cref="ResourceReader"/> to provide localized strings.
 /// </summary>
 /// <remarks>This type is thread-safe.</remarks>
-public class ResourceManagerStringLocalizer : IStringLocalizer
+public partial class ResourceManagerStringLocalizer : IStringLocalizer
 {
     private readonly ConcurrentDictionary<string, object?> _missingManifestCache = new ConcurrentDictionary<string, object?>();
     private readonly IResourceNamesCache _resourceNamesCache;
@@ -82,30 +82,11 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
         IResourceNamesCache resourceNamesCache,
         ILogger logger)
     {
-        if (resourceManager == null)
-        {
-            throw new ArgumentNullException(nameof(resourceManager));
-        }
-
-        if (resourceStringProvider == null)
-        {
-            throw new ArgumentNullException(nameof(resourceStringProvider));
-        }
-
-        if (baseName == null)
-        {
-            throw new ArgumentNullException(nameof(baseName));
-        }
-
-        if (resourceNamesCache == null)
-        {
-            throw new ArgumentNullException(nameof(resourceNamesCache));
-        }
-
-        if (logger == null)
-        {
-            throw new ArgumentNullException(nameof(logger));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(resourceManager);
+        ArgumentNullThrowHelper.ThrowIfNull(resourceStringProvider);
+        ArgumentNullThrowHelper.ThrowIfNull(baseName);
+        ArgumentNullThrowHelper.ThrowIfNull(resourceNamesCache);
+        ArgumentNullThrowHelper.ThrowIfNull(logger);
 
         _resourceStringProvider = resourceStringProvider;
         _resourceManager = resourceManager;
@@ -119,10 +100,7 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullThrowHelper.ThrowIfNull(name);
 
             var value = GetStringSafely(name, null);
 
@@ -135,10 +113,7 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullThrowHelper.ThrowIfNull(name);
 
             var format = GetStringSafely(name, null);
             var value = string.Format(CultureInfo.CurrentCulture, format ?? name, arguments);
@@ -159,10 +134,7 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
     /// <returns>The strings.</returns>
     protected IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures, CultureInfo culture)
     {
-        if (culture == null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(culture);
 
         var resourceNames = includeParentCultures
             ? GetResourceNamesFromCultureHierarchy(culture)
@@ -184,16 +156,13 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
     /// <returns>The resource string, or <c>null</c> if none was found.</returns>
     protected string? GetStringSafely(string name, CultureInfo? culture)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(name);
 
         var keyCulture = culture ?? CultureInfo.CurrentUICulture;
 
         var cacheKey = $"name={name}&culture={keyCulture.Name}";
 
-        _logger.SearchedLocation(name, _resourceBaseName, keyCulture);
+        Log.SearchedLocation(_logger, name, _resourceBaseName, keyCulture);
 
         if (_missingManifestCache.ContainsKey(cacheKey))
         {
@@ -220,7 +189,6 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
 
         while (true)
         {
-
             var cultureResourceNames = _resourceStringProvider.GetAllResourceStrings(currentCulture, false);
 
             if (cultureResourceNames != null)
@@ -247,5 +215,11 @@ public class ResourceManagerStringLocalizer : IStringLocalizer
         }
 
         return resourceNames;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Debug, $"{nameof(ResourceManagerStringLocalizer)} searched for '{{Key}}' in '{{LocationSearched}}' with culture '{{Culture}}'.", EventName = "SearchedLocation")]
+        public static partial void SearchedLocation(ILogger logger, string key, string locationSearched, CultureInfo culture);
     }
 }

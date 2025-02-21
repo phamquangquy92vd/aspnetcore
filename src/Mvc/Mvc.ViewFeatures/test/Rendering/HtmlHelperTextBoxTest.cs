@@ -1,11 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -59,7 +56,7 @@ public class HtmlHelperTextBoxTest
         Assert.DoesNotContain(@"placeholder=""HtmlEncode[[placeholder]]""", result, StringComparison.Ordinal);
     }
 
-    public static TheoryData TextBoxFor_UsesModelValueForComplexExpressionsData
+    public static TheoryData<Expression<Func<ComplexModel, string>>, string> TextBoxFor_UsesModelValueForComplexExpressionsData
     {
         get
         {
@@ -106,7 +103,7 @@ public class HtmlHelperTextBoxTest
         Assert.Equal(expected, HtmlContentUtilities.HtmlContentToString(result));
     }
 
-    public static TheoryData TextBoxFor_UsesModelStateValueForComplexExpressionsData
+    public static TheoryData<Expression<Func<ComplexModel, string>>, string> TextBoxFor_UsesModelStateValueForComplexExpressionsData
     {
         get
         {

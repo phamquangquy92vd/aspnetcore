@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Linq;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Core;
@@ -15,7 +13,7 @@ namespace Microsoft.AspNetCore.Mvc;
 /// <summary>
 /// An <see cref="ActionResult"/> that on execution invokes <see cref="M:HttpContext.SignOutAsync"/>.
 /// </summary>
-public class SignOutResult : ActionResult, IResult
+public partial class SignOutResult : ActionResult, IResult
 {
     /// <summary>
     /// Initializes a new instance of <see cref="SignOutResult"/> with the default sign out scheme.
@@ -59,7 +57,7 @@ public class SignOutResult : ActionResult, IResult
     /// Initializes a new instance of <see cref="SignOutResult"/> with the
     /// specified authentication scheme and <paramref name="properties"/>.
     /// </summary>
-    /// <param name="authenticationScheme">The authentication schemes to use when signing out the user.</param>
+    /// <param name="authenticationScheme">The authentication scheme to use when signing out the user.</param>
     /// <param name="properties"><see cref="AuthenticationProperties"/> used to perform the sign-out operation.</param>
     public SignOutResult(string authenticationScheme, AuthenticationProperties? properties)
         : this(new[] { authenticationScheme }, properties)
@@ -70,7 +68,7 @@ public class SignOutResult : ActionResult, IResult
     /// Initializes a new instance of <see cref="SignOutResult"/> with the
     /// specified authentication schemes and <paramref name="properties"/>.
     /// </summary>
-    /// <param name="authenticationSchemes">The authentication scheme to use when signing out the user.</param>
+    /// <param name="authenticationSchemes">The authentication schemes to use when signing out the user.</param>
     /// <param name="properties"><see cref="AuthenticationProperties"/> used to perform the sign-out operation.</param>
     public SignOutResult(IList<string> authenticationSchemes, AuthenticationProperties? properties)
     {
@@ -91,10 +89,7 @@ public class SignOutResult : ActionResult, IResult
     /// <inheritdoc />
     public override Task ExecuteResultAsync(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         return ExecuteAsync(context.HttpContext);
     }
@@ -116,9 +111,8 @@ public class SignOutResult : ActionResult, IResult
         }
 
         var loggerFactory = httpContext.RequestServices.GetRequiredService<ILoggerFactory>();
-        var logger = loggerFactory.CreateLogger<SignOutResult>();
-
-        logger.SignOutResultExecuting(AuthenticationSchemes);
+        var logger = loggerFactory.CreateLogger(typeof(SignOutResult));
+        Log.SignOutResultExecuting(logger, AuthenticationSchemes);
 
         if (AuthenticationSchemes.Count == 0)
         {
@@ -131,5 +125,19 @@ public class SignOutResult : ActionResult, IResult
                 await httpContext.SignOutAsync(AuthenticationSchemes[i], Properties);
             }
         }
+    }
+
+    private static partial class Log
+    {
+        public static void SignOutResultExecuting(ILogger logger, IList<string> authenticationSchemes)
+        {
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                SignOutResultExecuting(logger, authenticationSchemes.ToArray());
+            }
+        }
+
+        [LoggerMessage(1, LogLevel.Information, $"Executing {nameof(SignOutResult)} with authentication schemes ({{Schemes}}).", EventName = "SignOutResultExecuting", SkipEnabledCheck = true)]
+        private static partial void SignOutResultExecuting(ILogger logger, string[] schemes);
     }
 }

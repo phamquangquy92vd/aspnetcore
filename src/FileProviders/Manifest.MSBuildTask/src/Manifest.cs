@@ -1,7 +1,6 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
@@ -47,7 +46,7 @@ public class Manifest
         var root = new XElement(ElementNames.Root,
             new XElement(ElementNames.ManifestVersion, "1.0"),
             new XElement(ElementNames.FileSystem,
-            Root.Children.Select(e => BuildNode(e))));
+            Root.Children.Select(BuildNode)));
 
         document.Add(root);
 
@@ -65,12 +64,12 @@ public class Manifest
         else
         {
             var directory = new XElement(ElementNames.Directory, new XAttribute(ElementNames.Name, entry.Name));
-            directory.Add(entry.Children.Select(c => BuildNode(c)));
+            directory.Add(entry.Children.Select(BuildNode));
             return directory;
         }
     }
 
-    private class ElementNames
+    private sealed class ElementNames
     {
         public const string Directory = "Directory";
         public const string Name = "Name";

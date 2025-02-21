@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Xunit;
@@ -15,6 +15,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests;
 
 [SkipIfHostableWebCoreNotAvailable]
 [MinimumOSVersion(OperatingSystems.Windows, WindowsVersions.Win8, SkipReason = "https://github.com/aspnet/IISIntegration/issues/866")]
+[SkipOnHelix("Unsupported queue", Queues = "Windows.Amd64.VS2022.Pre.Open;")]
 public class ClientDisconnectTests : StrictTestServerTests
 {
     [ConditionalFact]
@@ -72,7 +73,7 @@ public class ClientDisconnectTests : StrictTestServerTests
                 {
                     await ctx.Response.Body.WriteAsync(data, ctx.RequestAborted);
                     await Task.Delay(10); // Small delay to not constantly call WriteAsync.
-                    }
+                }
             }
             catch (Exception e)
             {
@@ -224,8 +225,8 @@ public class ClientDisconnectTests : StrictTestServerTests
         }
     }
 
+    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/55936")]
     [ConditionalFact]
-    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/27400")]
     public async Task ReaderThrowsResetExceptionOnInvalidBody()
     {
         var requestStartedCompletionSource = CreateTaskCompletionSource();

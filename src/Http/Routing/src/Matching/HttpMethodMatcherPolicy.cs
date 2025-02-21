@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 
@@ -42,10 +38,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
 
     bool INodeBuilderPolicy.AppliesToEndpoints(IReadOnlyList<Endpoint> endpoints)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
 
         if (ContainsDynamicEndpoints(endpoints))
         {
@@ -57,10 +50,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
 
     bool IEndpointSelectorPolicy.AppliesToEndpoints(IReadOnlyList<Endpoint> endpoints)
     {
-        if (endpoints == null)
-        {
-            throw new ArgumentNullException(nameof(endpoints));
-        }
+        ArgumentNullException.ThrowIfNull(endpoints);
 
         // When the node contains dynamic endpoints we can't make any assumptions.
         return ContainsDynamicEndpoints(endpoints);
@@ -87,15 +77,8 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
     /// <returns></returns>
     public Task ApplyAsync(HttpContext httpContext, CandidateSet candidates)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
-
-        if (candidates == null)
-        {
-            throw new ArgumentNullException(nameof(candidates));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(candidates);
 
         // Returning a 405 here requires us to return keep track of all 'seen' HTTP methods. We allocate to
         // keep track of this because we either need to keep track of the HTTP methods or keep track of the
@@ -166,7 +149,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
         if (needs405Endpoint == true)
         {
             // We saw some endpoints coming in, and we eliminated them all.
-            httpContext.SetEndpoint(CreateRejectionEndpoint(methods!.OrderBy(m => m, StringComparer.OrdinalIgnoreCase)));
+            httpContext.SetEndpoint(CreateRejectionEndpoint(methods?.OrderBy(m => m, StringComparer.OrdinalIgnoreCase)));
             httpContext.Request.RouteValues = null!;
         }
 
@@ -295,11 +278,11 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
         // We don't bother returning a 405 when the CORS preflight method doesn't exist.
         // The developer calling the API will see it as a CORS error, which is fine because
         // there isn't an endpoint to check for a CORS policy.
-        if (!edges.TryGetValue(new EdgeKey(AnyMethod, false), out var matches))
+        if (!edges.TryGetValue(new EdgeKey(AnyMethod, false), out _))
         {
             // Methods sorted for testability.
             var endpoint = CreateRejectionEndpoint(allHttpMethods);
-            matches = new List<Endpoint>() { endpoint, };
+            var matches = new List<Endpoint>() { endpoint, };
             edges[new EdgeKey(AnyMethod, false)] = matches;
         }
 
@@ -312,7 +295,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
 
         return policyNodeEdges;
 
-        (IReadOnlyList<string> httpMethods, bool acceptCorsPreflight) GetHttpMethods(Endpoint e)
+        static (IReadOnlyList<string> httpMethods, bool acceptCorsPreflight) GetHttpMethods(Endpoint e)
         {
             var metadata = e.Metadata.GetMetadata<IHttpMethodMetadata>();
             return metadata == null ? (Array.Empty<string>(), false) : (metadata.HttpMethods, metadata.AcceptCorsPreflight);
@@ -327,52 +310,31 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
     /// <returns></returns>
     public PolicyJumpTable BuildJumpTable(int exitDestination, IReadOnlyList<PolicyJumpTableEdge> edges)
     {
-        Dictionary<string, int>? destinations = null;
-        Dictionary<string, int>? corsPreflightDestinations = null;
+        List<KeyValuePair<string, int>>? destinations = null;
+        List<KeyValuePair<string, int>>? corsPreflightDestinations = null;
+        var corsPreflightExitDestination = exitDestination;
+
         for (var i = 0; i < edges.Count; i++)
         {
             // We create this data, so it's safe to cast it.
             var key = (EdgeKey)edges[i].State;
+            var destination = edges[i].Destination;
+
             if (key.IsCorsPreflightRequest)
             {
-                if (corsPreflightDestinations == null)
-                {
-                    corsPreflightDestinations = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                }
-
-                corsPreflightDestinations.Add(key.HttpMethod, edges[i].Destination);
+                ProcessEdge(key.HttpMethod, destination, ref corsPreflightExitDestination, ref corsPreflightDestinations);
             }
             else
             {
-                if (destinations == null)
-                {
-                    destinations = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                }
-
-                destinations.Add(key.HttpMethod, edges[i].Destination);
+                ProcessEdge(key.HttpMethod, destination, ref exitDestination, ref destinations);
             }
-        }
-
-        int corsPreflightExitDestination = exitDestination;
-        if (corsPreflightDestinations != null && corsPreflightDestinations.TryGetValue(AnyMethod, out var matchesAnyVerb))
-        {
-            // If we have endpoints that match any HTTP method, use that as the exit.
-            corsPreflightExitDestination = matchesAnyVerb;
-            corsPreflightDestinations.Remove(AnyMethod);
-        }
-
-        if (destinations != null && destinations.TryGetValue(AnyMethod, out matchesAnyVerb))
-        {
-            // If we have endpoints that match any HTTP method, use that as the exit.
-            exitDestination = matchesAnyVerb;
-            destinations.Remove(AnyMethod);
         }
 
         if (destinations?.Count == 1)
         {
             // If there is only a single valid HTTP method then use an optimized jump table.
             // It avoids unnecessary dictionary lookups with the method name.
-            var httpMethodDestination = destinations.Single();
+            var httpMethodDestination = destinations[0];
             var method = httpMethodDestination.Key;
             var destination = httpMethodDestination.Value;
             var supportsCorsPreflight = false;
@@ -381,7 +343,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
             if (corsPreflightDestinations?.Count > 0)
             {
                 supportsCorsPreflight = true;
-                corsPreflightDestination = corsPreflightDestinations.Single().Value;
+                corsPreflightDestination = corsPreflightDestinations[0].Value;
             }
 
             return new HttpMethodSingleEntryPolicyJumpTable(
@@ -395,25 +357,36 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
         else
         {
             return new HttpMethodDictionaryPolicyJumpTable(
-                exitDestination,
-                destinations,
-                corsPreflightExitDestination,
-                corsPreflightDestinations);
+                new HttpMethodDestinationsLookup(destinations ?? new(), exitDestination),
+                corsPreflightDestinations != null ? new HttpMethodDestinationsLookup(corsPreflightDestinations, corsPreflightExitDestination) : null);
+        }
+
+        static void ProcessEdge(string httpMethod, int destination, ref int exitDestination, ref List<KeyValuePair<string, int>>? destinations)
+        {
+            // If we have endpoints that match any HTTP method, use that as the exit.
+            if (string.Equals(httpMethod, AnyMethod, StringComparison.OrdinalIgnoreCase))
+            {
+                exitDestination = destination;
+            }
+            else
+            {
+
+                destinations ??= new();
+                destinations.Add(KeyValuePair.Create(httpMethod, destination));
+            }
         }
     }
 
-    private static Endpoint CreateRejectionEndpoint(IEnumerable<string> httpMethods)
+    private static Endpoint CreateRejectionEndpoint(IEnumerable<string>? httpMethods)
     {
-        var allow = string.Join(", ", httpMethods);
+        var allow = httpMethods is null ? string.Empty : string.Join(", ", httpMethods);
         return new Endpoint(
             (context) =>
             {
-                context.Response.StatusCode = 405;
-
-                    // Prevent ArgumentException from duplicate key if header already added, such as when the
-                    // request is re-executed by an error handler (see https://github.com/dotnet/aspnetcore/issues/6415)
-                    context.Response.Headers.Allow = allow;
-
+                // Prevent ArgumentException from duplicate key if header already added, such as when the
+                // request is re-executed by an error handler (see https://github.com/dotnet/aspnetcore/issues/6415)
+                context.Response.Headers.Allow = allow;
+                context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
                 return Task.CompletedTask;
             },
             EndpointMetadataCollection.Empty,
@@ -454,7 +427,7 @@ public sealed class HttpMethodMatcherPolicy : MatcherPolicy, IEndpointComparerPo
             !StringValues.IsNullOrEmpty(accessControlRequestMethod);
     }
 
-    private class HttpMethodMetadataEndpointComparer : EndpointMetadataComparer<IHttpMethodMetadata>
+    private sealed class HttpMethodMetadataEndpointComparer : EndpointMetadataComparer<IHttpMethodMetadata>
     {
         protected override int CompareMetadata(IHttpMethodMetadata? x, IHttpMethodMetadata? y)
         {

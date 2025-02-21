@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Http.Features.Authentication;
-using Microsoft.AspNetCore.HttpSys.Internal;
 
 namespace Microsoft.AspNetCore.Server.HttpSys;
 
@@ -29,6 +26,7 @@ internal sealed class StandardFeatureCollection : IFeatureCollection
         { typeof(IHttpMaxRequestBodySizeFeature), _identityFunc },
         { typeof(IHttpBodyControlFeature), _identityFunc },
         { typeof(IHttpSysRequestInfoFeature), _identityFunc },
+        { typeof(IHttpSysRequestTimingFeature), _identityFunc },
         { typeof(IHttpResponseTrailersFeature), ctx => ctx.GetResponseTrailersFeature() },
         { typeof(IHttpResetFeature), ctx => ctx.GetResetFeature() },
         { typeof(IConnectionLifetimeNotificationFeature), ctx => ctx.GetConnectionLifetimeNotificationFeature() },

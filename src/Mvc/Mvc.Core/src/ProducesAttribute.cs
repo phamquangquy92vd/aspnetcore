@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Core;
@@ -37,10 +35,7 @@ public class ProducesAttribute : Attribute, IResultFilter, IOrderedFilter, IApiR
     /// <param name="additionalContentTypes">Additional allowed content types for a response.</param>
     public ProducesAttribute(string contentType, params string[] additionalContentTypes)
     {
-        if (contentType == null)
-        {
-            throw new ArgumentNullException(nameof(contentType));
-        }
+        ArgumentNullException.ThrowIfNull(contentType);
 
         // We want to ensure that the given provided content types are valid values, so
         // we validate them using the semantics of MediaTypeHeaderValue.
@@ -57,6 +52,9 @@ public class ProducesAttribute : Attribute, IResultFilter, IOrderedFilter, IApiR
     /// <inheritdoc />
     public Type? Type { get; set; }
 
+    /// <inheritdoc />
+    public string? Description { get; set; }
+
     /// <summary>
     /// Gets or sets the supported response content types. Used to set <see cref="ObjectResult.ContentTypes"/>.
     /// </summary>
@@ -71,10 +69,7 @@ public class ProducesAttribute : Attribute, IResultFilter, IOrderedFilter, IApiR
     /// <inheritdoc />
     public virtual void OnResultExecuting(ResultExecutingContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.Result is ObjectResult objectResult)
         {
@@ -109,7 +104,7 @@ public class ProducesAttribute : Attribute, IResultFilter, IOrderedFilter, IApiR
         }
     }
 
-    private MediaTypeCollection GetContentTypes(string firstArg, string[] args)
+    private static MediaTypeCollection GetContentTypes(string firstArg, string[] args)
     {
         var completeArgs = new List<string>(args.Length + 1);
         completeArgs.Add(firstArg);

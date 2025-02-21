@@ -1,19 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Pipelines;
 using System.Net.Http;
 using System.Net.Http.HPack;
-using System.Runtime.CompilerServices;
 using System.Security.Authentication;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Text;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -26,25 +21,95 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
 
-internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeadersHandler, IRequestProcessor
+/// <summary>
+/// An HTTP/2 connection - owns the request processing and lifetime.
+/// <para/>
+/// Responsible for reading incoming HTTP/2 frames. New requests create streams and execution
+/// for the request is dispatched to the thread pool.
+/// <para/>
+/// </summary>
+/// <remarks>
+/// Owned by <see cref="HttpConnection"/>.
+/// <para/>
+/// For performance, streams are pooled when an HTTP/2 request completes gracefully. Future requests
+/// reuse a pooled stream if available. There are limits on the number of pooled streams, and unused
+/// streams are automatically removed from the pool after a timeout.
+/// <para/>
+/// The connection itself is not reusable.
+/// </remarks>
+internal sealed partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpStreamHeadersHandler, IRequestProcessor
 {
+    // This uses C# compiler's ability to refer to static data directly. For more information see https://vcsjones.dev/2019/02/01/csharp-readonly-span-bytes-static
+    private static ReadOnlySpan<byte> ClientPrefaceBytes => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;
+    private static ReadOnlySpan<byte> AuthorityBytes => ":authority"u8;
+    private static ReadOnlySpan<byte> MethodBytes => ":method"u8;
+    private static ReadOnlySpan<byte> PathBytes => ":path"u8;
+    private static ReadOnlySpan<byte> SchemeBytes => ":scheme"u8;
+    private static ReadOnlySpan<byte> StatusBytes => ":status"u8;
+    private static ReadOnlySpan<byte> ConnectionBytes => "connection"u8;
+    private static ReadOnlySpan<byte> TeBytes => "te"u8;
+    private static ReadOnlySpan<byte> TrailersBytes => "trailers"u8;
+    private static ReadOnlySpan<byte> ConnectBytes => "CONNECT"u8;
+    private static ReadOnlySpan<byte> ProtocolBytes => ":protocol"u8;
+
     public static ReadOnlySpan<byte> ClientPreface => ClientPrefaceBytes;
+    public static byte[]? InvalidHttp1xErrorResponseBytes;
 
     private const PseudoHeaderFields _mandatoryRequestPseudoHeaderFields =
         PseudoHeaderFields.Method | PseudoHeaderFields.Path | PseudoHeaderFields.Scheme;
 
     private const int InitialStreamPoolSize = 5;
     private const int MaxStreamPoolSize = 100;
-    private const long StreamPoolExpiryTicks = TimeSpan.TicksPerSecond * 5;
+    private readonly TimeSpan StreamPoolExpiry = TimeSpan.FromSeconds(5);
+
+    /// Increase this value to be more lenient (disconnect fewer clients).
+    /// A non-positive value will disable the limit.
+    /// The default value is 20, which was determined empirically using a toy attack client.
+    /// The count is measured across a (non-configurable) 5 tick (i.e. second) window:
+    /// if the count ever exceeds 5 * the limit, the connection is aborted.
+    /// Note that this means that the limit can kick in before 5 ticks have elapsed.
+    /// See <see cref="EnhanceYourCalmTickWindowCount"/>.
+    /// TODO (https://github.com/dotnet/aspnetcore/issues/51308): make this configurable.
+    private const string MaximumEnhanceYourCalmCountProperty = "Microsoft.AspNetCore.Server.Kestrel.Http2.MaxEnhanceYourCalmCount";
+
+    // Internal for testing.
+    internal static readonly int EnhanceYourCalmMaximumCount = GetMaximumEnhanceYourCalmCount();
+
+    private static int GetMaximumEnhanceYourCalmCount()
+    {
+        var data = AppContext.GetData(MaximumEnhanceYourCalmCountProperty);
+
+        // Programmatically-configured values are usually ints
+        if (data is int count)
+        {
+            return count;
+        }
+
+        // msbuild-configured values are usually strings
+        if (data is string countStr && int.TryParse(countStr, out var parsed))
+        {
+            return parsed;
+        }
+
+        return 20; // Empirically derived
+    }
+
+    // Accumulate _enhanceYourCalmCount over the course of EnhanceYourCalmTickWindowCount ticks.
+    // This should make bursts less likely to trigger disconnects.
+    // Internal for testing.
+    internal const int EnhanceYourCalmTickWindowCount = 5;
+
+    private static bool IsEnhanceYourCalmLimitEnabled => EnhanceYourCalmMaximumCount > 0;
 
     private readonly HttpConnectionContext _context;
+    private readonly ConnectionMetricsContext _metricsContext;
+    private readonly IConnectionMetricsTagsFeature? _metricsTagsFeature;
     private readonly Http2FrameWriter _frameWriter;
     private readonly Pipe _input;
     private readonly Task _inputTask;
     private readonly int _minAllocBufferSize;
     private readonly HPackDecoder _hpackDecoder;
     private readonly InputFlowControl _inputFlowControl;
-    private readonly OutputFlowControl _outputFlowControl = new OutputFlowControl(new MultipleAwaitableProvider(), Http2PeerSettings.DefaultInitialWindowSize);
 
     private readonly Http2PeerSettings _serverSettings = new Http2PeerSettings();
     private readonly Http2PeerSettings _clientSettings = new Http2PeerSettings();
@@ -66,16 +131,23 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     private int _clientActiveStreamCount;
     private int _serverActiveStreamCount;
 
+    // Test hook to force sending EYC on *every* stream creation
+    internal bool SendEnhanceYourCalmOnStartStream { set; private get; }
+    private int _enhanceYourCalmCount;
+    private int _tickCount;
+
     // The following are the only fields that can be modified outside of the ProcessRequestsAsync loop.
     private readonly ConcurrentQueue<Http2Stream> _completedStreams = new ConcurrentQueue<Http2Stream>();
     private readonly StreamCloseAwaitable _streamCompletionAwaitable = new StreamCloseAwaitable();
     private int _gracefulCloseInitiator;
+    private ConnectionEndReason _gracefulCloseReason;
     private int _isClosed;
 
     // Internal for testing
     internal readonly Http2KeepAlive? _keepAlive;
     internal readonly Dictionary<int, Http2Stream> _streams = new Dictionary<int, Http2Stream>();
     internal PooledStreamStack<Http2Stream> StreamPool;
+    internal IHttp2StreamLifetimeHandler _streamLifetimeHandler;
 
     public Http2Connection(HttpConnectionContext context)
     {
@@ -83,30 +155,15 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         var http2Limits = httpLimits.Http2;
 
         _context = context;
+        _streamLifetimeHandler = this;
+        _metricsContext = context.MetricsContext;
+        _metricsTagsFeature = context.ConnectionFeatures.Get<IConnectionMetricsTagsFeature>();
 
         // Capture the ExecutionContext before dispatching HTTP/2 middleware. Will be restored by streams when processing request
         _context.InitialExecutionContext = ExecutionContext.Capture();
 
-        _frameWriter = new Http2FrameWriter(
-            context.Transport.Output,
-            context.ConnectionContext,
-            this,
-            _outputFlowControl,
-            context.TimeoutControl,
-            httpLimits.MinResponseDataRate,
-            context.ConnectionId,
-            context.MemoryPool,
-            context.ServiceContext);
+        _input = new Pipe(GetInputPipeOptions());
 
-        var inputOptions = new PipeOptions(pool: context.MemoryPool,
-            readerScheduler: context.ServiceContext.Scheduler,
-            writerScheduler: PipeScheduler.Inline,
-            pauseWriterThreshold: 1,
-            resumeWriterThreshold: 1,
-            minimumSegmentSize: context.MemoryPool.GetMinimumSegmentSize(),
-            useSynchronizationContext: false);
-
-        _input = new Pipe(inputOptions);
         _minAllocBufferSize = context.MemoryPool.GetMinimumAllocSize();
 
         _hpackDecoder = new HPackDecoder(http2Limits.HeaderTableSize, http2Limits.MaxRequestHeaderFieldSize);
@@ -119,7 +176,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             _keepAlive = new Http2KeepAlive(
                 http2Limits.KeepAlivePingDelay,
                 http2Limits.KeepAlivePingTimeout,
-                context.ServiceContext.SystemClock);
+                context.ServiceContext.TimeProvider);
         }
 
         _serverSettings.MaxConcurrentStreams = (uint)http2Limits.MaxStreamsPerConnection;
@@ -133,7 +190,18 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
         _scheduleInline = context.ServiceContext.Scheduler == PipeScheduler.Inline;
 
-        _inputTask = ReadInputAsync();
+        _inputTask = CopyPipeAsync(_context.Transport.Input, _input.Writer);
+
+        _frameWriter = new Http2FrameWriter(
+            context.Transport.Output,
+            context.ConnectionContext,
+            this,
+            (int)Math.Min(MaxTrackedStreams, int.MaxValue),
+            context.TimeoutControl,
+            httpLimits.MinResponseDataRate,
+            context.ConnectionId,
+            context.MemoryPool,
+            context.ServiceContext);
     }
 
     public string ConnectionId => _context.ConnectionId;
@@ -142,7 +210,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
     public KestrelTrace Log => _context.ServiceContext.Log;
     public IFeatureCollection ConnectionFeatures => _context.ConnectionFeatures;
-    public ISystemClock SystemClock => _context.ServiceContext.SystemClock;
+    public TimeProvider TimeProvider => _context.ServiceContext.TimeProvider;
     public ITimeoutControl TimeoutControl => _context.TimeoutControl;
     public KestrelServerLimits Limits => _context.ServiceContext.ServerOptions.Limits;
 
@@ -155,27 +223,45 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
     public void OnInputOrOutputCompleted()
     {
-        TryClose();
-        _frameWriter.Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedByClient));
+        var hasActiveStreams = _clientActiveStreamCount != 0;
+        if (TryClose())
+        {
+            SetConnectionErrorCode(hasActiveStreams ? ConnectionEndReason.ConnectionReset : ConnectionEndReason.TransportCompleted, Http2ErrorCode.NO_ERROR);
+        }
+        var useException = _context.ServiceContext.ServerOptions.FinOnError || hasActiveStreams;
+        _frameWriter.Abort(useException ? new ConnectionAbortedException(CoreStrings.ConnectionAbortedByClient) : null!);
     }
 
-    public void Abort(ConnectionAbortedException ex)
+    private void SetConnectionErrorCode(ConnectionEndReason reason, Http2ErrorCode errorCode)
+    {
+        Debug.Assert(_isClosed == 1, "Should only be set when connection is closed.");
+
+        KestrelMetrics.AddConnectionEndReason(_metricsContext, reason);
+    }
+
+    public void Abort(ConnectionAbortedException ex, ConnectionEndReason reason)
+    {
+        Abort(ex, Http2ErrorCode.INTERNAL_ERROR, reason);
+    }
+
+    public void Abort(ConnectionAbortedException ex, Http2ErrorCode errorCode, ConnectionEndReason reason)
     {
         if (TryClose())
         {
-            _frameWriter.WriteGoAwayAsync(int.MaxValue, Http2ErrorCode.INTERNAL_ERROR).Preserve();
+            SetConnectionErrorCode(reason, errorCode);
+            _frameWriter.WriteGoAwayAsync(int.MaxValue, errorCode).Preserve();
         }
 
         _frameWriter.Abort(ex);
     }
 
-    public void StopProcessingNextRequest()
-        => StopProcessingNextRequest(serverInitiated: true);
+    public void StopProcessingNextRequest(ConnectionEndReason reason)
+        => StopProcessingNextRequest(serverInitiated: true, reason);
 
     public void HandleRequestHeadersTimeout()
     {
         Log.ConnectionBadRequest(ConnectionId, KestrelBadHttpRequestException.GetException(RequestRejectionReason.RequestHeadersTimeout));
-        Abort(new ConnectionAbortedException(CoreStrings.BadRequest_RequestHeadersTimeout));
+        Abort(new ConnectionAbortedException(CoreStrings.BadRequest_RequestHeadersTimeout), Http2ErrorCode.INTERNAL_ERROR, ConnectionEndReason.RequestHeadersTimeout);
     }
 
     public void HandleReadDataRateTimeout()
@@ -183,15 +269,16 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         Debug.Assert(Limits.MinRequestBodyDataRate != null);
 
         Log.RequestBodyMinimumDataRateNotSatisfied(ConnectionId, null, Limits.MinRequestBodyDataRate.BytesPerSecond);
-        Abort(new ConnectionAbortedException(CoreStrings.BadRequest_RequestBodyTimeout));
+        Abort(new ConnectionAbortedException(CoreStrings.BadRequest_RequestBodyTimeout), Http2ErrorCode.INTERNAL_ERROR, ConnectionEndReason.MinRequestBodyDataRate);
     }
 
-    public void StopProcessingNextRequest(bool serverInitiated)
+    public void StopProcessingNextRequest(bool serverInitiated, ConnectionEndReason reason)
     {
         var initiator = serverInitiated ? GracefulCloseInitiator.Server : GracefulCloseInitiator.Client;
 
         if (Interlocked.CompareExchange(ref _gracefulCloseInitiator, initiator, GracefulCloseInitiator.None) == GracefulCloseInitiator.None)
         {
+            _gracefulCloseReason = reason;
             Input.CancelPendingRead();
         }
     }
@@ -200,16 +287,18 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         Exception? error = null;
         var errorCode = Http2ErrorCode.NO_ERROR;
+        var reason = ConnectionEndReason.Unset;
 
         try
         {
             ValidateTlsRequirements();
 
             TimeoutControl.InitializeHttp2(_inputFlowControl);
-            TimeoutControl.SetTimeout(Limits.KeepAliveTimeout.Ticks, TimeoutReason.KeepAlive);
+            TimeoutControl.SetTimeout(Limits.KeepAliveTimeout, TimeoutReason.KeepAlive);
 
             if (!await TryReadPrefaceAsync())
             {
+                reason = ConnectionEndReason.TransportCompleted;
                 return;
             }
 
@@ -237,7 +326,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                 if (result.IsCanceled)
                 {
                     // Heartbeat will cancel ReadAsync and trigger expiring unused streams from pool.
-                    StreamPool.RemoveExpired(SystemClock.UtcNowTicks);
+                    StreamPool.RemoveExpired(TimeProvider.GetTimestamp());
                 }
 
                 try
@@ -269,6 +358,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
                     if (result.IsCompleted)
                     {
+                        reason = ConnectionEndReason.TransportCompleted;
                         return;
                     }
 
@@ -285,7 +375,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                         {
                             // There isn't a good error code to return with the GOAWAY.
                             // NO_ERROR isn't a good choice because it indicates the connection is gracefully shutting down.
-                            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorKeepAliveTimeout, Http2ErrorCode.INTERNAL_ERROR);
+                            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorKeepAliveTimeout, Http2ErrorCode.INTERNAL_ERROR, ConnectionEndReason.KeepAliveTimeout);
                         }
                     }
                 }
@@ -303,6 +393,11 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             if (_clientActiveStreamCount > 0)
             {
                 Log.RequestProcessingError(ConnectionId, ex);
+                reason = ConnectionEndReason.ConnectionReset;
+            }
+            else
+            {
+                reason = ConnectionEndReason.TransportCompleted;
             }
 
             error = ex;
@@ -311,6 +406,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         {
             Log.RequestProcessingError(ConnectionId, ex);
             error = ex;
+            reason = ConnectionEndReason.IOError;
         }
         catch (ConnectionAbortedException ex)
         {
@@ -322,6 +418,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             Log.Http2ConnectionError(ConnectionId, ex);
             error = ex;
             errorCode = ex.ErrorCode;
+            reason = ex.Reason;
         }
         catch (HPackDecodingException ex)
         {
@@ -330,12 +427,14 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             Log.HPackDecodingError(ConnectionId, _currentHeadersStream.StreamId, ex);
             error = ex;
             errorCode = Http2ErrorCode.COMPRESSION_ERROR;
+            reason = ConnectionEndReason.ErrorReadingHeaders;
         }
         catch (Exception ex)
         {
             Log.LogWarning(0, ex, CoreStrings.RequestProcessingEndError);
             error = ex;
             errorCode = Http2ErrorCode.INTERNAL_ERROR;
+            reason = ConnectionEndReason.OtherError;
         }
         finally
         {
@@ -346,6 +445,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 if (TryClose())
                 {
+                    SetConnectionErrorCode(reason, errorCode);
                     await _frameWriter.WriteGoAwayAsync(_highestOpenedStreamId, errorCode);
                 }
 
@@ -357,13 +457,18 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                     stream.Abort(new IOException(CoreStrings.Http2StreamAborted, connectionError));
                 }
 
-                // Use the server _serverActiveStreamCount to drain all requests on the server side.
-                // Can't use _clientActiveStreamCount now as we now decrement that count earlier/
-                // Can't use _streams.Count as we wait for RST/END_STREAM before removing the stream from the dictionary
-                while (_serverActiveStreamCount > 0)
+                // TODO (https://github.com/dotnet/aspnetcore/issues/51307):
+                // For some reason, this loop doesn't terminate when we're trying to abort.
+                if (!IsEnhanceYourCalmLimitEnabled || error is not Http2ConnectionErrorException)
                 {
-                    await _streamCompletionAwaitable;
-                    UpdateCompletedStreams();
+                    // Use the server _serverActiveStreamCount to drain all requests on the server side.
+                    // Can't use _clientActiveStreamCount now as we now decrement that count earlier/
+                    // Can't use _streams.Count as we wait for RST/END_STREAM before removing the stream from the dictionary
+                    while (_serverActiveStreamCount > 0)
+                    {
+                        await _streamCompletionAwaitable;
+                        UpdateCompletedStreams();
+                    }
                 }
 
                 while (StreamPool.TryPop(out var pooledStream))
@@ -387,6 +492,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                 Input.Complete();
                 _context.Transport.Input.CancelPendingRead();
                 await _inputTask;
+                await _frameWriter.ShutdownAsync();
             }
         }
     }
@@ -404,12 +510,44 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
         if (tlsFeature.Protocol < SslProtocols.Tls12)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorMinTlsVersion(tlsFeature.Protocol), Http2ErrorCode.INADEQUATE_SECURITY);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorMinTlsVersion(tlsFeature.Protocol), Http2ErrorCode.INADEQUATE_SECURITY, ConnectionEndReason.InsufficientTlsVersion);
         }
+    }
+
+    [Flags]
+    private enum ReadPrefaceState
+    {
+        None = 0,
+        Preface = 1,
+        Http1x = 2,
+        All = Preface | Http1x
     }
 
     private async Task<bool> TryReadPrefaceAsync()
     {
+        // HTTP/1.x and HTTP/2 support connections without TLS. That means ALPN hasn't been used to ensure both sides are
+        // using the same protocol. A common problem is someone using HTTP/1.x to talk to a HTTP/2 only endpoint.
+        //
+        // HTTP/2 starts a connection with a preface. This method reads and validates it. If the connection doesn't start
+        // with the preface, and it isn't using TLS, then we attempt to detect what the client is trying to do and send
+        // back a friendly error message.
+        //
+        // Outcomes from this method:
+        // 1. Successfully read HTTP/2 preface. Connection continues to be established.
+        // 2. Detect HTTP/1.x request. Send back HTTP/1.x 400 response.
+        // 3. Unknown content. Report HTTP/2 PROTOCOL_ERROR to client.
+        // 4. Timeout while waiting for content.
+        //
+        // Future improvement: Detect TLS frame. Useful for people starting TLS connection with a non-TLS endpoint.
+        var state = ReadPrefaceState.All;
+
+        // With TLS, ALPN should have already errored if the wrong HTTP version is used.
+        // Only perform additional validation if endpoint doesn't use TLS.
+        if (ConnectionFeatures.Get<ITlsHandshakeFeature>() != null)
+        {
+            state ^= ReadPrefaceState.Http1x;
+        }
+
         while (_isClosed == 0)
         {
             var result = await Input.ReadAsync();
@@ -421,9 +559,58 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 if (!readableBuffer.IsEmpty)
                 {
-                    if (ParsePreface(readableBuffer, out consumed, out examined))
+                    if (state.HasFlag(ReadPrefaceState.Preface))
                     {
-                        return true;
+                        if (readableBuffer.Length >= ClientPreface.Length)
+                        {
+                            if (IsPreface(readableBuffer, out consumed, out examined))
+                            {
+                                return true;
+                            }
+                            else
+                            {
+                                state ^= ReadPrefaceState.Preface;
+                            }
+                        }
+                    }
+
+                    if (state.HasFlag(ReadPrefaceState.Http1x))
+                    {
+                        if (ParseHttp1x(readableBuffer, out var detectedVersion))
+                        {
+                            if (detectedVersion == HttpVersion.Http10 || detectedVersion == HttpVersion.Http11)
+                            {
+                                Log.PossibleInvalidHttpVersionDetected(ConnectionId, HttpVersion.Http2, detectedVersion);
+
+                                var responseBytes = InvalidHttp1xErrorResponseBytes ??= Encoding.ASCII.GetBytes(
+                                    "HTTP/1.1 400 Bad Request\r\n" +
+                                    "Connection: close\r\n" +
+                                    "Content-Type: text/plain\r\n" +
+                                    "Content-Length: 56\r\n" +
+                                    "\r\n" +
+                                    "An HTTP/1.x request was sent to an HTTP/2 only endpoint.");
+
+                                await _context.Transport.Output.WriteAsync(responseBytes);
+
+                                // Close connection here so a GOAWAY frame isn't written.
+                                if (TryClose())
+                                {
+                                    SetConnectionErrorCode(ConnectionEndReason.InvalidHttpVersion, Http2ErrorCode.PROTOCOL_ERROR);
+                                }
+
+                                return false;
+                            }
+                            else
+                            {
+                                state ^= ReadPrefaceState.Http1x;
+                            }
+                        }
+                    }
+
+                    // Tested all states. Return HTTP/2 protocol error.
+                    if (state == ReadPrefaceState.None)
+                    {
+                        throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorInvalidPreface, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidHandshake);
                     }
                 }
 
@@ -443,22 +630,44 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         return false;
     }
 
-    private static bool ParsePreface(in ReadOnlySequence<byte> buffer, out SequencePosition consumed, out SequencePosition examined)
+    private bool ParseHttp1x(ReadOnlySequence<byte> buffer, out HttpVersion httpVersion)
+    {
+        httpVersion = HttpVersion.Unknown;
+
+        var reader = new SequenceReader<byte>(buffer.Length > Limits.MaxRequestLineSize ? buffer.Slice(0, Limits.MaxRequestLineSize) : buffer);
+        if (reader.TryReadTo(out ReadOnlySpan<byte> requestLine, (byte)'\n'))
+        {
+            // Line should be long enough for HTTP/1.X and end with \r\n
+            if (requestLine.Length > 10 && requestLine[requestLine.Length - 1] == (byte)'\r')
+            {
+                httpVersion = HttpUtilities.GetKnownVersion(requestLine.Slice(requestLine.Length - 9, 8));
+            }
+
+            return true;
+        }
+
+        // Couldn't find newline within max request line size so this isn't valid HTTP/1.x.
+        if (buffer.Length > Limits.MaxRequestLineSize)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPreface(in ReadOnlySequence<byte> buffer, out SequencePosition consumed, out SequencePosition examined)
     {
         consumed = buffer.Start;
         examined = buffer.End;
 
-        if (buffer.Length < ClientPreface.Length)
-        {
-            return false;
-        }
+        Debug.Assert(buffer.Length >= ClientPreface.Length, "Not enough content to match preface.");
 
         var preface = buffer.Slice(0, ClientPreface.Length);
         var span = preface.ToSpan();
 
         if (!span.SequenceEqual(ClientPreface))
         {
-            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorInvalidPreface, Http2ErrorCode.PROTOCOL_ERROR);
+            return false;
         }
 
         consumed = examined = preface.End;
@@ -473,7 +682,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         // a connection error (Section 5.4.1) of type PROTOCOL_ERROR.
         if (_incomingFrame.StreamId != 0 && (_incomingFrame.StreamId & 1) == 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdEven(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdEven(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidStreamId);
         }
 
         return _incomingFrame.Type switch
@@ -483,7 +692,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             Http2FrameType.PRIORITY => ProcessPriorityFrameAsync(),
             Http2FrameType.RST_STREAM => ProcessRstStreamFrameAsync(),
             Http2FrameType.SETTINGS => ProcessSettingsFrameAsync(payload),
-            Http2FrameType.PUSH_PROMISE => throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorPushPromiseReceived, Http2ErrorCode.PROTOCOL_ERROR),
+            Http2FrameType.PUSH_PROMISE => throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorPushPromiseReceived, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.UnexpectedFrame),
             Http2FrameType.PING => ProcessPingFrameAsync(payload),
             Http2FrameType.GOAWAY => ProcessGoAwayFrameAsync(),
             Http2FrameType.WINDOW_UPDATE => ProcessWindowUpdateFrameAsync(),
@@ -496,17 +705,17 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId == 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdZeroException();
         }
 
         if (_incomingFrame.DataHasPadding && _incomingFrame.DataPadLength >= _incomingFrame.PayloadLength)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorPaddingTooLong(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorPaddingTooLong(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidDataPadding);
         }
 
         ThrowIfIncomingFrameSentToIdleStream();
@@ -516,7 +725,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             if (stream.RstStreamReceived)
             {
                 // Hard abort, do not allow any more frames on this stream.
-                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamAborted(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                throw CreateReceivedFrameStreamAbortedException(stream);
             }
 
             if (stream.EndStreamReceived)
@@ -528,7 +737,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                 // of type STREAM_CLOSED, unless the frame is permitted as described below.
                 //
                 // (The allowed frame types for this situation are WINDOW_UPDATE, RST_STREAM and PRIORITY)
-                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamHalfClosedRemote(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamHalfClosedRemote(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.FrameAfterStreamClose);
             }
 
             return stream.OnDataAsync(_incomingFrame, payload);
@@ -545,29 +754,55 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         //
         // We choose to do that here so we don't have to keep state to track implicitly closed
         // streams vs. streams closed with END_STREAM or RST_STREAM.
-        throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED);
+        throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.UnknownStream);
+    }
+
+    private Http2ConnectionErrorException CreateReceivedFrameStreamAbortedException(Http2Stream stream)
+    {
+        return new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamAborted(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.FrameAfterStreamClose);
+    }
+
+    private Http2ConnectionErrorException CreateStreamIdZeroException()
+    {
+        return new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidStreamId);
+    }
+
+    private Http2ConnectionErrorException CreateStreamIdNotZeroException()
+    {
+        return new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdNotZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidStreamId);
+    }
+
+    private Http2ConnectionErrorException CreateHeadersInterleavedException()
+    {
+        Debug.Assert(_currentHeadersStream != null, "Only throw this error if parsing headers.");
+        return new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.UnexpectedFrame);
+    }
+
+    private Http2ConnectionErrorException CreateUnexpectedFrameLengthException(int expectedLength)
+    {
+        return new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorUnexpectedFrameLength(_incomingFrame.Type, expectedLength), Http2ErrorCode.FRAME_SIZE_ERROR, ConnectionEndReason.InvalidFrameLength);
     }
 
     private Task ProcessHeadersFrameAsync<TContext>(IHttpApplication<TContext> application, in ReadOnlySequence<byte> payload) where TContext : notnull
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId == 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdZeroException();
         }
 
         if (_incomingFrame.HeadersHasPadding && _incomingFrame.HeadersPadLength >= _incomingFrame.PayloadLength - 1)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorPaddingTooLong(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorPaddingTooLong(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidDataPadding);
         }
 
         if (_incomingFrame.HeadersHasPriority && _incomingFrame.HeadersStreamDependency == _incomingFrame.StreamId)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamSelfDependency(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamSelfDependency(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.StreamSelfDependency);
         }
 
         if (_streams.TryGetValue(_incomingFrame.StreamId, out var stream))
@@ -575,7 +810,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             if (stream.RstStreamReceived)
             {
                 // Hard abort, do not allow any more frames on this stream.
-                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamAborted(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                throw CreateReceivedFrameStreamAbortedException(stream);
             }
 
             // http://httpwg.org/specs/rfc7540.html#rfc.section.5.1
@@ -587,13 +822,13 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             // (The allowed frame types after END_STREAM are WINDOW_UPDATE, RST_STREAM and PRIORITY)
             if (stream.EndStreamReceived)
             {
-                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamHalfClosedRemote(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamHalfClosedRemote(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.FrameAfterStreamClose);
             }
 
             // This is the last chance for the client to send END_STREAM
             if (!_incomingFrame.HeadersEndStream)
             {
-                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorHeadersWithTrailersNoEndStream, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorHeadersWithTrailersNoEndStream, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.MissingStreamEnd);
             }
 
             // Since we found an active stream, this HEADERS frame contains trailers
@@ -612,7 +847,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             //
             // If we couldn't find the stream, it was previously closed (either implicitly or with
             // END_STREAM or RST_STREAM).
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.InvalidStreamId);
         }
         else
         {
@@ -625,7 +860,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
             if (!_incomingFrame.HeadersEndHeaders)
             {
-                TimeoutControl.SetTimeout(Limits.RequestHeadersTimeout.Ticks, TimeoutReason.RequestHeaders);
+                TimeoutControl.SetTimeout(Limits.RequestHeadersTimeout, TimeoutReason.RequestHeaders);
             }
 
             // Start a new stream
@@ -657,18 +892,19 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             ConnectionId,
             protocols: default,
             _context.AltSvcHeader,
+            _context.ConnectionContext,
             _context.ServiceContext,
             _context.ConnectionFeatures,
             _context.MemoryPool,
             _context.LocalEndPoint,
             _context.RemoteEndPoint,
             _incomingFrame.StreamId,
-            streamLifetimeHandler: this,
+            _streamLifetimeHandler,
             _clientSettings,
             _serverSettings,
             _frameWriter,
             _inputFlowControl,
-            _outputFlowControl);
+            _metricsContext);
         streamContext.TimeoutControl = _context.TimeoutControl;
         streamContext.InitialExecutionContext = _context.InitialExecutionContext;
 
@@ -679,22 +915,22 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId == 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdZeroException();
         }
 
         if (_incomingFrame.PriorityStreamDependency == _incomingFrame.StreamId)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamSelfDependency(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamSelfDependency(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.StreamSelfDependency);
         }
 
         if (_incomingFrame.PayloadLength != 5)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorUnexpectedFrameLength(_incomingFrame.Type, 5), Http2ErrorCode.FRAME_SIZE_ERROR);
+            throw CreateUnexpectedFrameLengthException(expectedLength: 5);
         }
 
         return Task.CompletedTask;
@@ -704,17 +940,17 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId == 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdZeroException();
         }
 
         if (_incomingFrame.PayloadLength != 4)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorUnexpectedFrameLength(_incomingFrame.Type, 4), Http2ErrorCode.FRAME_SIZE_ERROR);
+            throw CreateUnexpectedFrameLengthException(expectedLength: 4);
         }
 
         ThrowIfIncomingFrameSentToIdleStream();
@@ -744,19 +980,19 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId != 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdNotZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdNotZeroException();
         }
 
         if (_incomingFrame.SettingsAck)
         {
             if (_incomingFrame.PayloadLength != 0)
             {
-                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorSettingsAckLengthNotZero, Http2ErrorCode.FRAME_SIZE_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorSettingsAckLengthNotZero, Http2ErrorCode.FRAME_SIZE_ERROR, ConnectionEndReason.InvalidFrameLength);
             }
 
             return Task.CompletedTask;
@@ -764,7 +1000,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
         if (_incomingFrame.PayloadLength % 6 != 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorSettingsLengthNotMultipleOfSix, Http2ErrorCode.FRAME_SIZE_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorSettingsLengthNotMultipleOfSix, Http2ErrorCode.FRAME_SIZE_ERROR, ConnectionEndReason.InvalidFrameLength);
         }
 
         try
@@ -781,7 +1017,9 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             if (_clientSettings.MaxFrameSize != previousMaxFrameSize)
             {
                 // Don't let the client choose an arbitrarily large size, this will be used for response buffers.
-                _frameWriter.UpdateMaxFrameSize(Math.Min(_clientSettings.MaxFrameSize, _serverSettings.MaxFrameSize));
+                // Safe cast, MaxFrameSize is limited to 2^24-1 bytes by the protocol and by Http2PeerSettings.
+                // Ref: https://datatracker.ietf.org/doc/html/rfc7540#section-4.2
+                _frameWriter.UpdateMaxFrameSize((int)Math.Min(_clientSettings.MaxFrameSize, _serverSettings.MaxFrameSize));
             }
 
             // This difference can be negative.
@@ -796,7 +1034,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                         // This means that this caused a stream window to become larger than int.MaxValue.
                         // This can never happen with a well behaved client and MUST be treated as a connection error.
                         // https://httpwg.org/specs/rfc7540.html#rfc.section.6.9.2
-                        throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorInitialWindowSizeInvalid, Http2ErrorCode.FLOW_CONTROL_ERROR);
+                        throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorInitialWindowSizeInvalid, Http2ErrorCode.FLOW_CONTROL_ERROR, ConnectionEndReason.InvalidSettings);
                     }
                 }
             }
@@ -814,9 +1052,11 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         }
         catch (Http2SettingsParameterOutOfRangeException ex)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorSettingsParameterOutOfRange(ex.Parameter), ex.Parameter == Http2SettingsParameter.SETTINGS_INITIAL_WINDOW_SIZE
+            var errorCode = ex.Parameter == Http2SettingsParameter.SETTINGS_INITIAL_WINDOW_SIZE
                 ? Http2ErrorCode.FLOW_CONTROL_ERROR
-                : Http2ErrorCode.PROTOCOL_ERROR);
+                : Http2ErrorCode.PROTOCOL_ERROR;
+
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorSettingsParameterOutOfRange(ex.Parameter), errorCode, ConnectionEndReason.InvalidSettings);
         }
     }
 
@@ -824,28 +1064,30 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId != 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdNotZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdNotZeroException();
         }
 
         if (_incomingFrame.PayloadLength != 8)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorUnexpectedFrameLength(_incomingFrame.Type, 8), Http2ErrorCode.FRAME_SIZE_ERROR);
+            throw CreateUnexpectedFrameLengthException(expectedLength: 8);
         }
 
         // Incoming ping resets connection keep alive timeout
         if (TimeoutControl.TimerReason == TimeoutReason.KeepAlive)
         {
-            TimeoutControl.ResetTimeout(Limits.KeepAliveTimeout.Ticks, TimeoutReason.KeepAlive);
+            TimeoutControl.ResetTimeout(Limits.KeepAliveTimeout, TimeoutReason.KeepAlive);
         }
 
         if (_incomingFrame.PingAck)
         {
             // TODO: verify that payload is equal to the outgoing PING frame
+            // This will be particularly important if we implement dynamic window sizing
+            // (https://github.com/dotnet/aspnetcore/issues/53657).
             return Task.CompletedTask;
         }
 
@@ -856,15 +1098,17 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.StreamId != 0)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdNotZero(_incomingFrame.Type), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateStreamIdNotZeroException();
         }
 
-        StopProcessingNextRequest(serverInitiated: false);
+        // StopProcessingNextRequest must be called before RequestClose to ensure it's considered client initiated.
+        StopProcessingNextRequest(serverInitiated: false, ConnectionEndReason.ClientGoAway);
+        _context.ConnectionFeatures.Get<IConnectionLifetimeNotificationFeature>()?.RequestClose();
 
         return Task.CompletedTask;
     }
@@ -873,12 +1117,12 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_incomingFrame.PayloadLength != 4)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorUnexpectedFrameLength(_incomingFrame.Type, 4), Http2ErrorCode.FRAME_SIZE_ERROR);
+            throw CreateUnexpectedFrameLengthException(expectedLength: 4);
         }
 
         ThrowIfIncomingFrameSentToIdleStream();
@@ -900,14 +1144,14 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             // Since server initiated stream resets are not yet properly
             // implemented and tested, we treat all zero length window
             // increments as connection errors for now.
-            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorWindowUpdateIncrementZero, Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorWindowUpdateIncrementZero, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidWindowUpdateSize);
         }
 
         if (_incomingFrame.StreamId == 0)
         {
             if (!_frameWriter.TryUpdateConnectionWindow(_incomingFrame.WindowUpdateSizeIncrement))
             {
-                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorWindowUpdateSizeInvalid, Http2ErrorCode.FLOW_CONTROL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorWindowUpdateSizeInvalid, Http2ErrorCode.FLOW_CONTROL_ERROR, ConnectionEndReason.InvalidWindowUpdateSize);
             }
         }
         else if (_streams.TryGetValue(_incomingFrame.StreamId, out var stream))
@@ -915,7 +1159,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             if (stream.RstStreamReceived)
             {
                 // Hard abort, do not allow any more frames on this stream.
-                throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamAborted(_incomingFrame.Type, stream.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                throw CreateReceivedFrameStreamAbortedException(stream);
             }
 
             if (!stream.TryUpdateOutputWindow(_incomingFrame.WindowUpdateSizeIncrement))
@@ -937,12 +1181,12 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream == null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorContinuationWithNoHeaders, Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.Http2ErrorContinuationWithNoHeaders, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.UnexpectedFrame);
         }
 
         if (_incomingFrame.StreamId != _currentHeadersStream.StreamId)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         if (_requestHeaderParsingState == RequestHeaderParsingState.Trailers)
@@ -966,7 +1210,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     {
         if (_currentHeadersStream != null)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorHeadersInterleaved(_incomingFrame.Type, _incomingFrame.StreamId, _currentHeadersStream.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw CreateHeadersInterleavedException();
         }
 
         return Task.CompletedTask;
@@ -983,6 +1227,8 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
             if (endHeaders)
             {
+                _currentHeadersStream.OnHeadersComplete();
+
                 StartStream();
                 ResetRequestHeaderParsingState();
             }
@@ -1023,6 +1269,8 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
         try
         {
+            _currentHeadersStream.TotalParsedHeaderSize = _totalParsedHeaderSize;
+
             // This must be initialized before we offload the request or else we may start processing request body frames without it.
             _currentHeadersStream.InputRemaining = _currentHeadersStream.RequestHeaders.ContentLength;
 
@@ -1057,11 +1305,25 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             // We don't use the _serverActiveRequestCount here as during shutdown, it and the dictionary counts get out of sync.
             // The streams still exist in the dictionary until the client responds with a RST or END_STREAM.
             // Also, we care about the dictionary size for too much memory consumption.
-            if (_streams.Count > MaxTrackedStreams)
+            if (_streams.Count > MaxTrackedStreams || SendEnhanceYourCalmOnStartStream)
             {
                 // Server is getting hit hard with connection resets.
                 // Tell client to calm down.
                 // TODO consider making when to send ENHANCE_YOUR_CALM configurable?
+
+                if (IsEnhanceYourCalmLimitEnabled && Interlocked.Increment(ref _enhanceYourCalmCount) > EnhanceYourCalmTickWindowCount * EnhanceYourCalmMaximumCount)
+                {
+                    Log.Http2TooManyEnhanceYourCalms(_context.ConnectionId, EnhanceYourCalmMaximumCount);
+
+                    // Now that we've logged a useful message, we can put vague text in the exception
+                    // messages in case they somehow make it back to the client (not expected)
+
+                    // This will close the socket - we want to do that right away
+                    Abort(new ConnectionAbortedException(CoreStrings.Http2ConnectionFaulted), Http2ErrorCode.ENHANCE_YOUR_CALM, ConnectionEndReason.StreamResetLimitExceeded);
+                    // Throwing an exception as well will help us clean up on our end more quickly by (e.g.) skipping processing of already-buffered input
+                    throw new Http2ConnectionErrorException(CoreStrings.Http2ConnectionFaulted, Http2ErrorCode.ENHANCE_YOUR_CALM, ConnectionEndReason.StreamResetLimitExceeded);
+                }
+
                 throw new Http2StreamErrorException(_currentHeadersStream.StreamId, CoreStrings.Http2TellClientToCalmDown, Http2ErrorCode.ENHANCE_YOUR_CALM);
             }
         }
@@ -1079,6 +1341,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         }
 
         KestrelEventSource.Log.RequestQueuedStart(_currentHeadersStream, AspNetCore.Http.HttpProtocol.Http2);
+        _context.ServiceContext.Metrics.RequestQueuedStart(_metricsContext, KestrelMetrics.Http2);
 
         // _scheduleInline is only true in tests
         if (!_scheduleInline)
@@ -1117,7 +1380,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         // initial state for all streams.
         if (_incomingFrame.StreamId > _highestOpenedStreamId)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdle(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamIdle(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidStreamId);
         }
     }
 
@@ -1130,9 +1393,15 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         }
     }
 
-    void IRequestProcessor.Tick(DateTimeOffset now)
+    void IRequestProcessor.Tick(long timestamp)
     {
         Input.CancelPendingRead();
+        // We count EYCs over a window of a given length to avoid flagging short-lived bursts.
+        // At the end of each window, reset the count.
+        if (IsEnhanceYourCalmLimitEnabled && ++_tickCount % EnhanceYourCalmTickWindowCount == 0)
+        {
+            Interlocked.Exchange(ref _enhanceYourCalmCount, 0);
+        }
     }
 
     void IHttp2StreamLifetimeHandler.OnStreamCompleted(Http2Stream stream)
@@ -1144,7 +1413,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
     private void UpdateCompletedStreams()
     {
         Http2Stream? firstRequedStream = null;
-        var now = SystemClock.UtcNowTicks;
+        var timestamp = TimeProvider.GetTimestamp();
 
         while (_completedStreams.TryDequeue(out var stream))
         {
@@ -1156,18 +1425,18 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                 break;
             }
 
-            if (stream.DrainExpirationTicks == default)
+            if (stream.DrainExpirationTimestamp == default)
             {
                 _serverActiveStreamCount--;
-                stream.DrainExpirationTicks = now + Constants.RequestBodyDrainTimeout.Ticks;
+                stream.DrainExpirationTimestamp = TimeProvider.GetTimestamp(timestamp, Constants.RequestBodyDrainTimeout);
             }
 
-            if (stream.EndStreamReceived || stream.RstStreamReceived || stream.DrainExpirationTicks < now)
+            if (stream.EndStreamReceived || stream.RstStreamReceived || stream.DrainExpirationTimestamp < timestamp)
             {
                 if (stream == _currentHeadersStream)
                 {
                     // The drain expired out while receiving trailers. The most recent incoming frame is either a header or continuation frame for the timed out stream.
-                    throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED);
+                    throw new Http2ConnectionErrorException(CoreStrings.FormatHttp2ErrorStreamClosed(_incomingFrame.Type, _incomingFrame.StreamId), Http2ErrorCode.STREAM_CLOSED, ConnectionEndReason.FrameAfterStreamClose);
                 }
 
                 RemoveStream(stream);
@@ -1193,7 +1462,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             // Pool and reuse the stream if it finished in a graceful state and there is space in the pool.
 
             // This property is used to remove unused streams from the pool
-            stream.DrainExpirationTicks = SystemClock.UtcNowTicks + StreamPoolExpiryTicks;
+            stream.DrainExpirationTimestamp = TimeProvider.GetTimestamp(StreamPoolExpiry);
 
             StreamPool.Push(stream);
         }
@@ -1211,7 +1480,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         // If we're tracking too many streams, discard the oldest.
         while (_streams.Count >= maxStreams && _completedStreams.TryDequeue(out var stream))
         {
-            if (stream.DrainExpirationTicks == default)
+            if (stream.DrainExpirationTimestamp == default)
             {
                 _serverActiveStreamCount--;
             }
@@ -1245,6 +1514,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 if (TryClose())
                 {
+                    SetConnectionErrorCode(_gracefulCloseReason, Http2ErrorCode.NO_ERROR);
                     _frameWriter.WriteGoAwayAsync(_highestOpenedStreamId, Http2ErrorCode.NO_ERROR).Preserve();
                 }
             }
@@ -1252,7 +1522,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 if (TimeoutControl.TimerReason == TimeoutReason.None)
                 {
-                    TimeoutControl.SetTimeout(Limits.KeepAliveTimeout.Ticks, TimeoutReason.KeepAlive);
+                    TimeoutControl.SetTimeout(Limits.KeepAliveTimeout, TimeoutReason.KeepAlive);
                 }
 
                 // If we're awaiting headers, either a new stream will be started, or there will be a connection
@@ -1265,7 +1535,12 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
     public void OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        OnHeaderCore(index: null, indexedValue: false, name, value);
+        OnHeaderCore(HeaderType.NameAndValue, staticTableIndex: null, name, value);
+    }
+
+    public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+        OnHeaderCore(HeaderType.Dynamic, index, name, value);
     }
 
     public void OnStaticIndexedHeader(int index)
@@ -1273,82 +1548,121 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         Debug.Assert(index <= H2StaticTable.Count);
 
         ref readonly var entry = ref H2StaticTable.Get(index - 1);
-        OnHeaderCore(index, indexedValue: true, entry.Name, entry.Value);
+        OnHeaderCore(HeaderType.Static, index, entry.Name, entry.Value);
     }
 
     public void OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
     {
         Debug.Assert(index <= H2StaticTable.Count);
 
-        OnHeaderCore(index, indexedValue: false, H2StaticTable.Get(index - 1).Name, value);
+        OnHeaderCore(HeaderType.StaticAndValue, index, H2StaticTable.Get(index - 1).Name, value);
+    }
+
+    private enum HeaderType
+    {
+        Static,
+        StaticAndValue,
+        Dynamic,
+        NameAndValue
     }
 
     // We can't throw a Http2StreamErrorException here, it interrupts the header decompression state and may corrupt subsequent header frames on other streams.
     // For now these either need to be connection errors or BadRequests. If we want to downgrade any of them to stream errors later then we need to
     // rework the flow so that the remaining headers are drained and the decompression state is maintained.
-    private void OnHeaderCore(int? index, bool indexedValue, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    private void OnHeaderCore(HeaderType headerType, int? staticTableIndex, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
         Debug.Assert(_currentHeadersStream != null);
 
         // https://tools.ietf.org/html/rfc7540#section-6.5.2
         // "The value is based on the uncompressed size of header fields, including the length of the name and value in octets plus an overhead of 32 octets for each header field.";
-        _totalParsedHeaderSize += HeaderField.RfcOverhead + name.Length + value.Length;
-        if (_totalParsedHeaderSize > _context.ServiceContext.ServerOptions.Limits.MaxRequestHeadersTotalSize)
+        // We don't include the 32 byte overhead hear so we can accept a little more than the advertised limit.
+        _totalParsedHeaderSize += name.Length + value.Length;
+        // Allow a 2x grace before aborting the connection. We'll check the size limit again later where we can send a 431.
+        if (_totalParsedHeaderSize > _context.ServiceContext.ServerOptions.Limits.MaxRequestHeadersTotalSize * 2)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.BadRequest_HeadersExceedMaxTotalSize, Http2ErrorCode.PROTOCOL_ERROR);
-        }
-
-        if (index != null)
-        {
-            ValidateStaticHeader(index.Value, value);
-        }
-        else
-        {
-            ValidateHeader(name, value);
+            throw new Http2ConnectionErrorException(CoreStrings.BadRequest_HeadersExceedMaxTotalSize, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.MaxRequestHeadersTotalSizeExceeded);
         }
 
         try
         {
             if (_requestHeaderParsingState == RequestHeaderParsingState.Trailers)
             {
+                // Just use name + value bytes and do full validation for request trailers.
+                // Potential performance improvement here to check for indexed headers and optimize validation.
+                UpdateHeaderParsingState(value, GetPseudoHeaderField(name));
+                ValidateHeaderContent(name, value);
+
                 _currentHeadersStream.OnTrailer(name, value);
             }
             else
             {
                 // Throws BadRequest for header count limit breaches.
                 // Throws InvalidOperation for bad encoding.
-                if (index != null)
+                switch (headerType)
                 {
-                    _currentHeadersStream.OnHeader(index.Value, indexedValue, name, value);
-                }
-                else
-                {
-                    _currentHeadersStream.OnHeader(name, value, checkForNewlineChars : true);
+                    case HeaderType.Static:
+                        UpdateHeaderParsingState(value, GetPseudoHeaderField(staticTableIndex.GetValueOrDefault()));
+
+                        _currentHeadersStream.OnHeader(staticTableIndex.GetValueOrDefault(), indexOnly: true, name, value);
+                        break;
+                    case HeaderType.StaticAndValue:
+                        UpdateHeaderParsingState(value, GetPseudoHeaderField(staticTableIndex.GetValueOrDefault()));
+
+                        // Value is new will get validated (i.e. check value doesn't contain newlines)
+                        _currentHeadersStream.OnHeader(staticTableIndex.GetValueOrDefault(), indexOnly: false, name, value);
+                        break;
+                    case HeaderType.Dynamic:
+                        // It is faster to set a header using a static table index than a name.
+                        if (staticTableIndex != null)
+                        {
+                            UpdateHeaderParsingState(value, GetPseudoHeaderField(staticTableIndex.GetValueOrDefault()));
+
+                            _currentHeadersStream.OnHeader(staticTableIndex.GetValueOrDefault(), indexOnly: false, name, value);
+                        }
+                        else
+                        {
+                            UpdateHeaderParsingState(value, GetPseudoHeaderField(name));
+
+                            _currentHeadersStream.OnHeader(name, value, checkForNewlineChars: false);
+                        }
+                        break;
+                    case HeaderType.NameAndValue:
+                        UpdateHeaderParsingState(value, GetPseudoHeaderField(name));
+
+                        // Header and value are new and will get validated (i.e. check name is lower-case, check value doesn't contain newlines)
+                        ValidateHeaderContent(name, value);
+                        _currentHeadersStream.OnHeader(name, value, checkForNewlineChars: true);
+                        break;
+                    default:
+                        Debug.Fail($"Unexpected header type: {headerType}");
+                        break;
                 }
             }
         }
+#pragma warning disable CS0618 // Type or member is obsolete
+        catch (BadHttpRequestException bre) when (bre.Reason == RequestRejectionReason.TooManyHeaders)
+        {
+            throw new Http2ConnectionErrorException(bre.Message, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.MaxRequestHeaderCountExceeded);
+        }
+#pragma warning restore CS0618 // Type or member is obsolete
         catch (Microsoft.AspNetCore.Http.BadHttpRequestException bre)
         {
-            throw new Http2ConnectionErrorException(bre.Message, Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(bre.Message, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
         }
         catch (InvalidOperationException)
         {
-            throw new Http2ConnectionErrorException(CoreStrings.BadRequest_MalformedRequestInvalidHeaders, Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.BadRequest_MalformedRequestInvalidHeaders, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
         }
     }
 
     public void OnHeadersComplete(bool endStream)
         => _currentHeadersStream!.OnHeadersComplete();
 
-    private void ValidateHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    private void ValidateHeaderContent(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        // Clients will normally send pseudo headers as an indexed header.
-        // Because pseudo headers can still be sent by name we need to check for them.
-        UpdateHeaderParsingState(value, GetPseudoHeaderField(name));
-
         if (IsConnectionSpecificHeaderField(name, value))
         {
-            throw new Http2ConnectionErrorException(CoreStrings.HttpErrorConnectionSpecificHeaderField, Http2ErrorCode.PROTOCOL_ERROR);
+            throw new Http2ConnectionErrorException(CoreStrings.HttpErrorConnectionSpecificHeaderField, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
         }
 
         // http://httpwg.org/specs/rfc7540.html#rfc.section.8.1.2
@@ -1359,41 +1673,14 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 if (_requestHeaderParsingState == RequestHeaderParsingState.Trailers)
                 {
-                    throw new Http2ConnectionErrorException(CoreStrings.HttpErrorTrailerNameUppercase, Http2ErrorCode.PROTOCOL_ERROR);
+                    throw new Http2ConnectionErrorException(CoreStrings.HttpErrorTrailerNameUppercase, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
                 }
                 else
                 {
-                    throw new Http2ConnectionErrorException(CoreStrings.HttpErrorHeaderNameUppercase, Http2ErrorCode.PROTOCOL_ERROR);
+                    throw new Http2ConnectionErrorException(CoreStrings.HttpErrorHeaderNameUppercase, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
                 }
             }
         }
-    }
-
-    private void ValidateStaticHeader(int index, ReadOnlySpan<byte> value)
-    {
-        var headerField = index switch
-        {
-            1 => PseudoHeaderFields.Authority,
-            2 => PseudoHeaderFields.Method,
-            3 => PseudoHeaderFields.Method,
-            4 => PseudoHeaderFields.Path,
-            5 => PseudoHeaderFields.Path,
-            6 => PseudoHeaderFields.Scheme,
-            7 => PseudoHeaderFields.Scheme,
-            8 => PseudoHeaderFields.Status,
-            9 => PseudoHeaderFields.Status,
-            10 => PseudoHeaderFields.Status,
-            11 => PseudoHeaderFields.Status,
-            12 => PseudoHeaderFields.Status,
-            13 => PseudoHeaderFields.Status,
-            14 => PseudoHeaderFields.Status,
-            _ => PseudoHeaderFields.None
-        };
-
-        UpdateHeaderParsingState(value, headerField);
-
-        // http://httpwg.org/specs/rfc7540.html#rfc.section.8.1.2
-        // No need to validate if header name if it is specified using a static index.
     }
 
     private void UpdateHeaderParsingState(ReadOnlySpan<byte> value, PseudoHeaderFields headerField)
@@ -1419,13 +1706,13 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
                 // All pseudo-header fields MUST appear in the header block before regular header fields.
                 // Any request or response that contains a pseudo-header field that appears in a header
                 // block after a regular header field MUST be treated as malformed (Section 8.1.2.6).
-                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorPseudoHeaderFieldAfterRegularHeaders, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorPseudoHeaderFieldAfterRegularHeaders, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
             }
 
             if (_requestHeaderParsingState == RequestHeaderParsingState.Trailers)
             {
                 // Pseudo-header fields MUST NOT appear in trailers.
-                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorTrailersContainPseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorTrailersContainPseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
             }
 
             _requestHeaderParsingState = RequestHeaderParsingState.PseudoHeaderFields;
@@ -1434,21 +1721,21 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
             {
                 // Endpoints MUST treat a request or response that contains undefined or invalid pseudo-header
                 // fields as malformed (Section 8.1.2.6).
-                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorUnknownPseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorUnknownPseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
             }
 
             if (headerField == PseudoHeaderFields.Status)
             {
                 // Pseudo-header fields defined for requests MUST NOT appear in responses; pseudo-header fields
                 // defined for responses MUST NOT appear in requests.
-                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorResponsePseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorResponsePseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
             }
 
             if ((_parsedPseudoHeaderFields & headerField) == headerField)
             {
                 // http://httpwg.org/specs/rfc7540.html#rfc.section.8.1.2.3
                 // All HTTP/2 requests MUST include exactly one valid value for the :method, :scheme, and :path pseudo-header fields
-                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorDuplicatePseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR);
+                throw new Http2ConnectionErrorException(CoreStrings.HttpErrorDuplicatePseudoHeaderField, Http2ErrorCode.PROTOCOL_ERROR, ConnectionEndReason.InvalidRequestHeaders);
             }
 
             if (headerField == PseudoHeaderFields.Method)
@@ -1462,6 +1749,32 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         {
             _requestHeaderParsingState = RequestHeaderParsingState.Headers;
         }
+    }
+
+    private static PseudoHeaderFields GetPseudoHeaderField(int staticTableIndex)
+    {
+        Debug.Assert(staticTableIndex > 0, "Static table starts at 1.");
+
+        var headerField = staticTableIndex switch
+        {
+            1 => PseudoHeaderFields.Authority,
+            2 => PseudoHeaderFields.Method,
+            3 => PseudoHeaderFields.Method,
+            4 => PseudoHeaderFields.Path,
+            5 => PseudoHeaderFields.Path,
+            6 => PseudoHeaderFields.Scheme,
+            7 => PseudoHeaderFields.Scheme,
+            8 => PseudoHeaderFields.Status,
+            9 => PseudoHeaderFields.Status,
+            10 => PseudoHeaderFields.Status,
+            11 => PseudoHeaderFields.Status,
+            12 => PseudoHeaderFields.Status,
+            13 => PseudoHeaderFields.Status,
+            14 => PseudoHeaderFields.Status,
+            _ => PseudoHeaderFields.None
+        };
+
+        return headerField;
     }
 
     private static PseudoHeaderFields GetPseudoHeaderField(ReadOnlySpan<byte> name)
@@ -1489,6 +1802,10 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         else if (name.SequenceEqual(AuthorityBytes))
         {
             return PseudoHeaderFields.Authority;
+        }
+        else if (name.SequenceEqual(ProtocolBytes))
+        {
+            return PseudoHeaderFields.Protocol;
         }
         else
         {
@@ -1522,16 +1839,21 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         Interlocked.Decrement(ref _clientActiveStreamCount);
     }
 
-    private async Task ReadInputAsync()
+    private PipeOptions GetInputPipeOptions() => new PipeOptions(pool: _context.MemoryPool,
+            readerScheduler: _context.ServiceContext.Scheduler,
+            writerScheduler: PipeScheduler.Inline,
+            pauseWriterThreshold: 1,
+            resumeWriterThreshold: 1,
+            minimumSegmentSize: _context.MemoryPool.GetMinimumSegmentSize(),
+            useSynchronizationContext: false);
+
+    private async Task CopyPipeAsync(PipeReader reader, PipeWriter writer)
     {
         Exception? error = null;
         try
         {
             while (true)
             {
-                var reader = _context.Transport.Input;
-                var writer = _input.Writer;
-
                 var readResult = await reader.ReadAsync();
 
                 if ((readResult.IsCompleted && readResult.Buffer.Length == 0) || readResult.IsCanceled)
@@ -1547,10 +1869,11 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
 
                 bufferSlice.CopyTo(outputBuffer.Span);
 
-                reader.AdvanceTo(bufferSlice.End);
                 writer.Advance(copyAmount);
 
                 var result = await writer.FlushAsync();
+
+                reader.AdvanceTo(bufferSlice.End);
 
                 if (result.IsCompleted || result.IsCanceled)
                 {
@@ -1566,8 +1889,8 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         }
         finally
         {
-            await _context.Transport.Input.CompleteAsync();
-            _input.Writer.Complete(error);
+            await reader.CompleteAsync(error);
+            await writer.CompleteAsync(error);
         }
     }
 
@@ -1588,6 +1911,7 @@ internal partial class Http2Connection : IHttp2StreamLifetimeHandler, IHttpHeade
         Path = 0x4,
         Scheme = 0x8,
         Status = 0x10,
+        Protocol = 0x20,
         Unknown = 0x40000000
     }
 

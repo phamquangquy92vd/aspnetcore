@@ -2,10 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Collections.Generic;
 using Xunit.Sdk;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 /// <summary>
 /// Marks a test as "Quarantined" so that the build will sequester it and ignore failures.
@@ -36,7 +35,7 @@ namespace Microsoft.AspNetCore.Testing;
 /// </item>
 /// </list>
 /// </example>
-[TraitDiscoverer("Microsoft.AspNetCore.Testing." + nameof(QuarantinedTestTraitDiscoverer), "Microsoft.AspNetCore.Testing")]
+[TraitDiscoverer("Microsoft.AspNetCore.InternalTesting." + nameof(QuarantinedTestTraitDiscoverer), "Microsoft.AspNetCore.InternalTesting")]
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Assembly)]
 public sealed class QuarantinedTestAttribute : Attribute, ITraitAttribute
 {

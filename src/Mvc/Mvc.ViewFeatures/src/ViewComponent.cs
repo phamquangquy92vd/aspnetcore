@@ -3,7 +3,6 @@
 
 #nullable enable
 
-using System;
 using System.Security.Claims;
 using System.Security.Principal;
 using Microsoft.AspNetCore.Http;
@@ -94,10 +93,7 @@ public abstract class ViewComponent
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _url = value;
         }
@@ -121,10 +117,7 @@ public abstract class ViewComponent
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _viewComponentContext = value;
         }
@@ -163,10 +156,7 @@ public abstract class ViewComponent
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _viewEngine = value;
         }
@@ -179,10 +169,7 @@ public abstract class ViewComponent
     /// <returns>A <see cref="ContentViewComponentResult"/>.</returns>
     public ContentViewComponentResult Content(string content)
     {
-        if (content == null)
-        {
-            throw new ArgumentNullException(nameof(content));
-        }
+        ArgumentNullException.ThrowIfNull(content);
 
         return new ContentViewComponentResult(content);
     }

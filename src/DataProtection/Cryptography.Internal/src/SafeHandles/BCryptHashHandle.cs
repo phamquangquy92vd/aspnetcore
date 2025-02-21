@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using Microsoft.Win32.SafeHandles;
 
 namespace Microsoft.AspNetCore.Cryptography.SafeHandles;
 
@@ -11,7 +10,7 @@ internal sealed unsafe class BCryptHashHandle : BCryptHandle
     private BCryptAlgorithmHandle? _algProviderHandle;
 
     // Called by P/Invoke when returning SafeHandles
-    private BCryptHashHandle() { }
+    public BCryptHashHandle() { }
 
     /// <summary>
     /// Duplicates this hash handle, including any existing hashed state.

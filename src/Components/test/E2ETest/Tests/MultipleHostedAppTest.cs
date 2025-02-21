@@ -4,9 +4,7 @@
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
-using Microsoft.AspNetCore.Testing;
 using OpenQA.Selenium;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -26,7 +24,7 @@ public class MultipleHostedAppTest : ServerTestBase<AspNetSiteServerFixture>
 
     protected override void InitializeAsyncCore()
     {
-        Navigate("/", noReload: true);
+        Navigate("/");
         WaitUntilLoaded();
     }
 
@@ -36,7 +34,7 @@ public class MultipleHostedAppTest : ServerTestBase<AspNetSiteServerFixture>
         Navigate("/app/");
         WaitUntilLoaded();
         Assert.Equal("App loaded on custom path", Browser.Title);
-        Assert.Equal(0, Browser.GetBrowserLogs(LogLevel.Severe).Count);
+        Assert.Empty(Browser.GetBrowserLogs(LogLevel.Severe));
     }
 
     [Fact]

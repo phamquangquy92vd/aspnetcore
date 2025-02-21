@@ -1,16 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
+using System.Diagnostics;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.Net.Http.Headers;
+using Microsoft.AspNetCore.Shared;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace Microsoft.AspNetCore.Http;
 
+// DebuggerDisplayAttribute is inherited but we're replacing it on this implementation to include reason phrase.
+[DebuggerDisplay("{DebuggerToString(),nq}")]
 internal sealed class DefaultHttpResponse : HttpResponse
 {
     // Lambdas hoisted to static readonly fields to improve inlining https://github.com/dotnet/roslyn/issues/13624
@@ -69,7 +69,7 @@ internal sealed class DefaultHttpResponse : HttpResponse
         get { return HttpResponseBodyFeature.Stream; }
         set
         {
-            var otherFeature = _features.Collection.Get<IHttpResponseBodyFeature>()!;
+            var otherFeature = _features.Collection.GetRequiredFeature<IHttpResponseBodyFeature>();
 
             if (otherFeature is StreamResponseBodyFeature streamFeature
                 && streamFeature.PriorFeature != null
@@ -126,20 +126,14 @@ internal sealed class DefaultHttpResponse : HttpResponse
 
     public override void OnStarting(Func<object, Task> callback, object state)
     {
-        if (callback == null)
-        {
-            throw new ArgumentNullException(nameof(callback));
-        }
+        ArgumentNullException.ThrowIfNull(callback);
 
         HttpResponseFeature.OnStarting(callback, state);
     }
 
     public override void OnCompleted(Func<object, Task> callback, object state)
     {
-        if (callback == null)
-        {
-            throw new ArgumentNullException(nameof(callback));
-        }
+        ArgumentNullException.ThrowIfNull(callback);
 
         HttpResponseFeature.OnCompleted(callback, state);
     }
@@ -169,6 +163,12 @@ internal sealed class DefaultHttpResponse : HttpResponse
     }
 
     public override Task CompleteAsync() => HttpResponseBodyFeature.CompleteAsync();
+
+    internal string DebuggerToString()
+    {
+        // DebuggerToString is also on this type because this project has access to ReasonPhrases.
+        return HttpContextDebugFormatter.ResponseToString(this, ReasonPhrases.GetReasonPhrase(StatusCode));
+    }
 
     struct FeatureInterfaces
     {

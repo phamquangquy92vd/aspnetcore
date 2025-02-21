@@ -3,9 +3,7 @@
 
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
 
 namespace Microsoft.AspNetCore.Diagnostics.FunctionalTests;
 

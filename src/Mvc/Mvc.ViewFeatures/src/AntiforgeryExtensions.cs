@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.IO;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Html;
@@ -32,21 +30,14 @@ public static class AntiforgeryExtensions
     /// </remarks>
     public static IHtmlContent GetHtml(this IAntiforgery antiforgery, HttpContext httpContext)
     {
-        if (antiforgery == null)
-        {
-            throw new ArgumentNullException(nameof(antiforgery));
-        }
-
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
+        ArgumentNullException.ThrowIfNull(antiforgery);
+        ArgumentNullException.ThrowIfNull(httpContext);
 
         var tokenSet = antiforgery.GetAndStoreTokens(httpContext);
         return new InputContent(tokenSet);
     }
 
-    private class InputContent : IHtmlContent
+    private sealed class InputContent : IHtmlContent
     {
         private readonly string _fieldName;
         private readonly string _requestToken;

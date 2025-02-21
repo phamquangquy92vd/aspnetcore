@@ -1,8 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.AspNetCore.SignalR;
 
@@ -11,6 +10,8 @@ namespace Microsoft.AspNetCore.SignalR;
 /// </summary>
 public abstract class Hub : IDisposable
 {
+    internal const DynamicallyAccessedMemberTypes DynamicallyAccessedMembers = DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods;
+
     private bool _disposed;
     private IHubCallerClients _clients = default!;
     private HubCallerContext _context = default!;
@@ -109,9 +110,6 @@ public abstract class Hub : IDisposable
 
     private void CheckDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 }

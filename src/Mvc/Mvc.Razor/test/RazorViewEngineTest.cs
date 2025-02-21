@@ -1,25 +1,20 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.WebEncoders.Testing;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Razor;
 
@@ -53,18 +48,19 @@ public class RazorViewEngineTest
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void FindView_IsMainPage_ThrowsIfViewNameIsNullOrEmpty(string viewName)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void FindView_IsMainPage_ThrowsIfViewNameIsNullOrEmpty(string viewName, string expectedMessage)
     {
         // Arrange
         var viewEngine = CreateViewEngine();
         var context = GetActionContext(_controllerTestContext);
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => viewEngine.FindView(context, viewName, isMainPage: true),
-            "viewName");
+        ExceptionAssert.ThrowsArgument(
+           () => viewEngine.FindView(context, viewName, isMainPage: true),
+            "viewName",
+            expectedMessage);
     }
 
     [Theory]
@@ -207,18 +203,19 @@ public class RazorViewEngineTest
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void FindView_ThrowsIfViewNameIsNullOrEmpty(string partialViewName)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void FindView_ThrowsIfViewNameIsNullOrEmpty(string partialViewName, string expectedMessage)
     {
         // Arrange
         var viewEngine = CreateViewEngine();
         var context = GetActionContext(_controllerTestContext);
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
+        ExceptionAssert.ThrowsArgument(
             () => viewEngine.FindView(context, partialViewName, isMainPage: false),
-            "viewName");
+            "viewName",
+            expectedMessage);
     }
 
     [Theory]
@@ -1123,18 +1120,19 @@ public class RazorViewEngineTest
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void FindPage_ThrowsIfNameIsNullOrEmpty(string pageName)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void FindPage_ThrowsIfNameIsNullOrEmpty(string pageName, string expectedMessage)
     {
         // Arrange
         var viewEngine = CreateViewEngine();
         var context = GetActionContext(_controllerTestContext);
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
+        ExceptionAssert.ThrowsArgument(
             () => viewEngine.FindPage(context, pageName),
-            "pageName");
+            "pageName",
+            expectedMessage);
     }
 
     [Fact]

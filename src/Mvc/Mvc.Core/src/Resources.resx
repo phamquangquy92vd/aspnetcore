@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <!--
     Microsoft ResX Schema
@@ -367,9 +367,6 @@
   <data name="MiddewareFilter_NoConfigureMethod" xml:space="preserve">
     <value>A public method named '{0}' could not be found in the '{1}' type.</value>
   </data>
-  <data name="MiddlewareFilterBuilder_NoMiddlewareFeature" xml:space="preserve">
-    <value>Could not find '{0}' in the feature list.</value>
-  </data>
   <data name="MiddlewareFilterBuilder_NullApplicationBuilder" xml:space="preserve">
     <value>The '{0}' property cannot be null.</value>
   </data>
@@ -484,7 +481,7 @@
     <value>'{0}' reached the configured maximum size of the buffer when enumerating a value of type '{1}'. This limit is in place to prevent infinite streams of 'IAsyncEnumerable&lt;&gt;' from continuing indefinitely. If this is not a programming mistake, consider ways to reduce the collection size, or consider manually converting '{1}' into a list rather than increasing the limit.</value>
   </data>
   <data name="UnexpectedJsonEnd" xml:space="preserve">
-    <value>Unexcepted end when reading JSON.</value>
+    <value>Unexpected end when reading JSON.</value>
   </data>
   <data name="FailedToReadRequestForm" xml:space="preserve">
     <value>Failed to read the request form. {0}</value>
@@ -512,5 +509,11 @@
   </data>
   <data name="GetContentTypes_WildcardsNotSupported" xml:space="preserve">
     <value>Could not parse '{0}'. Content types with wildcards are not supported.</value>
+  </data>
+  <data name="OutputCacheAttribute_Requires_OutputCachingMiddleware" xml:space="preserve">
+    <value>'{0}' requires the output cache middleware.</value>
+  </data>
+  <data name="TryParseModelBinder_InvalidType" xml:space="preserve">
+    <value>The type '{0}' does not contain a TryParse method and the binder '{1}' cannot be used.</value>
   </data>
 </root>

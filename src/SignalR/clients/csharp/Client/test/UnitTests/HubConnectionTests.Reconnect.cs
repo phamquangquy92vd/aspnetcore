@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.SignalR.Protocol;
 using Microsoft.AspNetCore.SignalR.Tests;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
@@ -1064,8 +1064,8 @@ public partial class HubConnectionTests
                 mockReconnectPolicy.Setup(p => p.NextRetryDelay(It.IsAny<RetryContext>())).Returns<RetryContext>(context =>
                 {
                     retryContexts.Add(context);
-                        // Hopefully this test never takes over a minute.
-                        return TimeSpan.FromMinutes(1);
+                    // Hopefully this test never takes over a minute.
+                    return TimeSpan.FromMinutes(1);
                 });
                 builder.WithAutomaticReconnect(mockReconnectPolicy.Object);
 

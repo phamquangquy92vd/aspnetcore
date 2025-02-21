@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Logging.Testing;
 using Moq;
 using Xunit;
@@ -484,7 +484,6 @@ public class MessageBodyTests : LoggedTest
             var buffer = new byte[1024];
             Assert.Equal(0, stream.Read(buffer, 0, buffer.Length));
 
-
             await body.StopAsync();
         }
     }
@@ -506,7 +505,6 @@ public class MessageBodyTests : LoggedTest
 
             var buffer = new byte[1024];
             Assert.Equal(0, await stream.ReadAsync(buffer, 0, buffer.Length));
-
 
             await body.StopAsync();
         }
@@ -536,7 +534,6 @@ public class MessageBodyTests : LoggedTest
             var requestArray = ms.ToArray();
             Assert.Equal(8197, requestArray.Length);
             AssertASCII(largeInput + "Hello", new ArraySegment<byte>(requestArray, 0, requestArray.Length));
-
 
             await body.StopAsync();
         }
@@ -1452,7 +1449,7 @@ public class MessageBodyTests : LoggedTest
 
         public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
-            throw new XunitException();
+            throw new NotImplementedException();
         }
 
         public override bool CanRead { get; }
@@ -1492,7 +1489,7 @@ public class MessageBodyTests : LoggedTest
         public override async Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             await Task.Delay(1);
-            throw new XunitException();
+            throw new NotImplementedException();
         }
 
         public override bool CanRead { get; }

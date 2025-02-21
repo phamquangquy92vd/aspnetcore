@@ -1,14 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
 
 namespace Microsoft.AspNetCore.Mvc.IntegrationTests;
 
@@ -127,7 +124,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
         public Address Address { get; set; }
     }
 
-    [ModelBinder(BinderType = typeof(AddressModelBinder))]
+    [ModelBinder<AddressModelBinder>]
     private class Address
     {
         public string Street { get; set; }
@@ -191,7 +188,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
 
     private class Person3
     {
-        [ModelBinder(BinderType = typeof(Address3ModelBinder))]
+        [ModelBinder<Address3ModelBinder>]
         public Address3 Address { get; set; }
     }
 
@@ -320,10 +317,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            if (bindingContext == null)
-            {
-                throw new ArgumentNullException(nameof(bindingContext));
-            }
+            ArgumentNullException.ThrowIfNull(bindingContext);
 
             Debug.Assert(bindingContext.Result == ModelBindingResult.Failed());
 
@@ -348,10 +342,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            if (bindingContext == null)
-            {
-                throw new ArgumentNullException(nameof(bindingContext));
-            }
+            ArgumentNullException.ThrowIfNull(bindingContext);
 
             Debug.Assert(bindingContext.Result == ModelBindingResult.Failed());
 
@@ -376,10 +367,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            if (bindingContext == null)
-            {
-                throw new ArgumentNullException(nameof(bindingContext));
-            }
+            ArgumentNullException.ThrowIfNull(bindingContext);
             Debug.Assert(bindingContext.Result == ModelBindingResult.Failed());
 
             var model = "Success";
@@ -397,10 +385,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            if (bindingContext == null)
-            {
-                throw new ArgumentNullException(nameof(bindingContext));
-            }
+            ArgumentNullException.ThrowIfNull(bindingContext);
             Debug.Assert(bindingContext.Result == ModelBindingResult.Failed());
 
             bindingContext.Result = ModelBindingResult.Success(model: null);
@@ -412,10 +397,7 @@ public class BinderTypeBasedModelBinderIntegrationTest
     {
         public Task BindModelAsync(ModelBindingContext bindingContext)
         {
-            if (bindingContext == null)
-            {
-                throw new ArgumentNullException(nameof(bindingContext));
-            }
+            ArgumentNullException.ThrowIfNull(bindingContext);
             Debug.Assert(bindingContext.Result == ModelBindingResult.Failed());
 
             bindingContext.Result = ModelBindingResult.Failed();

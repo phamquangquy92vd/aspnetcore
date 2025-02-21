@@ -1,7 +1,6 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FormatterWebSite.Controllers;
@@ -53,7 +52,7 @@ public class JsonOutputFormatterController : ControllerBase
         };
 
     [HttpGet]
-    public ActionResult<SimpleModel> PolymorphicResult() => new DeriviedModel
+    public ActionResult<SimpleModel> PolymorphicResult() => new DerivedModel
     {
         Id = 10,
         Name = "test",
@@ -72,7 +71,7 @@ public class JsonOutputFormatterController : ControllerBase
         public string StreetName { get; set; }
     }
 
-    public class DeriviedModel : SimpleModel
+    public class DerivedModel : SimpleModel
     {
         public string Address { get; set; }
     }

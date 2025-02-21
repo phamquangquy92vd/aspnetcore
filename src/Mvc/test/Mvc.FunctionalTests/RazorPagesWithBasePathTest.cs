@@ -1,23 +1,32 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
-using Xunit;
+using System.Reflection;
+using Microsoft.AspNetCore.InternalTesting;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class RazorPagesWithBasePathTest : IClassFixture<MvcTestFixture<RazorPagesWebSite.StartupWithBasePath>>
+public class RazorPagesWithBasePathTest : LoggedTest
 {
-    public RazorPagesWithBasePathTest(MvcTestFixture<RazorPagesWebSite.StartupWithBasePath> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Client = fixture.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<RazorPagesWebSite.StartupWithBasePath>(LoggerFactory);
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public MvcTestFixture<RazorPagesWebSite.StartupWithBasePath> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task PageOutsideBasePath_IsNotRouteable()
@@ -455,8 +464,8 @@ Hello from /Pages/Shared/";
             {
                 ["__RequestVerificationToken"] = token,
                 ["Email"] = "javi@example.com",
-                ["Password"] = "Password.12$",
-                ["ConfirmPassword"] = "Password.12$",
+                ["Password"] = "[PLACEHOLDER]-1a",
+                ["ConfirmPassword"] = "[PLACEHOLDER]-1a",
             })
         };
         message.Headers.TryAddWithoutValidation("Cookie", $"{cookie.Key}={cookie.Value}");
@@ -483,8 +492,8 @@ Hello from /Pages/Shared/";
             {
                 ["__RequestVerificationToken"] = token,
                 ["Email"] = "javi@example.com",
-                ["Password"] = "Password.12$",
-                ["ConfirmPassword"] = "Password.12$",
+                ["Password"] = "[PLACEHOLDER]-1a",
+                ["ConfirmPassword"] = "[PLACEHOLDER]-1a",
             })
         };
         message.Headers.TryAddWithoutValidation("Cookie", $"{cookie.Key}={cookie.Value}");
@@ -515,7 +524,7 @@ Hello from /Pages/Shared/";
     public async Task CompareValidationAttributes_OnTopLevelProperties()
     {
         // Act
-        var response = await Client.GetStringAsync("/Validation/PageWithCompareValidation?password=test&comparePassword=different");
+        var response = await Client.GetStringAsync("/Validation/PageWithCompareValidation?password=[PlaceHolder]-1a&comparePassword=[PlaceHolder]-1b");
 
         // Assert
         Assert.Contains("User name is required", response);

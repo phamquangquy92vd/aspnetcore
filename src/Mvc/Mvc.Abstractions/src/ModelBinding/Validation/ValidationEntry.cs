@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 /// <summary>
@@ -21,15 +19,8 @@ public struct ValidationEntry
     /// <param name="model">The model object.</param>
     public ValidationEntry(ModelMetadata metadata, string key, object? model)
     {
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
-
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(key);
 
         Metadata = metadata;
         Key = key;
@@ -45,20 +36,9 @@ public struct ValidationEntry
     /// <param name="modelAccessor">A delegate that will return the <see cref="Model"/>.</param>
     public ValidationEntry(ModelMetadata metadata, string key, Func<object?> modelAccessor)
     {
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
-
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (modelAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(modelAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(modelAccessor);
 
         Metadata = metadata;
         Key = key;

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Html;
 
@@ -38,10 +37,7 @@ public static class HtmlHelperDisplayExtensions
     /// </remarks>
     public static IHtmlContent Display(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(expression, templateName: null, htmlFieldName: null, additionalViewData: null);
     }
@@ -81,10 +77,7 @@ public static class HtmlHelperDisplayExtensions
         string expression,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression,
@@ -124,10 +117,7 @@ public static class HtmlHelperDisplayExtensions
         string expression,
         string templateName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(expression, templateName, htmlFieldName: null, additionalViewData: null);
     }
@@ -169,10 +159,7 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression,
@@ -217,10 +204,7 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         string htmlFieldName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(expression, templateName, htmlFieldName, additionalViewData: null);
     }
@@ -248,15 +232,8 @@ public static class HtmlHelperDisplayExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayFor(
             expression,
@@ -295,15 +272,8 @@ public static class HtmlHelperDisplayExtensions
         Expression<Func<TModel, TResult>> expression,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayFor(
             expression,
@@ -338,15 +308,8 @@ public static class HtmlHelperDisplayExtensions
         Expression<Func<TModel, TResult>> expression,
         string templateName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayFor(
             expression,
@@ -387,15 +350,8 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayFor(
             expression,
@@ -435,15 +391,8 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         string htmlFieldName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DisplayFor(
             expression,
@@ -470,10 +419,7 @@ public static class HtmlHelperDisplayExtensions
     /// </remarks>
     public static IHtmlContent DisplayForModel(this IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,
@@ -505,10 +451,7 @@ public static class HtmlHelperDisplayExtensions
     /// </remarks>
     public static IHtmlContent DisplayForModel(this IHtmlHelper htmlHelper, object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,
@@ -536,10 +479,7 @@ public static class HtmlHelperDisplayExtensions
     /// </remarks>
     public static IHtmlContent DisplayForModel(this IHtmlHelper htmlHelper, string templateName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,
@@ -576,10 +516,7 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,
@@ -615,10 +552,7 @@ public static class HtmlHelperDisplayExtensions
         string templateName,
         string htmlFieldName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,
@@ -660,10 +594,7 @@ public static class HtmlHelperDisplayExtensions
         string htmlFieldName,
         object additionalViewData)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Display(
             expression: null,

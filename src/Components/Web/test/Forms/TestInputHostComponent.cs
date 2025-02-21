@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Test.Helpers;
@@ -24,14 +22,14 @@ internal class TestInputHostComponent<TValue, TComponent> : AutoRenderComponent 
     protected override void BuildRenderTree(RenderTreeBuilder builder)
     {
         builder.OpenComponent<CascadingValue<EditContext>>(0);
-        builder.AddAttribute(1, "Value", EditContext);
-        builder.AddAttribute(2, "ChildContent", new RenderFragment(childBuilder =>
+        builder.AddComponentParameter(1, "Value", EditContext);
+        builder.AddComponentParameter(2, "ChildContent", new RenderFragment(childBuilder =>
         {
             childBuilder.OpenComponent<TComponent>(0);
-            childBuilder.AddAttribute(0, "Value", Value);
-            childBuilder.AddAttribute(1, "ValueChanged",
+            childBuilder.AddComponentParameter(0, "Value", Value);
+            childBuilder.AddComponentParameter(1, "ValueChanged",
                 EventCallback.Factory.Create(this, ValueChanged));
-            childBuilder.AddAttribute(2, "ValueExpression", ValueExpression);
+            childBuilder.AddComponentParameter(2, "ValueExpression", ValueExpression);
             childBuilder.AddMultipleAttributes(3, AdditionalAttributes);
             childBuilder.CloseComponent();
         }));

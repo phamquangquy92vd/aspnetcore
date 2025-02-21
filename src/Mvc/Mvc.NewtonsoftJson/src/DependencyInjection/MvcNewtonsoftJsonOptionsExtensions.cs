@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using Newtonsoft.Json;
@@ -26,10 +25,7 @@ public static class MvcNewtonsoftJsonOptionsExtensions
     /// <returns><see cref="MvcNewtonsoftJsonOptions"/> with camel case settings.</returns>
     public static MvcNewtonsoftJsonOptions UseCamelCasing(this MvcNewtonsoftJsonOptions options, bool processDictionaryKeys)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         if (options.SerializerSettings.ContractResolver is DefaultContractResolver resolver)
         {
@@ -64,10 +60,7 @@ public static class MvcNewtonsoftJsonOptionsExtensions
     /// <returns><see cref="MvcNewtonsoftJsonOptions"/> with member casing settings.</returns>
     public static MvcNewtonsoftJsonOptions UseMemberCasing(this MvcNewtonsoftJsonOptions options)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         if (options.SerializerSettings.ContractResolver is DefaultContractResolver resolver)
         {

@@ -1,15 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.HttpLogging;
@@ -51,19 +47,13 @@ internal abstract class BufferingStream : Stream, IBufferWriter<byte>
         set => _innerStream.WriteTimeout = value;
     }
 
-    public string GetString(Encoding? encoding)
+    public string GetString(Encoding encoding)
     {
         try
         {
             if (_head == null || _tail == null)
             {
                 // nothing written
-                return "";
-            }
-
-            if (encoding == null)
-            {
-                _logger.UnrecognizedMediaType();
                 return "";
             }
 
@@ -183,7 +173,7 @@ internal abstract class BufferingStream : Stream, IBufferWriter<byte>
         return newSegment;
     }
 
-    private BufferSegment CreateSegment()
+    private static BufferSegment CreateSegment()
     {
         return new BufferSegment();
     }
@@ -298,15 +288,7 @@ internal abstract class BufferingStream : Stream, IBufferWriter<byte>
         _innerStream.EndWrite(asyncResult);
     }
 
-    public override void CopyTo(Stream destination, int bufferSize)
-    {
-        _innerStream.CopyTo(destination, bufferSize);
-    }
-
-    public override Task CopyToAsync(Stream destination, int bufferSize, CancellationToken cancellationToken)
-    {
-        return _innerStream.CopyToAsync(destination, bufferSize, cancellationToken);
-    }
+    // Do not override CopyTo/Async, they call Read/Async internally.
 
     public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
     {
@@ -316,10 +298,5 @@ internal abstract class BufferingStream : Stream, IBufferWriter<byte>
     public override ValueTask DisposeAsync()
     {
         return _innerStream.DisposeAsync();
-    }
-
-    public override int Read(Span<byte> buffer)
-    {
-        return _innerStream.Read(buffer);
     }
 }

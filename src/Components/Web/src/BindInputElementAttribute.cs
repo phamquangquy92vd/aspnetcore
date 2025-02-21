@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 
 namespace Microsoft.AspNetCore.Components;
@@ -27,15 +26,8 @@ public sealed class BindInputElementAttribute : Attribute
     /// </param>
     public BindInputElementAttribute(string? type, string? suffix, string? valueAttribute, string? changeAttribute, bool isInvariantCulture, string? format)
     {
-        if (valueAttribute == null)
-        {
-            throw new ArgumentNullException(nameof(valueAttribute));
-        }
-
-        if (changeAttribute == null)
-        {
-            throw new ArgumentNullException(nameof(changeAttribute));
-        }
+        ArgumentNullException.ThrowIfNull(valueAttribute);
+        ArgumentNullException.ThrowIfNull(changeAttribute);
 
         Type = type;
         Suffix = suffix;

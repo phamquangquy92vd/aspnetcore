@@ -1,16 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
@@ -20,10 +16,10 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Primitives;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Authentication.Test.OpenIdConnect;
 
@@ -68,7 +64,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "");
         });
@@ -137,7 +133,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "id_token=my_id_token&state=protected_state");
         });
@@ -246,7 +242,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "id_token=my_id_token&state=protected_state&code=my_code");
         });
@@ -352,7 +348,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "id_token=my_id_token&state=protected_state&code=my_code");
         });
@@ -460,7 +456,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "state=protected_state&code=my_code");
         });
@@ -570,7 +566,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "id_token=my_id_token&state=protected_state&code=my_code");
         });
@@ -694,7 +690,7 @@ public class OpenIdConnectEventTests
         };
         var server = CreateServer(events, AppWritePath);
 
-        var exception = await Assert.ThrowsAsync<Exception>(delegate
+        var exception = await Assert.ThrowsAsync<AuthenticationFailureException>(delegate
         {
             return PostAsync(server, "signin-oidc", "id_token=my_id_token&state=protected_state&code=my_code");
         });
@@ -1018,7 +1014,7 @@ public class OpenIdConnectEventTests
         events.ValidateExpectations();
         Assert.True(response.Headers.TryGetValues(HeaderNames.SetCookie, out var values));
         Assert.True(SetCookieHeaderValue.TryParseStrictList(values.ToList(), out var parsedValues));
-        Assert.Equal(1, parsedValues.Count);
+        Assert.Single(parsedValues);
         Assert.True(StringSegment.IsNullOrEmpty(parsedValues.Single().Value));
     }
 
@@ -1290,7 +1286,10 @@ public class OpenIdConnectEventTests
                             EndSessionEndpoint = "http://testhost/end"
                         };
                         o.StateDataFormat = new TestStateDataFormat();
+#pragma warning disable CS0618 // Type or member is obsolete
                         o.SecurityTokenValidator = new TestTokenValidator();
+#pragma warning restore CS0618 // Type or member is obsolete
+                        o.UseSecurityTokenValidator = true;
                         o.ProtocolValidator = new TestProtocolValidator();
                         o.BackchannelHttpHandler = new TestBackchannel();
                     });

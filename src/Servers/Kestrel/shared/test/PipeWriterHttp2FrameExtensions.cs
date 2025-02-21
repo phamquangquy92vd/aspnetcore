@@ -8,8 +8,11 @@ using System.Collections.Generic;
 using System.IO.Pipelines;
 using System.Net.Http.HPack;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
+using Http2HeadersEnumerator = Microsoft.AspNetCore.Server.Kestrel.Core.Tests.Http2HeadersEnumerator;
+using HPackHeaderWriter = Microsoft.AspNetCore.Server.Kestrel.Core.Tests.HPackHeaderWriter;
+using HeaderWriteResult = Microsoft.AspNetCore.Server.Kestrel.Core.Tests.HeaderWriteResult;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 internal static class PipeWriterHttp2FrameExtensions
 {
@@ -34,7 +37,7 @@ internal static class PipeWriterHttp2FrameExtensions
         var done = HPackHeaderWriter.BeginEncodeHeaders(hpackEncoder, headers, buffer, out var length);
         frame.PayloadLength = length;
 
-        if (done)
+        if (done == HeaderWriteResult.Done)
         {
             frame.HeadersFlags = Http2HeadersFrameFlags.END_HEADERS;
         }
@@ -47,14 +50,14 @@ internal static class PipeWriterHttp2FrameExtensions
         Http2FrameWriter.WriteHeader(frame, writer);
         writer.Write(buffer.Slice(0, length));
 
-        while (!done)
+        while (done != HeaderWriteResult.Done)
         {
             frame.PrepareContinuation(Http2ContinuationFrameFlags.NONE, streamId);
 
             done = HPackHeaderWriter.ContinueEncodeHeaders(hpackEncoder, headers, buffer, out length);
             frame.PayloadLength = length;
 
-            if (done)
+            if (done == HeaderWriteResult.Done)
             {
                 frame.ContinuationFlags = Http2ContinuationFrameFlags.END_HEADERS;
             }

@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
 
@@ -30,15 +28,8 @@ public class QueryStringValueProvider : BindingSourceValueProvider, IEnumerableV
         CultureInfo? culture)
         : base(bindingSource)
     {
-        if (bindingSource == null)
-        {
-            throw new ArgumentNullException(nameof(bindingSource));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(bindingSource);
+        ArgumentNullException.ThrowIfNull(values);
 
         _values = values;
         Culture = culture;
@@ -74,10 +65,7 @@ public class QueryStringValueProvider : BindingSourceValueProvider, IEnumerableV
     /// <inheritdoc />
     public virtual IDictionary<string, string> GetKeysFromPrefix(string prefix)
     {
-        if (prefix == null)
-        {
-            throw new ArgumentNullException(nameof(prefix));
-        }
+        ArgumentNullException.ThrowIfNull(prefix);
 
         return PrefixContainer.GetKeysFromPrefix(prefix);
     }
@@ -85,10 +73,7 @@ public class QueryStringValueProvider : BindingSourceValueProvider, IEnumerableV
     /// <inheritdoc />
     public override ValueProviderResult GetValue(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         if (key.Length == 0)
         {

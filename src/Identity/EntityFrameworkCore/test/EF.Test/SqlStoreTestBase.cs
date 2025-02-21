@@ -1,20 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity.Test;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Identity.EntityFrameworkCore.Test;
 
@@ -219,7 +215,6 @@ public abstract class SqlStoreTestBase<TUser, TRole, TKey> : IdentitySpecificati
         Assert.Null(await userMgr.GetAuthenticationTokenAsync(user, "provider", "test"));
     }
 
-
     [ConditionalFact]
     public void CanCreateUserUsingEF()
     {
@@ -278,7 +273,7 @@ public abstract class SqlStoreTestBase<TUser, TRole, TKey> : IdentitySpecificati
 
         var userById = await manager.FindByIdAsync(user.Id.ToString());
         Assert.Equal(2, (await manager.GetClaimsAsync(userById)).Count);
-        Assert.Equal(1, (await manager.GetLoginsAsync(userById)).Count);
+        Assert.Single((await manager.GetLoginsAsync(userById)));
         Assert.Equal(2, (await manager.GetRolesAsync(userById)).Count);
     }
 
@@ -293,7 +288,7 @@ public abstract class SqlStoreTestBase<TUser, TRole, TKey> : IdentitySpecificati
         var manager = CreateManager(db);
         var userByName = await manager.FindByNameAsync(user.UserName);
         Assert.Equal(2, (await manager.GetClaimsAsync(userByName)).Count);
-        Assert.Equal(1, (await manager.GetLoginsAsync(userByName)).Count);
+        Assert.Single((await manager.GetLoginsAsync(userByName)));
         Assert.Equal(2, (await manager.GetRolesAsync(userByName)).Count);
     }
 
@@ -308,7 +303,7 @@ public abstract class SqlStoreTestBase<TUser, TRole, TKey> : IdentitySpecificati
         var manager = CreateManager(db);
         var userByLogin = await manager.FindByLoginAsync("provider", user.Id.ToString());
         Assert.Equal(2, (await manager.GetClaimsAsync(userByLogin)).Count);
-        Assert.Equal(1, (await manager.GetLoginsAsync(userByLogin)).Count);
+        Assert.Single((await manager.GetLoginsAsync(userByLogin)));
         Assert.Equal(2, (await manager.GetRolesAsync(userByLogin)).Count);
     }
 
@@ -335,7 +330,7 @@ public abstract class SqlStoreTestBase<TUser, TRole, TKey> : IdentitySpecificati
         var manager = CreateManager(db);
         var userByEmail = await manager.FindByEmailAsync(user.Email);
         Assert.Equal(2, (await manager.GetClaimsAsync(userByEmail)).Count);
-        Assert.Equal(1, (await manager.GetLoginsAsync(userByEmail)).Count);
+        Assert.Single((await manager.GetLoginsAsync(userByEmail)));
         Assert.Equal(2, (await manager.GetRolesAsync(userByEmail)).Count);
     }
 }

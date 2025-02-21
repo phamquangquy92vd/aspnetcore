@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Options;
@@ -18,12 +18,13 @@ public static class DirectoryBrowserExtensions
     /// </summary>
     /// <param name="app"></param>
     /// <returns></returns>
+    /// <remarks>
+    /// Files are served from the path specified in <see cref="IWebHostEnvironment.WebRootPath"/>
+    /// or <see cref="IWebHostEnvironment.WebRootFileProvider"/> which defaults to the 'wwwroot' subfolder.
+    /// </remarks>
     public static IApplicationBuilder UseDirectoryBrowser(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseMiddleware<DirectoryBrowserMiddleware>();
     }
@@ -34,12 +35,13 @@ public static class DirectoryBrowserExtensions
     /// <param name="app"></param>
     /// <param name="requestPath">The relative request path.</param>
     /// <returns></returns>
+    /// <remarks>
+    /// Files are served from the path specified in <see cref="IWebHostEnvironment.WebRootPath"/>
+    /// or <see cref="IWebHostEnvironment.WebRootFileProvider"/> which defaults to the 'wwwroot' subfolder.
+    /// </remarks>
     public static IApplicationBuilder UseDirectoryBrowser(this IApplicationBuilder app, string requestPath)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseDirectoryBrowser(new DirectoryBrowserOptions
         {
@@ -55,14 +57,8 @@ public static class DirectoryBrowserExtensions
     /// <returns></returns>
     public static IApplicationBuilder UseDirectoryBrowser(this IApplicationBuilder app, DirectoryBrowserOptions options)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(options);
 
         return app.UseMiddleware<DirectoryBrowserMiddleware>(Options.Create(options));
     }

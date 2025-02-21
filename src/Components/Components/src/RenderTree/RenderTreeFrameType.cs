@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#if IGNITOR
-namespace Ignitor;
-#else
 namespace Microsoft.AspNetCore.Components.RenderTree;
-#endif
 
 /// <summary>
 /// Types in the Microsoft.AspNetCore.Components.RenderTree are not recommended for use outside
@@ -13,7 +9,7 @@ namespace Microsoft.AspNetCore.Components.RenderTree;
 /// </summary>
 //
 // Describes the type of a <see cref="RenderTreeFrame"/>.
-public enum RenderTreeFrameType: short
+public enum RenderTreeFrameType : short
 {
     /// <summary>
     /// Used only for uninitialized frames.
@@ -62,5 +58,14 @@ public enum RenderTreeFrameType: short
     /// Represents a block of markup content.
     /// </summary>
     Markup = 8,
-}
 
+    /// <summary>
+    /// Represents an instruction to use a specified render mode for the component.
+    /// </summary>
+    ComponentRenderMode = 9,
+
+    /// <summary>
+    /// Represents an application-assigned name for an event.
+    /// </summary>
+    NamedEvent = 10,
+}

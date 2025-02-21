@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Html;
-using Microsoft.Extensions.Internal;
 
 namespace Microsoft.AspNetCore.Razor.TagHelpers;
 
@@ -47,10 +44,7 @@ public class TagHelperAttribute : IHtmlContentContainer
     /// <paramref name="value"/> is ignored when this instance is rendered.</remarks>
     public TagHelperAttribute(string name, object value, HtmlAttributeValueStyle valueStyle)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         Name = name;
         Value = value;
@@ -86,15 +80,8 @@ public class TagHelperAttribute : IHtmlContentContainer
     /// <inheritdoc />
     public void WriteTo(TextWriter writer, HtmlEncoder encoder)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (encoder == null)
-        {
-            throw new ArgumentNullException(nameof(encoder));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
 
         writer.Write(Name);
 
@@ -129,10 +116,7 @@ public class TagHelperAttribute : IHtmlContentContainer
     /// <inheritdoc />
     public void CopyTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         destination.AppendHtml(Name);
 
@@ -177,10 +161,7 @@ public class TagHelperAttribute : IHtmlContentContainer
     /// <inheritdoc />
     public void MoveTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         destination.AppendHtml(Name);
 

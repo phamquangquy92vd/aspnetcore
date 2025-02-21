@@ -1,11 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class StringWithQualityHeaderValueTest
@@ -14,7 +9,7 @@ public class StringWithQualityHeaderValueTest
     public void Ctor_StringOnlyOverload_MatchExpectation()
     {
         var value = new StringWithQualityHeaderValue("token");
-        Assert.Equal("token", value.Value);
+        Assert.Equal("token", value.Value.AsSpan());
         Assert.Null(value.Quality);
 
         Assert.Throws<ArgumentException>(() => new StringWithQualityHeaderValue(null));
@@ -26,7 +21,7 @@ public class StringWithQualityHeaderValueTest
     public void Ctor_StringWithQualityOverload_MatchExpectation()
     {
         var value = new StringWithQualityHeaderValue("token", 0.5);
-        Assert.Equal("token", value.Value);
+        Assert.Equal("token", value.Value.AsSpan());
         Assert.Equal(0.5, value.Quality);
 
         Assert.Throws<ArgumentException>(() => new StringWithQualityHeaderValue(null, 0.1));
@@ -161,7 +156,7 @@ public class StringWithQualityHeaderValueTest
     [InlineData("decimal_part_too_long;q=0.123456789")]
     [InlineData("decimal_part_too_long;q=0.123456789 ")]
     [InlineData("no_integer_part;q=.1")]
-    public void Parse_SetOfInvalidValueStrings_Throws(string input)
+    public void Parse_SetOfInvalidValueStrings_Throws(string? input)
     {
         Assert.Throws<FormatException>(() => StringWithQualityHeaderValue.Parse(input));
     }

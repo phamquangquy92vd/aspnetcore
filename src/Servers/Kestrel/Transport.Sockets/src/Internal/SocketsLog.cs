@@ -1,18 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.Internal;
 
 internal static partial class SocketsLog
 {
-    public static void ConnectionRead(SocketConnection connection, int count)
-    {
-        // Don't log for now since this could be *too* verbose.
-        // Reserved: Event ID 3
-    }
+    // Reserved: Event ID 3, EventName = ConnectionRead
 
     [LoggerMessage(6, LogLevel.Debug, @"Connection id ""{ConnectionId}"" received FIN.", EventName = "ConnectionReadFin", SkipEnabledCheck = true)]
     private static partial void ConnectionReadFinCore(ILogger logger, string connectionId);
@@ -36,17 +31,20 @@ internal static partial class SocketsLog
         }
     }
 
-    public static void ConnectionWrite(SocketConnection connection, int count)
+    [LoggerMessage(8, LogLevel.Debug, @"Connection id ""{ConnectionId}"" sending RST because: ""{Reason}""", EventName = "ConnectionWriteRst", SkipEnabledCheck = true)]
+    private static partial void ConnectionWriteRstCore(ILogger logger, string connectionId, string reason);
+
+    public static void ConnectionWriteRst(ILogger logger, SocketConnection connection, string reason)
     {
-        // Don't log for now since this could be *too* verbose.
-        // Reserved: Event ID 11
+        if (logger.IsEnabled(LogLevel.Debug))
+        {
+            ConnectionWriteRstCore(logger, connection.ConnectionId, reason);
+        }
     }
 
-    public static void ConnectionWriteCallback(SocketConnection connection, int status)
-    {
-        // Don't log for now since this could be *too* verbose.
-        // Reserved: Event ID 12
-    }
+    // Reserved: Event ID 11, EventName = ConnectionWrite
+
+    // Reserved: Event ID 12, EventName = ConnectionWriteCallback
 
     [LoggerMessage(14, LogLevel.Debug, @"Connection id ""{ConnectionId}"" communication error.", EventName = "ConnectionError", SkipEnabledCheck = true)]
     private static partial void ConnectionErrorCore(ILogger logger, string connectionId, Exception ex);

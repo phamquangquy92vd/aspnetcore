@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc;
 
 /// <summary>
@@ -17,10 +15,7 @@ public class ModelMetadataTypeAttribute : Attribute
     /// <param name="type">The type of metadata class that is associated with a data model class.</param>
     public ModelMetadataTypeAttribute(Type type)
     {
-        if (type == null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         MetadataType = type;
     }

@@ -1,13 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Http.Abstractions;
 
@@ -59,9 +54,9 @@ public class QueryStringTests
     [InlineData("", "value", "?=value")]
     [InlineData("", "", "?=")]
     [InlineData("", null, "?=")]
-    public void CreateNameValue_Success(string name, string value, string expected)
+    public void CreateNameValue_Success(string name, string? value, string expected)
     {
-        var query = QueryString.Create(name, value);
+        var query = QueryString.Create(name, value!);
         Assert.Equal(expected, query.Value);
     }
 
@@ -103,7 +98,7 @@ public class QueryStringTests
     [InlineData("?name1=value1", "", "?name1=value1")]
     [InlineData("?name1=value1", "?", "?name1=value1")]
     [InlineData("?name1=value1", "?name2=value2", "?name1=value1&name2=value2")]
-    public void AddQueryString_Success(string query1, string query2, string expected)
+    public void AddQueryString_Success(string? query1, string? query2, string? expected)
     {
         var q1 = new QueryString(query1);
         var q2 = new QueryString(query2);
@@ -125,10 +120,10 @@ public class QueryStringTests
     [InlineData("?name1=value1", "", null, "?name1=value1&=")]
     [InlineData("?name1=value1", "name2", "", "?name1=value1&name2=")]
     [InlineData("?name1=value1", "name2", null, "?name1=value1&name2=")]
-    public void AddNameValue_Success(string query1, string name2, string value2, string expected)
+    public void AddNameValue_Success(string query1, string name2, string? value2, string expected)
     {
         var q1 = new QueryString(query1);
-        var q2 = q1.Add(name2, value2);
+        var q2 = q1.Add(name2, value2!);
         Assert.Equal(expected, q2.Value);
     }
 

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Localization;
 
 namespace Microsoft.AspNetCore.Mvc.Localization;
@@ -20,15 +18,8 @@ public static class HtmlLocalizerExtensions
     /// <returns>The <see cref="LocalizedHtmlString"/> resource.</returns>
     public static LocalizedHtmlString GetHtml(this IHtmlLocalizer htmlLocalizer, string name)
     {
-        if (htmlLocalizer == null)
-        {
-            throw new ArgumentNullException(nameof(htmlLocalizer));
-        }
-
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(htmlLocalizer);
+        ArgumentNullException.ThrowIfNull(name);
 
         return htmlLocalizer[name];
     }
@@ -42,15 +33,8 @@ public static class HtmlLocalizerExtensions
     /// <returns>The <see cref="LocalizedHtmlString"/> resource.</returns>
     public static LocalizedHtmlString GetHtml(this IHtmlLocalizer htmlLocalizer, string name, params object[] arguments)
     {
-        if (htmlLocalizer == null)
-        {
-            throw new ArgumentNullException(nameof(htmlLocalizer));
-        }
-
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(htmlLocalizer);
+        ArgumentNullException.ThrowIfNull(name);
 
         return htmlLocalizer[name, arguments];
     }
@@ -62,10 +46,7 @@ public static class HtmlLocalizerExtensions
     /// <returns>The string resources.</returns>
     public static IEnumerable<LocalizedString> GetAllStrings(this IHtmlLocalizer htmlLocalizer)
     {
-        if (htmlLocalizer == null)
-        {
-            throw new ArgumentNullException(nameof(htmlLocalizer));
-        }
+        ArgumentNullException.ThrowIfNull(htmlLocalizer);
 
         return htmlLocalizer.GetAllStrings(includeParentCultures: true);
     }

@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.Extensions.Primitives;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -16,7 +15,7 @@ public class ValueProviderResultTest
 
         // Assert
         Assert.Equal(0, result.Length);
-        Assert.Empty(result.Values);
+        Assert.Equal(0, result.Values.Count);
         Assert.Null(result.FirstValue);
         Assert.Equal(ValueProviderResult.None, result);
         Assert.Empty((string)result);
@@ -31,7 +30,7 @@ public class ValueProviderResultTest
 
         // Assert
         Assert.Equal(0, result.Length);
-        Assert.Empty(result.Values);
+        Assert.Equal(0, result.Values.Count);
         Assert.Null(result.FirstValue);
         Assert.Equal(ValueProviderResult.None, result);
         Assert.Empty((string)result);
@@ -46,7 +45,7 @@ public class ValueProviderResultTest
 
         // Assert
         Assert.Equal(0, result.Length);
-        Assert.Empty(result.Values);
+        Assert.Equal(0, result.Values.Count);
         Assert.Null(result.FirstValue);
         Assert.Equal(ValueProviderResult.None, result);
         Assert.Equal(ValueProviderResult.None, new ValueProviderResult(new StringValues()));
@@ -77,7 +76,7 @@ public class ValueProviderResultTest
 
         // Assert
         Assert.Equal(2, result.Length);
-        Assert.Equal(new string[] { "Hi", "There" }, result.Values);
+        Assert.Equal(new string[] { "Hi", "There" }, result.Values.ToArray());
         Assert.Equal("Hi", result.FirstValue);
         Assert.NotEqual(ValueProviderResult.None, result);
         Assert.Equal("Hi,There", (string)result);

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -21,10 +20,7 @@ public class TempDataDictionaryFactory : ITempDataDictionaryFactory
     /// <param name="provider">The <see cref="ITempDataProvider"/>.</param>
     public TempDataDictionaryFactory(ITempDataProvider provider)
     {
-        if (provider == null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
 
         _provider = provider;
     }
@@ -32,10 +28,7 @@ public class TempDataDictionaryFactory : ITempDataDictionaryFactory
     /// <inheritdoc />
     public ITempDataDictionary GetTempData(HttpContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         object obj;
         ITempDataDictionary result;

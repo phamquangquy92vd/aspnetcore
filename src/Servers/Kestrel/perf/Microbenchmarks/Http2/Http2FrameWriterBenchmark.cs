@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2.FlowControl;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Microbenchmarks;
 
@@ -32,29 +32,44 @@ public class Http2FrameWriterBenchmark
         var serviceContext = TestContextFactory.CreateServiceContext(
             serverOptions: new KestrelServerOptions(),
             httpParser: new HttpParser<Http1ParsingHandler>(),
-            dateHeaderValueManager: new DateHeaderValueManager());
+            dateHeaderValueManager: new DateHeaderValueManager(TimeProvider.System));
 
         _frameWriter = new Http2FrameWriter(
             new NullPipeWriter(),
             connectionContext: null,
             http2Connection: null,
-            new OutputFlowControl(new SingleAwaitableProvider(), initialWindowSize: int.MaxValue),
+            maxStreamsPerConnection: 1,
             timeoutControl: null,
             minResponseDataRate: null,
             "TestConnectionId",
             _memoryPool,
             serviceContext);
+    }
 
-        _responseHeaders = new HttpResponseHeaders();
-        var headers = (IHeaderDictionary)_responseHeaders;
-        headers.ContentType = "application/json";
-        headers.ContentLength = 1024;
+    private int _largeHeaderSize;
+
+    [Params(0, 10, 20)]
+    public int LargeHeaderSize
+    {
+        get => _largeHeaderSize;
+        set
+        {
+            _largeHeaderSize = value;
+            _responseHeaders = new HttpResponseHeaders();
+            var headers = (IHeaderDictionary)_responseHeaders;
+            headers.ContentType = "application/json";
+            headers.ContentLength = 1024;
+            if (value > 0)
+            {
+                headers.Add("my", new string('a', value * 1024));
+            }
+        }
     }
 
     [Benchmark]
     public void WriteResponseHeaders()
     {
-        _frameWriter.WriteResponseHeaders(0, 200, Http2HeadersFrameFlags.END_HEADERS, _responseHeaders);
+        _frameWriter.WriteResponseHeaders(streamId: 0, 200, Http2HeadersFrameFlags.END_STREAM, _responseHeaders);
     }
 
     [GlobalCleanup]

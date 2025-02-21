@@ -1,15 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
 using BasicTestApp;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -29,13 +27,12 @@ public class DynamicComponentRenderingTest : ServerTestBase<ToggleExecutionModeS
 
     protected override void InitializeAsyncCore()
     {
-        Navigate(ServerPathBase, noReload: _serverFixture.ExecutionMode == ExecutionMode.Client);
+        Navigate(ServerPathBase);
         app = Browser.MountTestComponent<DynamicComponentRendering>();
         testCasePicker = new SelectElement(app.FindElement(By.Id("dynamic-component-case-picker")));
     }
 
     [Fact]
-    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/33733")]
     public void CanRenderComponentDynamically()
     {
         var hostRenderCountDisplay = app.FindElement(By.Id("outer-rendercount"));

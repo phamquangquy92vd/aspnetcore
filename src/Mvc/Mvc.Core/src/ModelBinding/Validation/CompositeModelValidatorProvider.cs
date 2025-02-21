@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 /// <summary>
@@ -21,10 +18,7 @@ public class CompositeModelValidatorProvider : IModelValidatorProvider
     /// </param>
     public CompositeModelValidatorProvider(IList<IModelValidatorProvider> providers)
     {
-        if (providers == null)
-        {
-            throw new ArgumentNullException(nameof(providers));
-        }
+        ArgumentNullException.ThrowIfNull(providers);
 
         ValidatorProviders = providers;
     }

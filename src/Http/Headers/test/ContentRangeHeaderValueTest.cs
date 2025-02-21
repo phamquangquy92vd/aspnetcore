@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class ContentRangeHeaderValueTest
@@ -21,7 +18,7 @@ public class ContentRangeHeaderValueTest
 
         Assert.False(range.HasRange, "HasRange");
         Assert.True(range.HasLength, "HasLength");
-        Assert.Equal("bytes", range.Unit);
+        Assert.Equal("bytes", range.Unit.AsSpan());
         Assert.Null(range.From);
         Assert.Null(range.To);
         Assert.Equal(5, range.Length);
@@ -42,7 +39,7 @@ public class ContentRangeHeaderValueTest
 
         Assert.True(range.HasRange, "HasRange");
         Assert.False(range.HasLength, "HasLength");
-        Assert.Equal("bytes", range.Unit);
+        Assert.Equal("bytes", range.Unit.AsSpan());
         Assert.Equal(0, range.From);
         Assert.Equal(1, range.To);
         Assert.Null(range.Length);
@@ -56,6 +53,7 @@ public class ContentRangeHeaderValueTest
         Assert.Throws<ArgumentOutOfRangeException>(() => new ContentRangeHeaderValue(0, 1, -1));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ContentRangeHeaderValue(2, 1, 3));
         Assert.Throws<ArgumentOutOfRangeException>(() => new ContentRangeHeaderValue(1, 2, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ContentRangeHeaderValue(1, 2, 2));
     }
 
     [Fact]
@@ -65,7 +63,7 @@ public class ContentRangeHeaderValueTest
 
         Assert.True(range.HasRange, "HasRange");
         Assert.True(range.HasLength, "HasLength");
-        Assert.Equal("bytes", range.Unit);
+        Assert.Equal("bytes", range.Unit.AsSpan());
         Assert.Equal(0, range.From);
         Assert.Equal(1, range.To);
         Assert.Equal(2, range.Length);
@@ -76,7 +74,7 @@ public class ContentRangeHeaderValueTest
     {
         var range = new ContentRangeHeaderValue(0);
         range.Unit = "myunit";
-        Assert.Equal("myunit", range.Unit);
+        Assert.Equal("myunit", range.Unit.AsSpan());
 
         Assert.Throws<ArgumentException>(() => range.Unit = null);
         Assert.Throws<ArgumentException>(() => range.Unit = "");
@@ -158,7 +156,7 @@ public class ContentRangeHeaderValueTest
         // Note that we don't have a public constructor for value 'bytes */*' since the RFC doesn't mention a
         // scenario for it. However, if a server returns this value, we're flexible and accept it.
         var result = ContentRangeHeaderValue.Parse("bytes */*");
-        Assert.Equal("bytes", result.Unit);
+        Assert.Equal("bytes", result.Unit.AsSpan());
         Assert.Null(result.From);
         Assert.Null(result.To);
         Assert.Null(result.Length);
@@ -167,32 +165,8 @@ public class ContentRangeHeaderValueTest
     }
 
     [Theory]
-    [InlineData("bytes 1-2/3,")] // no character after 'length' allowed
-    [InlineData("x bytes 1-2/3")]
-    [InlineData("bytes 1-2/3.4")]
+    [MemberData(nameof(InvalidContentRangeValueStrings))]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("bytes 3-2/5")]
-    [InlineData("bytes 6-6/5")]
-    [InlineData("bytes 1-6/5")]
-    [InlineData("bytes 1-2/")]
-    [InlineData("bytes 1-2")]
-    [InlineData("bytes 1-/")]
-    [InlineData("bytes 1-")]
-    [InlineData("bytes 1")]
-    [InlineData("bytes ")]
-    [InlineData("bytes a-2/3")]
-    [InlineData("bytes 1-b/3")]
-    [InlineData("bytes 1-2/c")]
-    [InlineData("bytes1-2/3")]
-    // More than 19 digits >>Int64.MaxValue
-    [InlineData("bytes 1-12345678901234567890/3")]
-    [InlineData("bytes 12345678901234567890-3/3")]
-    [InlineData("bytes 1-2/12345678901234567890")]
-    // Exceed Int64.MaxValue, but use 19 digits
-    [InlineData("bytes 1-9999999999999999999/3")]
-    [InlineData("bytes 9999999999999999999-3/3")]
-    [InlineData("bytes 1-2/9999999999999999999")]
     public void Parse_SetOfInvalidValueStrings_Throws(string? input)
     {
         Assert.Throws<FormatException>(() => ContentRangeHeaderValue.Parse(input));
@@ -213,7 +187,7 @@ public class ContentRangeHeaderValueTest
         // Note that we don't have a public constructor for value 'bytes */*' since the RFC doesn't mention a
         // scenario for it. However, if a server returns this value, we're flexible and accept it.
         Assert.True(ContentRangeHeaderValue.TryParse("bytes */*", out var result));
-        Assert.Equal("bytes", result.Unit);
+        Assert.Equal("bytes", result.Unit.AsSpan());
         Assert.Null(result.From);
         Assert.Null(result.To);
         Assert.Null(result.Length);
@@ -222,47 +196,54 @@ public class ContentRangeHeaderValueTest
     }
 
     [Theory]
-    [InlineData("bytes 1-2/3,")] // no character after 'length' allowed
-    [InlineData("x bytes 1-2/3")]
-    [InlineData("bytes 1-2/3.4")]
+    [MemberData(nameof(InvalidContentRangeValueStrings))]
     [InlineData(null)]
-    [InlineData("")]
-    [InlineData("bytes 3-2/5")]
-    [InlineData("bytes 6-6/5")]
-    [InlineData("bytes 1-6/5")]
-    [InlineData("bytes 1-2/")]
-    [InlineData("bytes 1-2")]
-    [InlineData("bytes 1-/")]
-    [InlineData("bytes 1-")]
-    [InlineData("bytes 1")]
-    [InlineData("bytes ")]
-    [InlineData("bytes a-2/3")]
-    [InlineData("bytes 1-b/3")]
-    [InlineData("bytes 1-2/c")]
-    [InlineData("bytes1-2/3")]
-    // More than 19 digits >>Int64.MaxValue
-    [InlineData("bytes 1-12345678901234567890/3")]
-    [InlineData("bytes 12345678901234567890-3/3")]
-    [InlineData("bytes 1-2/12345678901234567890")]
-    // Exceed Int64.MaxValue, but use 19 digits
-    [InlineData("bytes 1-9999999999999999999/3")]
-    [InlineData("bytes 9999999999999999999-3/3")]
-    [InlineData("bytes 1-2/9999999999999999999")]
     public void TryParse_SetOfInvalidValueStrings_ReturnsFalse(string? input)
     {
         Assert.False(ContentRangeHeaderValue.TryParse(input, out var result));
         Assert.Null(result);
     }
 
-    private void CheckValidParse(string? input, ContentRangeHeaderValue expectedResult)
+    private static void CheckValidParse(string? input, ContentRangeHeaderValue expectedResult)
     {
         var result = ContentRangeHeaderValue.Parse(input);
         Assert.Equal(expectedResult, result);
     }
 
-    private void CheckValidTryParse(string? input, ContentRangeHeaderValue expectedResult)
+    private static void CheckValidTryParse(string? input, ContentRangeHeaderValue expectedResult)
     {
         Assert.True(ContentRangeHeaderValue.TryParse(input, out var result));
         Assert.Equal(expectedResult, result);
     }
+
+    public static TheoryData<string> InvalidContentRangeValueStrings =>
+        new TheoryData<string>
+        {
+            {"bytes 1-2/3,"}, // no character after 'length' allowed
+            {"x bytes 1-2/3"},
+            {"bytes 1-2/3.4"},
+            {""},
+            {"bytes 3-2/5"},
+            {"bytes 6-6/5"},
+            {"bytes 1-6/5"},
+            {"bytes 1-2/"},
+            {"bytes 1-2"},
+            {"bytes 1-/"},
+            {"bytes 1-"},
+            {"bytes 1"},
+            {"bytes "},
+            {"bytes a-2/3"},
+            {"bytes 1-b/3"},
+            {"bytes 1-2/c"},
+            {"bytes1-2/3"},
+            {"bytes 0-0/0"},
+            // More than 19 digits >>Int64.MaxValue
+            {"bytes 1-12345678901234567890/3"},
+            {"bytes 12345678901234567890-3/3"},
+            {"bytes 1-2/12345678901234567890"},
+            // Exceed Int64.MaxValue, but use 19 digits
+            {"bytes 1-9999999999999999999/3"},
+            {"bytes 9999999999999999999-3/3"},
+            {"bytes 1-2/9999999999999999999"}
+        };
 }

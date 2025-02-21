@@ -3,10 +3,8 @@
 
 #nullable enable
 
-using System;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -25,7 +23,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
 /// <summary>
 /// A <see cref="IActionResultExecutor{ViewComponentResult}"/> for <see cref="ViewComponentResult"/>.
 /// </summary>
-public class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentResult>
+public partial class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentResult>
 {
     private readonly HtmlEncoder _htmlEncoder;
     private readonly HtmlHelperOptions _htmlHelperOptions;
@@ -51,30 +49,11 @@ public class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentRe
         ITempDataDictionaryFactory tempDataDictionaryFactory,
         IHttpResponseStreamWriterFactory writerFactory)
     {
-        if (mvcHelperOptions == null)
-        {
-            throw new ArgumentNullException(nameof(mvcHelperOptions));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
-
-        if (htmlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(htmlEncoder));
-        }
-
-        if (modelMetadataProvider == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadataProvider));
-        }
-
-        if (tempDataDictionaryFactory == null)
-        {
-            throw new ArgumentNullException(nameof(tempDataDictionaryFactory));
-        }
+        ArgumentNullException.ThrowIfNull(mvcHelperOptions);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(htmlEncoder);
+        ArgumentNullException.ThrowIfNull(modelMetadataProvider);
+        ArgumentNullException.ThrowIfNull(tempDataDictionaryFactory);
 
         _htmlHelperOptions = mvcHelperOptions.Value.HtmlHelperOptions;
         _logger = loggerFactory.CreateLogger<ViewComponentResult>();
@@ -87,15 +66,8 @@ public class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentRe
     /// <inheritdoc />
     public virtual async Task ExecuteAsync(ActionContext context, ViewComponentResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         var response = context.HttpContext.Response;
 
@@ -161,16 +133,13 @@ public class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentRe
         }
     }
 
-    private void OnExecuting(ViewContext viewContext)
+    private static void OnExecuting(ViewContext viewContext)
     {
         var viewDataValuesProvider = viewContext.HttpContext.Features.Get<IViewDataValuesProviderFeature>();
-        if (viewDataValuesProvider != null)
-        {
-            viewDataValuesProvider.ProvideViewDataValues(viewContext.ViewData);
-        }
+        viewDataValuesProvider?.ProvideViewDataValues(viewContext.ViewData);
     }
 
-    private Task<IHtmlContent> GetViewComponentResult(IViewComponentHelper viewComponentHelper, ILogger logger, ViewComponentResult result)
+    private static Task<IHtmlContent> GetViewComponentResult(IViewComponentHelper viewComponentHelper, ILogger logger, ViewComponentResult result)
     {
         if (result.ViewComponentType == null && result.ViewComponentName == null)
         {
@@ -180,13 +149,24 @@ public class ViewComponentResultExecutor : IActionResultExecutor<ViewComponentRe
         }
         else if (result.ViewComponentType == null)
         {
-            logger.ViewComponentResultExecuting(result.ViewComponentName);
+            Log.ViewComponentResultExecuting(logger, result.ViewComponentName);
             return viewComponentHelper.InvokeAsync(result.ViewComponentName!, result.Arguments);
         }
         else
         {
-            logger.ViewComponentResultExecuting(result.ViewComponentType);
+            Log.ViewComponentResultExecuting(logger, result.ViewComponentType);
             return viewComponentHelper.InvokeAsync(result.ViewComponentType, result.Arguments);
+        }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Information, "Executing ViewComponentResult, running {ViewComponentName}.", EventName = "ViewComponentResultExecuting")]
+        public static partial void ViewComponentResultExecuting(ILogger logger, string? viewComponentName);
+
+        public static void ViewComponentResultExecuting(ILogger logger, Type viewComponentType)
+        {
+            ViewComponentResultExecuting(logger, viewComponentType.Name);
         }
     }
 }

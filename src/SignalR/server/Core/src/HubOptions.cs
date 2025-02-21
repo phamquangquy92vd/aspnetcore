@@ -1,8 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.SignalR;
 
@@ -65,12 +65,24 @@ public class HubOptions
         get => _maximumParallelInvocationsPerClient;
         set
         {
-            if (value < 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(MaximumParallelInvocationsPerClient));
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
 
             _maximumParallelInvocationsPerClient = value;
         }
     }
+
+    /// <summary>
+    /// When <see langword="false"/>, <see cref="IServiceProviderIsService"/> determines if a Hub method parameter will be injected from the DI container.
+    /// Parameters can be explicitly marked with an attribute that implements <see cref="IFromServiceMetadata"/> with or without this option set.
+    /// </summary>
+    /// <remarks>
+    /// False by default. Hub method arguments will be resolved from a DI container if possible.
+    /// </remarks>
+    public bool DisableImplicitFromServicesParameters { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum bytes to buffer per connection when using stateful reconnect.
+    /// </summary>
+    /// <remarks>Defaults to 100,000 bytes.</remarks>
+    public long StatefulReconnectBufferSize { get; set; } = 100_000;
 }

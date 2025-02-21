@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -12,7 +10,7 @@ namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 /// <summary>
 /// Represents a handler in a <see cref="PageApplicationModel"/>.
 /// </summary>
-[DebuggerDisplay("PageHandlerModel: Name={" + nameof(PageHandlerModel.Name) + "}")]
+[DebuggerDisplay("Type = {GetType().Name}, Name = {" + nameof(PageHandlerModel.Name) + "}")]
 public class PageHandlerModel : ICommonModel
 {
     /// <summary>
@@ -37,10 +35,7 @@ public class PageHandlerModel : ICommonModel
     /// <param name="other">The <see cref="PageHandlerModel"/> which needs to be copied.</param>
     public PageHandlerModel(PageHandlerModel other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         MethodInfo = other.MethodInfo;
         HandlerName = other.HandlerName;

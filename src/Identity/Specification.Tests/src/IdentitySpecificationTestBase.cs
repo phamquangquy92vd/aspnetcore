@@ -1,12 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -138,7 +135,7 @@ public abstract class IdentitySpecificationTestBase<TUser, TRole, TKey> : UserMa
         Assert.True(await manager.RoleExistsAsync(roleName));
     }
 
-    private class AlwaysBadValidator : IUserValidator<TUser>, IRoleValidator<TRole>,
+    private sealed class AlwaysBadValidator : IUserValidator<TUser>, IRoleValidator<TRole>,
         IPasswordValidator<TUser>
     {
         public static readonly IdentityError ErrorMessage = new IdentityError { Description = "I'm Bad.", Code = "BadValidator" };
@@ -257,12 +254,12 @@ public abstract class IdentitySpecificationTestBase<TUser, TRole, TKey> : UserMa
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(role, claims[1]));
         roleClaims = await manager.GetClaimsAsync(role);
         safeRoleClaims = await manager.GetClaimsAsync(roleSafe);
-        Assert.Equal(1, roleClaims.Count);
+        Assert.Single(roleClaims);
         Assert.Equal(3, safeRoleClaims.Count);
         IdentityResultAssert.IsSuccess(await manager.RemoveClaimAsync(role, claims[2]));
         roleClaims = await manager.GetClaimsAsync(role);
         safeRoleClaims = await manager.GetClaimsAsync(roleSafe);
-        Assert.Equal(0, roleClaims.Count);
+        Assert.Empty(roleClaims);
         Assert.Equal(3, safeRoleClaims.Count);
     }
 
@@ -320,20 +317,20 @@ public abstract class IdentitySpecificationTestBase<TUser, TRole, TKey> : UserMa
     /// </summary>
     /// <returns>Task</returns>
     [Fact]
-    public async Task CanQueryableRoles()
+    public virtual async Task CanQueryableRoles()
     {
         var manager = CreateRoleManager();
         if (manager.SupportsQueryableRoles)
         {
-            var roles = GenerateRoles("CanQuerableRolesTest", 4);
+            var roles = GenerateRoles("CanQueryableRolesTest", 4);
             foreach (var r in roles)
             {
                 IdentityResultAssert.IsSuccess(await manager.CreateAsync(r));
             }
-            Expression<Func<TRole, bool>> func = RoleNameStartsWithPredicate("CanQuerableRolesTest");
+            Expression<Func<TRole, bool>> func = RoleNameStartsWithPredicate("CanQueryableRolesTest");
             Assert.Equal(roles.Count, manager.Roles.Count(func));
             func = RoleNameEqualsPredicate("bogus");
-            Assert.Null(manager.Roles.FirstOrDefault(func));
+            Assert.Empty(manager.Roles.Where(func));
 
         }
     }
@@ -595,7 +592,7 @@ public abstract class IdentitySpecificationTestBase<TUser, TRole, TKey> : UserMa
             Assert.Equal(3, (await manager.GetUsersInRoleAsync(await roleManager.GetRoleNameAsync(role))).Count);
         }
 
-        Assert.Equal(0, (await manager.GetUsersInRoleAsync("123456")).Count);
+        Assert.Empty((await manager.GetUsersInRoleAsync("123456")));
     }
 
     private List<TRole> GenerateRoles(string namePrefix, int count)

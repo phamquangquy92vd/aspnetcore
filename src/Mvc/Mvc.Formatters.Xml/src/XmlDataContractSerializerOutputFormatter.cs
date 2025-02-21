@@ -1,14 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using Microsoft.AspNetCore.Mvc.Formatters.Xml;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -24,7 +20,7 @@ namespace Microsoft.AspNetCore.Mvc.Formatters;
 /// This class handles serialization of objects
 /// to XML using <see cref="DataContractSerializer"/>
 /// </summary>
-public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
+public partial class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
 {
     private readonly ConcurrentDictionary<Type, object> _serializerCache = new ConcurrentDictionary<Type, object>();
     private readonly ILogger _logger;
@@ -67,10 +63,7 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
     /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
     public XmlDataContractSerializerOutputFormatter(XmlWriterSettings writerSettings, ILoggerFactory loggerFactory)
     {
-        if (writerSettings == null)
-        {
-            throw new ArgumentNullException(nameof(writerSettings));
-        }
+        ArgumentNullException.ThrowIfNull(writerSettings);
 
         SupportedEncodings.Add(Encoding.UTF8);
         SupportedEncodings.Add(Encoding.Unicode);
@@ -112,10 +105,7 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
         get => _serializerSettings;
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _serializerSettings = value;
         }
@@ -128,10 +118,7 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
     /// <returns>The original or wrapped type provided by any <see cref="IWrapperProvider"/>s.</returns>
     protected virtual Type GetSerializableType(Type type)
     {
-        if (type == null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         var wrapperProvider = WrapperProviderFactories.GetWrapperProvider(new WrapperProviderContext(
             type,
@@ -158,10 +145,7 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
     /// <returns>A new instance of <see cref="DataContractSerializer"/></returns>
     protected virtual DataContractSerializer? CreateSerializer(Type type)
     {
-        if (type == null)
-        {
-            throw new ArgumentNullException(nameof(type));
-        }
+        ArgumentNullException.ThrowIfNull(type);
 
         try
         {
@@ -173,7 +157,7 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
         }
         catch (Exception ex)
         {
-            _logger.FailedToCreateDataContractSerializer(type.FullName!, ex);
+            Log.FailedToCreateDataContractSerializer(_logger, type.FullName!, ex);
 
             // We do not surface the caught exception because if CanWriteResult returns
             // false, then this Formatter is not picked up at all.
@@ -196,15 +180,8 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
         TextWriter writer,
         XmlWriterSettings xmlWriterSettings)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (xmlWriterSettings == null)
-        {
-            throw new ArgumentNullException(nameof(xmlWriterSettings));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(xmlWriterSettings);
 
         // We always close the TextWriter, so the XmlWriter shouldn't.
         xmlWriterSettings.CloseOutput = false;
@@ -235,15 +212,8 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
     /// <inheritdoc />
     public override async Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (selectedEncoding == null)
-        {
-            throw new ArgumentNullException(nameof(selectedEncoding));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(selectedEncoding);
 
         var writerSettings = WriterSettings.Clone();
         writerSettings.Encoding = selectedEncoding;
@@ -334,22 +304,20 @@ public class XmlDataContractSerializerOutputFormatter : TextOutputFormatter
         return (DataContractSerializer)serializer!;
     }
 
-    private static class Log
+    private static partial class Log
     {
-        private static readonly LogDefineOptions SkipEnabledCheckLogOptions = new() { SkipEnabledCheck = true };
-
-        private static readonly Action<ILogger, string, Exception?> _bufferingAsyncEnumerable = LoggerMessage.Define<string>(
-            LogLevel.Debug,
-            new EventId(1, "BufferingAsyncEnumerable"),
-            "Buffering IAsyncEnumerable instance of type '{Type}'.",
-            SkipEnabledCheckLogOptions);
+        [LoggerMessage(1, LogLevel.Debug, "Buffering IAsyncEnumerable instance of type '{Type}'.", EventName = "BufferingAsyncEnumerable", SkipEnabledCheck = true)]
+        private static partial void BufferingAsyncEnumerable(ILogger logger, string type);
 
         public static void BufferingAsyncEnumerable(ILogger logger, object asyncEnumerable)
         {
             if (logger.IsEnabled(LogLevel.Debug))
             {
-                _bufferingAsyncEnumerable(logger, asyncEnumerable.GetType().FullName!, null);
+                BufferingAsyncEnumerable(logger, asyncEnumerable.GetType().FullName!);
             }
         }
+
+        [LoggerMessage(2, LogLevel.Warning, "An error occurred while trying to create a DataContractSerializer for the type '{Type}'.", EventName = "FailedToCreateDataContractSerializer")]
+        public static partial void FailedToCreateDataContractSerializer(ILogger logger, string type, Exception exception);
     }
 }

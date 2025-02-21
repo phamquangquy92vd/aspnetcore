@@ -1,21 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Security.Claims;
-using System.Security.Principal;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Test.Helpers;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Authorization;
 
@@ -294,7 +288,6 @@ public class AuthorizeViewTest
     }
 
     [Fact]
-    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/31854")]
     public async Task RendersAuthorizingUntilAuthorizationCompletedAsync()
     {
         // Covers https://github.com/dotnet/aspnetcore/pull/31794
@@ -328,7 +321,7 @@ public class AuthorizeViewTest
         // (This wouldn't happen under the sync context or in wasm)
         var renderTcs = new TaskCompletionSource();
         renderer.OnUpdateDisplayComplete = () => renderTcs.SetResult();
-        authTcs.SetResult(CreateAuthenticationState("Monsieur").Result);
+        authTcs.SetResult(await CreateAuthenticationState("Monsieur"));
 
         await renderTcs.Task;
         Assert.Equal(2, renderer.Batches.Count);
@@ -354,7 +347,7 @@ public class AuthorizeViewTest
     }
 
     [Fact]
-    public void RendersAuthorizingUntilAuthorizationCompleted()
+    public async Task RendersAuthorizingUntilAuthorizationCompleted()
     {
         // Arrange
         var @event = new ManualResetEventSlim();
@@ -384,7 +377,7 @@ public class AuthorizeViewTest
 
         // Act/Assert 2: Auth process completes asynchronously
         @event.Reset();
-        authTcs.SetResult(CreateAuthenticationState("Monsieur").Result);
+        authTcs.SetResult(await CreateAuthenticationState("Monsieur"));
 
         // We need to wait here because the continuations of SetResult will be scheduled to run asynchronously.
         @event.Wait(Timeout);
@@ -512,13 +505,13 @@ public class AuthorizeViewTest
         return new TestAuthStateProviderComponent(builder =>
         {
             builder.OpenComponent<AuthorizeView>(0);
-            builder.AddAttribute(1, nameof(AuthorizeView.ChildContent), childContent);
-            builder.AddAttribute(2, nameof(AuthorizeView.Authorized), authorized);
-            builder.AddAttribute(3, nameof(AuthorizeView.NotAuthorized), notAuthorized);
-            builder.AddAttribute(4, nameof(AuthorizeView.Authorizing), authorizing);
-            builder.AddAttribute(5, nameof(AuthorizeView.Policy), policy);
-            builder.AddAttribute(6, nameof(AuthorizeView.Roles), roles);
-            builder.AddAttribute(7, nameof(AuthorizeView.Resource), resource);
+            builder.AddComponentParameter(1, nameof(AuthorizeView.ChildContent), childContent);
+            builder.AddComponentParameter(2, nameof(AuthorizeView.Authorized), authorized);
+            builder.AddComponentParameter(3, nameof(AuthorizeView.NotAuthorized), notAuthorized);
+            builder.AddComponentParameter(4, nameof(AuthorizeView.Authorizing), authorizing);
+            builder.AddComponentParameter(5, nameof(AuthorizeView.Policy), policy);
+            builder.AddComponentParameter(6, nameof(AuthorizeView.Roles), roles);
+            builder.AddComponentParameter(7, nameof(AuthorizeView.Resource), resource);
             builder.CloseComponent();
         });
     }
@@ -538,11 +531,11 @@ public class AuthorizeViewTest
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
             builder.OpenComponent<CascadingValue<Task<AuthenticationState>>>(0);
-            builder.AddAttribute(1, nameof(CascadingValue<Task<AuthenticationState>>.Value), AuthenticationState);
-            builder.AddAttribute(2, "ChildContent", (RenderFragment)(builder =>
+            builder.AddComponentParameter(1, nameof(CascadingValue<Task<AuthenticationState>>.Value), AuthenticationState);
+            builder.AddComponentParameter(2, "ChildContent", (RenderFragment)(builder =>
             {
                 builder.OpenComponent<NeverReRenderComponent>(0);
-                builder.AddAttribute(1, "ChildContent", _childContent);
+                builder.AddComponentParameter(1, "ChildContent", _childContent);
                 builder.CloseComponent();
             }));
             builder.CloseComponent();

@@ -2,12 +2,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Buffers;
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http.HPack;
+using System.Net.Http.QPack;
 using System.Text;
 using Xunit;
-using System.Net.Http.QPack;
-using System.Net.Http.HPack;
 using HeaderField = System.Net.Http.QPack.HeaderField;
 #if KESTREL
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
 namespace System.Net.Http.Unit.Tests.QPack
 {
-    public class QPackDecoderTests
+    public class QPackDecoderTests : IDisposable
     {
         private const int MaxHeaderFieldSize = 8192;
 
@@ -25,11 +25,11 @@ namespace System.Net.Http.Unit.Tests.QPack
         // 4.5.4 - Literal Header Field With Name Reference - Static Table - Index 44 (content-type)
         private static readonly byte[] _literalHeaderFieldWithNameReferenceStatic = new byte[] { 0x5f, 0x1d };
 
-        // 4.5.6 - Literal Field Line With Literal Name - (translate)
-        private static readonly byte[] _literalFieldLineWithLiteralName = new byte[] { 0x37, 0x02, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x6c, 0x61, 0x74, 0x65 };
+        // 4.5.6 - Literal Field Line With Literal Name - (literal-header-field)
+        private static readonly byte[] _literalFieldLineWithLiteralName = new byte[] { 0x37, 0x0d, 0x6c, 0x69, 0x74, 0x65, 0x72, 0x61, 0x6c, 0x2d, 0x68, 0x65, 0x61, 0x64, 0x65, 0x72, 0x2d, 0x66, 0x69, 0x65, 0x6c, 0x64 };
 
         private const string _contentTypeString = "content-type";
-        private const string _translateString = "translate";
+        private const string _literalHeaderFieldString = "literal-header-field";
 
         // n     e     w       -      h     e     a     d     e     r      *
         // 10101000 10111110 00010110 10011100 10100011 10010000 10110110 01111111
@@ -62,6 +62,11 @@ namespace System.Net.Http.Unit.Tests.QPack
         public QPackDecoderTests()
         {
             _decoder = new QPackDecoder(MaxHeaderFieldSize);
+        }
+
+        public void Dispose()
+        {
+            _decoder.Dispose();
         }
 
         [Fact]
@@ -97,7 +102,7 @@ namespace System.Net.Http.Unit.Tests.QPack
                 .Concat(_headerValue)
                 .ToArray();
 
-            TestDecodeWithoutIndexing(encoded, _translateString, _headerValueString);
+            TestDecodeWithoutIndexing(encoded, _literalHeaderFieldString, _headerValueString);
         }
 
         [Fact]
@@ -140,7 +145,7 @@ namespace System.Net.Http.Unit.Tests.QPack
                 .Concat(_headerValueHuffman)
                 .ToArray();
 
-            TestDecodeWithoutIndexing(encoded, _translateString, _headerValueString);
+            TestDecodeWithoutIndexing(encoded, _literalHeaderFieldString, _headerValueString);
         }
 
         [Fact]
@@ -171,6 +176,101 @@ namespace System.Net.Http.Unit.Tests.QPack
                 new KeyValuePair<string, string>(":path", new string('A', 8192 / 2)),
                 new KeyValuePair<string, string>(":scheme", "http")
             });
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_SingleBuffer()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded, endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_NameLengthBrokenIntoSeparateBuffers()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[..1], endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[1..], endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_NameBrokenIntoSeparateBuffers()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[..(_literalHeaderFieldString.Length / 2)], endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[(_literalHeaderFieldString.Length / 2)..], endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_NameAndValueBrokenIntoSeparateBuffers()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[..^_headerValue.Length], endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[^_headerValue.Length..], endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_ValueLengthBrokenIntoSeparateBuffers()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[..^(_headerValue.Length - 1)], endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[^(_headerValue.Length - 1)..], endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
+        }
+
+        [Fact]
+        public void LiteralFieldWithoutNameReference_ValueBrokenIntoSeparateBuffers()
+        {
+            byte[] encoded = _literalFieldLineWithLiteralName
+                .Concat(_headerValue)
+                .ToArray();
+
+            _decoder.Decode(new byte[] { 0x00, 0x00 }, endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[..^(_headerValueString.Length / 2)], endHeaders: false, handler: _handler);
+            _decoder.Decode(encoded[^(_headerValueString.Length / 2)..], endHeaders: true, handler: _handler);
+
+            Assert.Single(_handler.DecodedHeaders);
+            Assert.True(_handler.DecodedHeaders.ContainsKey(_literalHeaderFieldString));
+            Assert.Equal(_headerValueString, _handler.DecodedHeaders[_literalHeaderFieldString]);
         }
 
         public static readonly TheoryData<byte[]> _incompleteHeaderBlockData = new TheoryData<byte[]>
@@ -223,7 +323,7 @@ namespace System.Net.Http.Unit.Tests.QPack
 
         private static void TestDecode(byte[] encoded, KeyValuePair<string, string>[] expectedValues, bool expectDynamicTableEntry, int? bytesAtATime)
         {
-            QPackDecoder decoder = new QPackDecoder(MaxHeaderFieldSize);
+            using QPackDecoder decoder = new QPackDecoder(MaxHeaderFieldSize);
             TestHttpHeadersHandler handler = new TestHttpHeadersHandler();
 
             // Read past header
@@ -236,7 +336,7 @@ namespace System.Net.Http.Unit.Tests.QPack
             else
             {
                 int chunkSize = bytesAtATime.Value;
-                
+
                 // Parse data in chunks, separated by empty chunks
                 for (int i = 0; i < encoded.Length; i += chunkSize)
                 {
@@ -264,12 +364,12 @@ namespace System.Net.Http.Unit.Tests.QPack
         }
     }
 
-    public class TestHttpHeadersHandler : IHttpHeadersHandler
+    public class TestHttpHeadersHandler : IHttpStreamHeadersHandler
     {
         public Dictionary<string, string> DecodedHeaders { get; } = new Dictionary<string, string>();
         public Dictionary<int, KeyValuePair<string, string>> DecodedStaticHeaders { get; } = new Dictionary<int, KeyValuePair<string, string>>();
 
-        void IHttpHeadersHandler.OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+        void IHttpStreamHeadersHandler.OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
         {
             if (name.Length == 0)
             {
@@ -282,20 +382,28 @@ namespace System.Net.Http.Unit.Tests.QPack
             DecodedHeaders[headerName] = headerValue;
         }
 
-        void IHttpHeadersHandler.OnStaticIndexedHeader(int index)
+        void IHttpStreamHeadersHandler.OnStaticIndexedHeader(int index)
         {
             ref readonly HeaderField entry = ref H3StaticTable.Get(index);
-            ((IHttpHeadersHandler)this).OnHeader(entry.Name, entry.Value);
+            ((IHttpStreamHeadersHandler)this).OnHeader(entry.Name, entry.Value);
             DecodedStaticHeaders[index] = new KeyValuePair<string, string>(Encoding.ASCII.GetString(entry.Name), Encoding.ASCII.GetString(entry.Value));
         }
 
-        void IHttpHeadersHandler.OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
+        void IHttpStreamHeadersHandler.OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
         {
             byte[] name = H3StaticTable.Get(index).Name;
-            ((IHttpHeadersHandler)this).OnHeader(name, value);
+            ((IHttpStreamHeadersHandler)this).OnHeader(name, value);
             DecodedStaticHeaders[index] = new KeyValuePair<string, string>(Encoding.ASCII.GetString(name), Encoding.ASCII.GetString(value));
         }
 
-        void IHttpHeadersHandler.OnHeadersComplete(bool endStream) { }
+        void IHttpStreamHeadersHandler.OnHeadersComplete(bool endStream) { }
+
+        public void OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+        {
+            string headerName = Encoding.ASCII.GetString(name);
+            string headerValue = Encoding.ASCII.GetString(value);
+
+            DecodedHeaders[headerName] = headerValue;
+        }
     }
 }

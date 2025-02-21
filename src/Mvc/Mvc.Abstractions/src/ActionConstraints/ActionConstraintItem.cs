@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ActionConstraints;
 
 /// <summary>
@@ -17,10 +15,7 @@ public class ActionConstraintItem
     /// <param name="metadata">The <see cref="IActionConstraintMetadata"/> instance.</param>
     public ActionConstraintItem(IActionConstraintMetadata metadata)
     {
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
+        ArgumentNullException.ThrowIfNull(metadata);
 
         Metadata = metadata;
     }

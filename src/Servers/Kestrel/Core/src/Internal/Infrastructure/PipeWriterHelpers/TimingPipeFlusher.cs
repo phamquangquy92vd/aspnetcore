@@ -3,10 +3,7 @@
 
 #nullable enable
 
-using System;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.Extensions.Logging;
@@ -17,7 +14,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.PipeW
 /// This wraps PipeWriter.FlushAsync() in a way that allows multiple awaiters making it safe to call from publicly
 /// exposed Stream implementations while also tracking response data rate.
 /// </summary>
-internal class TimingPipeFlusher
+internal sealed class TimingPipeFlusher
 {
     private PipeWriter _writer = default!;
     private readonly ITimeoutControl? _timeoutControl;
@@ -95,7 +92,7 @@ internal class TimingPipeFlusher
         }
         catch (OperationCanceledException ex) when (outputAborter is object)
         {
-            outputAborter.Abort(new ConnectionAbortedException(CoreStrings.ConnectionOrStreamAbortedByCancellationToken, ex));
+            outputAborter.Abort(new ConnectionAbortedException(CoreStrings.ConnectionOrStreamAbortedByCancellationToken, ex), ConnectionEndReason.WriteCanceled);
         }
         catch (Exception ex)
         {

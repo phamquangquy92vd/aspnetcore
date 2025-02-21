@@ -1,12 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -341,7 +339,7 @@ public class CorsServiceTests
         var policy = new CorsPolicy();
         policy.Origins.Add(CorsConstants.AnyOrigin);
         policy.Origins.Add("http://example.com");
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -363,7 +361,7 @@ public class CorsServiceTests
         {
             IsOriginAllowed = origin => true
         };
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -383,7 +381,7 @@ public class CorsServiceTests
             SupportsCredentials = true
         };
         policy.Origins.Add("http://example.com");
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -403,7 +401,7 @@ public class CorsServiceTests
             PreflightMaxAge = null
         };
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -423,7 +421,7 @@ public class CorsServiceTests
             PreflightMaxAge = TimeSpan.FromSeconds(10)
         };
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -440,7 +438,7 @@ public class CorsServiceTests
         var requestContext = GetHttpContext(method: "OPTIONS", origin: "http://example.com", accessControlRequestMethod: "GET");
         var policy = new CorsPolicy();
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -480,8 +478,8 @@ public class CorsServiceTests
         var requestContext = GetHttpContext(method: "OPTIONS", origin: "http://example.com", accessControlRequestMethod: "PUT");
         var policy = new CorsPolicy();
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
-        policy.Headers.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
+        policy.Headers.Add(CorsConstants.AnyHeader);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -503,8 +501,8 @@ public class CorsServiceTests
             accessControlRequestHeaders: new[] { "foo", "bar" });
         var policy = new CorsPolicy();
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
-        policy.Headers.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
+        policy.Headers.Add(CorsConstants.AnyHeader);
 
         // Act
         var result = corsService.EvaluatePolicy(requestContext, policy);
@@ -526,7 +524,7 @@ public class CorsServiceTests
             accessControlRequestHeaders: new[] { "match", "noMatch" });
         var policy = new CorsPolicy();
         policy.Origins.Add(CorsConstants.AnyOrigin);
-        policy.Methods.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
         policy.Headers.Add("match");
         policy.Headers.Add("foo");
 
@@ -546,8 +544,8 @@ public class CorsServiceTests
         var httpContext = GetHttpContext(method: "OPTIONS", origin: "http://example.com", accessControlRequestMethod: "PUT");
         var policy = new CorsPolicy();
         policy.Origins.Add("http://example.com");
-        policy.Methods.Add("*");
-        policy.Headers.Add("*");
+        policy.Methods.Add(CorsConstants.AnyMethod);
+        policy.Headers.Add(CorsConstants.AnyHeader);
         policy.SupportsCredentials = true;
 
         // Act
@@ -778,7 +776,6 @@ public class CorsServiceTests
         Assert.Equal("foo", httpContext.Response.Headers["Access-Control-Allow-Headers"]);
     }
 
-
     [Fact]
     public void ApplyResult_NoAllowExposedHeaders_ExposedHeadersHeaderNotAdded()
     {
@@ -840,7 +837,6 @@ public class CorsServiceTests
         // Assert
         Assert.Equal("foo,bar", httpContext.Response.Headers[CorsConstants.AccessControlExposeHeaders]);
     }
-
 
     [Fact]
     public void ApplyResult_OneAllowExposedHeaders_ExposedHeadersHeaderAdded()

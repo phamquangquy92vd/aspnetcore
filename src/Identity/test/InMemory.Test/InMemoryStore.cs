@@ -1,12 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity.Test;
 
 namespace Microsoft.AspNetCore.Identity.InMemory;
@@ -62,10 +57,7 @@ public class InMemoryStore<TUser, TRole> :
     // RoleId == rolename for inmemory store tests
     public Task<IList<TUser>> GetUsersInRoleAsync(string roleName, CancellationToken cancellationToken = default(CancellationToken))
     {
-        if (String.IsNullOrEmpty(roleName))
-        {
-            throw new ArgumentNullException(nameof(roleName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(roleName);
 
         var role = _roles.Values.Where(x => x.NormalizedName.Equals(roleName)).SingleOrDefault();
         if (role == null)

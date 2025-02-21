@@ -1,9 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.AspNetCore.Http;
@@ -11,6 +11,8 @@ namespace Microsoft.AspNetCore.Http;
 /// <summary>
 /// Contains the parsed HTTP form values.
 /// </summary>
+[DebuggerDisplay("Count = {Count}")]
+[DebuggerTypeProxy(typeof(StringValuesDictionaryDebugView))]
 public class FormCollection : IFormCollection
 {
     /// <summary>

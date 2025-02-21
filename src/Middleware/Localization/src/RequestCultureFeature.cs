@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Localization;
 
 /// <summary>
@@ -17,10 +15,7 @@ public class RequestCultureFeature : IRequestCultureFeature
     /// <param name="provider">The <see cref="IRequestCultureProvider"/>.</param>
     public RequestCultureFeature(RequestCulture requestCulture, IRequestCultureProvider? provider)
     {
-        if (requestCulture == null)
-        {
-            throw new ArgumentNullException(nameof(requestCulture));
-        }
+        ArgumentNullException.ThrowIfNull(requestCulture);
 
         RequestCulture = requestCulture;
         Provider = provider;

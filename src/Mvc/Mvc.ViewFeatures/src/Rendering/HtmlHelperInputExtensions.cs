@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Html;
 
@@ -31,10 +30,7 @@ public static class HtmlHelperInputExtensions
     /// </remarks>
     public static IHtmlContent CheckBox(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.CheckBox(expression, isChecked: null, htmlAttributes: null);
     }
@@ -63,10 +59,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         bool isChecked)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.CheckBox(expression, isChecked, htmlAttributes: null);
     }
@@ -99,10 +92,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.CheckBox(expression, isChecked: null, htmlAttributes: htmlAttributes);
     }
@@ -127,15 +117,8 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, bool>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.CheckBoxFor(expression, htmlAttributes: null);
     }
@@ -158,10 +141,7 @@ public static class HtmlHelperInputExtensions
     /// </remarks>
     public static IHtmlContent Hidden(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Hidden(expression, value: null, htmlAttributes: null);
     }
@@ -189,10 +169,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Hidden(expression, value, htmlAttributes: null);
     }
@@ -218,15 +195,8 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.HiddenFor(expression, htmlAttributes: null);
     }
@@ -245,10 +215,7 @@ public static class HtmlHelperInputExtensions
     /// </remarks>
     public static IHtmlContent Password(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Password(expression, value: null, htmlAttributes: null);
     }
@@ -271,10 +238,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Password(expression, value, htmlAttributes: null);
     }
@@ -297,15 +261,8 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.PasswordFor(expression, htmlAttributes: null);
     }
@@ -335,10 +292,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.RadioButton(expression, value, isChecked: null, htmlAttributes: null);
     }
@@ -379,10 +333,7 @@ public static class HtmlHelperInputExtensions
         object value,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.RadioButton(expression, value, isChecked: null, htmlAttributes: htmlAttributes);
     }
@@ -421,10 +372,7 @@ public static class HtmlHelperInputExtensions
         object value,
         bool isChecked)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.RadioButton(expression, value, isChecked, htmlAttributes: null);
     }
@@ -455,20 +403,9 @@ public static class HtmlHelperInputExtensions
         Expression<Func<TModel, TResult>> expression,
         object value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
-
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
+        ArgumentNullException.ThrowIfNull(value);
 
         return htmlHelper.RadioButtonFor(expression, value, htmlAttributes: null);
     }
@@ -491,10 +428,7 @@ public static class HtmlHelperInputExtensions
     /// </remarks>
     public static IHtmlContent TextBox(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextBox(expression, value: null, format: null, htmlAttributes: null);
     }
@@ -522,10 +456,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextBox(expression, value, format: null, htmlAttributes: null);
     }
@@ -543,7 +474,7 @@ public static class HtmlHelperInputExtensions
     /// <param name="expression">Expression name, relative to the current model.</param>
     /// <param name="value">If non-<c>null</c>, value to include in the element.</param>
     /// <param name="format">
-    /// The format string (see https://msdn.microsoft.com/en-us/library/txafckwd.aspx) used to format the "value"
+    /// The format string (see <see href="https://msdn.microsoft.com/en-us/library/txafckwd.aspx"/>) used to format the "value"
     /// attribute unless that came from model binding.
     /// </param>
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;input&gt; element.</returns>
@@ -558,10 +489,7 @@ public static class HtmlHelperInputExtensions
         object value,
         string format)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextBox(expression, value, format, htmlAttributes: null);
     }
@@ -596,10 +524,7 @@ public static class HtmlHelperInputExtensions
         object value,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextBox(expression, value, format: null, htmlAttributes: htmlAttributes);
     }
@@ -625,15 +550,8 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.TextBoxFor(expression, format: null, htmlAttributes: null);
     }
@@ -648,7 +566,7 @@ public static class HtmlHelperInputExtensions
     /// <param name="htmlHelper">The <see cref="IHtmlHelper{TModel}"/> instance this method extends.</param>
     /// <param name="expression">An expression to be evaluated against the current model.</param>
     /// <param name="format">
-    /// The format string (see https://msdn.microsoft.com/en-us/library/txafckwd.aspx) used to format the
+    /// The format string (see <see href="https://msdn.microsoft.com/en-us/library/txafckwd.aspx"/>) used to format the
     /// <paramref name="expression"/> value when using that in the "value" attribute.
     /// </param>
     /// <typeparam name="TModel">The type of the model.</typeparam>
@@ -664,15 +582,8 @@ public static class HtmlHelperInputExtensions
         Expression<Func<TModel, TResult>> expression,
         string format)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.TextBoxFor(expression, format, htmlAttributes: null);
     }
@@ -705,15 +616,8 @@ public static class HtmlHelperInputExtensions
         Expression<Func<TModel, TResult>> expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.TextBoxFor(expression, format: null, htmlAttributes: htmlAttributes);
     }
@@ -738,10 +642,7 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper htmlHelper,
         string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextArea(expression, value: null, rows: 0, columns: 0, htmlAttributes: null);
     }
@@ -772,10 +673,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextArea(expression, value: null, rows: 0, columns: 0, htmlAttributes: htmlAttributes);
     }
@@ -803,10 +701,7 @@ public static class HtmlHelperInputExtensions
         string expression,
         string value)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextArea(expression, value, rows: 0, columns: 0, htmlAttributes: null);
     }
@@ -840,10 +735,7 @@ public static class HtmlHelperInputExtensions
         string value,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.TextArea(expression, value, rows: 0, columns: 0, htmlAttributes: htmlAttributes);
     }
@@ -869,15 +761,8 @@ public static class HtmlHelperInputExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.TextAreaFor(expression, rows: 0, columns: 0, htmlAttributes: null);
     }
@@ -909,15 +794,8 @@ public static class HtmlHelperInputExtensions
         Expression<Func<TModel, TResult>> expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.TextAreaFor(expression, rows: 0, columns: 0, htmlAttributes: htmlAttributes);
     }

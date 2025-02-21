@@ -1,11 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Microsoft.JSInterop.Implementation;
 
 /// <summary>
@@ -19,7 +14,7 @@ public sealed class JSStreamReference : JSObjectReference, IJSStreamReference
     public long Length { get; }
 
     /// <summary>
-    /// Inititializes a new <see cref="JSStreamReference"/> instance.
+    /// Initializes a new <see cref="JSStreamReference"/> instance.
     /// </summary>
     /// <param name="jsRuntime">The <see cref="JSRuntime"/> used for invoking JS interop calls.</param>
     /// <param name="id">The unique identifier.</param>

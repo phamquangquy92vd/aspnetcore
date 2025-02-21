@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Globalization;
 using Microsoft.Extensions.Localization;
 
 namespace Microsoft.AspNetCore.Mvc.Localization;
@@ -31,10 +28,7 @@ public class HtmlLocalizer<TResource> : IHtmlLocalizer<TResource>
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullException.ThrowIfNull(name);
 
             return _localizer[name];
         }
@@ -45,10 +39,7 @@ public class HtmlLocalizer<TResource> : IHtmlLocalizer<TResource>
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullException.ThrowIfNull(name);
 
             return _localizer[name, arguments];
         }
@@ -57,10 +48,7 @@ public class HtmlLocalizer<TResource> : IHtmlLocalizer<TResource>
     /// <inheritdoc />
     public virtual LocalizedString GetString(string name)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         return _localizer.GetString(name);
     }
@@ -68,10 +56,7 @@ public class HtmlLocalizer<TResource> : IHtmlLocalizer<TResource>
     /// <inheritdoc />
     public virtual LocalizedString GetString(string name, params object[] arguments)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         return _localizer.GetString(name, arguments);
     }

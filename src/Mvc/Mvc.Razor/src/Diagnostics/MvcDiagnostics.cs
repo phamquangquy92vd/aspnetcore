@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Razor;
@@ -67,7 +65,7 @@ public sealed class BeforeViewPageEventData : EventData
         1 => new KeyValuePair<string, object>(nameof(ViewContext), ViewContext),
         2 => new KeyValuePair<string, object>(nameof(ActionDescriptor), ActionDescriptor),
         3 => new KeyValuePair<string, object>(nameof(HttpContext), HttpContext),
-        _ => throw new IndexOutOfRangeException(nameof(index))
+        _ => throw new ArgumentOutOfRangeException(nameof(index))
     };
 }
 
@@ -128,6 +126,6 @@ public sealed class AfterViewPageEventData : EventData
         1 => new KeyValuePair<string, object>(nameof(ViewContext), ViewContext),
         2 => new KeyValuePair<string, object>(nameof(ActionDescriptor), ActionDescriptor),
         3 => new KeyValuePair<string, object>(nameof(HttpContext), HttpContext),
-        _ => throw new IndexOutOfRangeException(nameof(index))
+        _ => throw new ArgumentOutOfRangeException(nameof(index))
     };
 }

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Net.Http.Headers;
@@ -25,15 +23,8 @@ public class FormatterMappings
     /// <param name="contentType">The media type for the format value.</param>
     public void SetMediaTypeMappingForFormat(string format, string contentType)
     {
-        if (format == null)
-        {
-            throw new ArgumentNullException(nameof(format));
-        }
-
-        if (contentType == null)
-        {
-            throw new ArgumentNullException(nameof(contentType));
-        }
+        ArgumentNullException.ThrowIfNull(format);
+        ArgumentNullException.ThrowIfNull(contentType);
 
         SetMediaTypeMappingForFormat(format, MediaTypeHeaderValue.Parse(contentType));
     }
@@ -46,15 +37,8 @@ public class FormatterMappings
     /// <param name="contentType">The media type for the format value.</param>
     public void SetMediaTypeMappingForFormat(string format, MediaTypeHeaderValue contentType)
     {
-        if (format == null)
-        {
-            throw new ArgumentNullException(nameof(format));
-        }
-
-        if (contentType == null)
-        {
-            throw new ArgumentNullException(nameof(contentType));
-        }
+        ArgumentNullException.ThrowIfNull(format);
+        ArgumentNullException.ThrowIfNull(contentType);
 
         ValidateContentType(contentType);
         format = RemovePeriodIfPresent(format);
@@ -90,16 +74,13 @@ public class FormatterMappings
     /// <returns><c>true</c> if the format is successfully found and cleared; otherwise, <c>false</c>.</returns>
     public bool ClearMediaTypeMappingForFormat(string format)
     {
-        if (format == null)
-        {
-            throw new ArgumentNullException(nameof(format));
-        }
+        ArgumentNullException.ThrowIfNull(format);
 
         format = RemovePeriodIfPresent(format);
         return _map.Remove(format);
     }
 
-    private void ValidateContentType(MediaTypeHeaderValue contentType)
+    private static void ValidateContentType(MediaTypeHeaderValue contentType)
     {
         if (contentType.Type == "*" || contentType.SubType == "*")
         {
@@ -109,14 +90,11 @@ public class FormatterMappings
         }
     }
 
-    private string RemovePeriodIfPresent(string format)
+    private static string RemovePeriodIfPresent(string format)
     {
-        if (string.IsNullOrEmpty(format))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(format));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(format);
 
-        if (format.StartsWith(".", StringComparison.Ordinal))
+        if (format.StartsWith('.'))
         {
             if (format == ".")
             {

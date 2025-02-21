@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Http;
 using Log = Microsoft.AspNetCore.Server.HttpSys.RequestContextLog;
@@ -29,15 +27,21 @@ internal sealed partial class RequestContext<TContext> : RequestContext where TC
 
         try
         {
-            InitializeFeatures();
+            if (!InitializeFeatures())
+            {
+                Abort();
+                return;
+            }
 
             if (messagePump.Stopping)
             {
                 SetFatalResponse(503);
+                Dispose();
                 return;
             }
 
             TContext? context = default;
+            Exception? applicationException = null;
             messagePump.IncrementOutstandingRequest();
             try
             {
@@ -51,15 +55,18 @@ internal sealed partial class RequestContext<TContext> : RequestContext where TC
                 {
                     await OnCompleted();
                 }
-                application.DisposeContext(context, null);
-                Dispose();
             }
             catch (Exception ex)
             {
-                Log.RequestProcessError(Logger, ex);
-                if (context != null)
+                applicationException = ex;
+
+                if ((ex is OperationCanceledException || ex is IOException) && DisconnectToken.IsCancellationRequested)
                 {
-                    application.DisposeContext(context, ex);
+                    Log.RequestAborted(Logger);
+                }
+                else
+                {
+                    Log.RequestProcessError(Logger, ex);
                 }
                 if (Response.HasStarted)
                 {
@@ -88,6 +95,10 @@ internal sealed partial class RequestContext<TContext> : RequestContext where TC
                     {
                         SetFatalResponse(badHttpRequestException.StatusCode);
                     }
+                    else if ((ex is OperationCanceledException || ex is IOException) && DisconnectToken.IsCancellationRequested)
+                    {
+                        SetFatalResponse(StatusCodes.Status499ClientClosedRequest);
+                    }
                     else
                     {
                         SetFatalResponse(StatusCodes.Status500InternalServerError);
@@ -96,11 +107,18 @@ internal sealed partial class RequestContext<TContext> : RequestContext where TC
             }
             finally
             {
+                if (context != null)
+                {
+                    application.DisposeContext(context, applicationException);
+                }
+
                 if (messagePump.DecrementOutstandingRequest() == 0 && messagePump.Stopping)
                 {
                     Log.RequestsDrained(Logger);
                     messagePump.SetShutdownSignal();
                 }
+
+                Dispose();
             }
         }
         catch (Exception ex)

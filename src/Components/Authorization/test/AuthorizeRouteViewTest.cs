@@ -1,16 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Test.Helpers;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Authorization;
 
@@ -37,8 +33,10 @@ public class AuthorizeRouteViewTest
         serviceCollection.AddSingleton<IAuthorizationService>(_testAuthorizationService);
         serviceCollection.AddSingleton<NavigationManager, TestNavigationManager>();
 
-        _renderer = new TestRenderer(serviceCollection.BuildServiceProvider());
-        _authorizeRouteViewComponent = new AuthorizeRouteView();
+        var services = serviceCollection.BuildServiceProvider();
+        _renderer = new TestRenderer(services);
+        var componentFactory = new ComponentFactory(new DefaultComponentActivator(services), _renderer);
+        _authorizeRouteViewComponent = (AuthorizeRouteView)componentFactory.InstantiateComponent(services, typeof(AuthorizeRouteView), null, null);
         _authorizeRouteViewComponentId = _renderer.AssignRootComponentId(_authorizeRouteViewComponent);
     }
 
@@ -356,15 +354,15 @@ public class AuthorizeRouteViewTest
         Assert.Collection(diff.Edits,
             edit =>
             {
-                    // Inside the layout, we add the new content
-                    Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
+                // Inside the layout, we add the new content
+                Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
                 Assert.Equal(1, edit.SiblingIndex);
                 AssertFrame.Text(batch2.ReferenceFrames[edit.ReferenceFrameIndex], "Not authorized");
             },
             edit =>
             {
-                    // ... and remove the old content
-                    Assert.Equal(RenderTreeEditType.RemoveFrame, edit.Type);
+                // ... and remove the old content
+                Assert.Equal(RenderTreeEditType.RemoveFrame, edit.Type);
                 Assert.Equal(2, edit.SiblingIndex);
             });
     }
@@ -415,11 +413,11 @@ public class AuthorizeRouteViewTest
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
             builder.OpenComponent<CascadingValue<Task<AuthenticationState>>>(0);
-            builder.AddAttribute(1, nameof(CascadingValue<object>.Value), _authenticationState);
-            builder.AddAttribute(2, nameof(CascadingValue<object>.ChildContent), (RenderFragment)(builder =>
+            builder.AddComponentParameter(1, nameof(CascadingValue<object>.Value), _authenticationState);
+            builder.AddComponentParameter(2, nameof(CascadingValue<object>.ChildContent), (RenderFragment)(builder =>
             {
                 builder.OpenComponent<AuthorizeRouteView>(0);
-                builder.AddAttribute(1, nameof(AuthorizeRouteView.RouteData), _routeData);
+                builder.AddComponentParameter(1, nameof(AuthorizeRouteView.RouteData), _routeData);
                 builder.CloseComponent();
             }));
             builder.CloseComponent();
@@ -428,5 +426,9 @@ public class AuthorizeRouteViewTest
 
     class TestNavigationManager : NavigationManager
     {
+        public TestNavigationManager()
+        {
+            Initialize("https://localhost:85/subdir/", "https://localhost:85/subdir/path?query=value#hash");
+        }
     }
 }

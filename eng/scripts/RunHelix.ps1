@@ -10,18 +10,16 @@
     Some supported queues:
     Debian.11.Amd64.Open
     Mariner
-    Redhat.7.Amd64.Open
-    Ubuntu.1804.Amd64.Open
+    AlmaLinux.8.Amd64.Open
     Ubuntu.2004.Amd64.Open
-    OSX.1015.Amd64.Open
     OSX.1100.Amd64.Open
     Windows.10.Amd64.Server20H2.Open
-    Windows.11.Amd64.ClientPre.Open
+    Windows.11.Amd64.Client.Open
     Windows.Amd64.Server2022.Open
 .PARAMETER RunQuarantinedTests
     By default quarantined tests are not run. Set this to $true to run only the quarantined tests.
 .PARAMETER TargetArchitecture
-    The CPU architecture to build for (x64, x86, arm). Default=x64
+    The CPU architecture to build for (x64, x86, arm64). Default=x64
 .PARAMETER MSBuildArguments
     Additional MSBuild arguments to be passed through.
 #>
@@ -33,7 +31,7 @@ param(
     [string]$HelixQueues = "Windows.10.Amd64.Server20H2.Open",
     [switch]$RunQuarantinedTests,
 
-    [ValidateSet('x64', 'x86', 'arm', 'arm64')]
+    [ValidateSet('x64', 'x86', 'arm64')]
     [string]$TargetArchitecture = "x64",
 
     # Capture the rest
@@ -44,6 +42,11 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue' # Workaround PowerShell/PowerShell#2138
 
+$NUGET_PACKAGES = $env:NUGET_PACKAGES
+if ($NUGET_PACKAGES -eq $null) {
+    $NUGET_PACKAGES = "$env:HOMEPATH/.nuget/packages/"
+}
+
 Set-StrictMode -Version 1
 
 $env:BUILD_REASON="PullRequest"
@@ -52,10 +55,11 @@ $env:BUILD_REPOSITORY_NAME="aspnetcore"
 $env:SYSTEM_TEAMPROJECT="aspnetcore"
 
 Write-Host -ForegroundColor Yellow "If running tests that need the shared Fx, run './build -pack -all' before this."
-Write-Host -ForegroundColor Yellow "And if packing for a different platform, add '/p:CrossgenOutput=false'."
+Write-Host -ForegroundColor Yellow "If everything is up-to-date, add '/p:NoBuild=true' to this command."
+Write-Host -ForegroundColor Yellow "Or, if only the test project is out-of-date, add '/p:BuildProjectReferences=false'."
 
 $HelixQueues = $HelixQueues -replace ";", "%3B"
 dotnet msbuild $Project /t:Helix /p:TargetArchitecture="$TargetArchitecture" `
     /p:HelixTargetQueues=$HelixQueues /p:RunQuarantinedTests=$RunQuarantinedTests `
     /p:_UseHelixOpenQueues=true /p:CrossgenOutput=false /p:ASPNETCORE_TEST_LOG_DIR=artifacts/log `
-    /p:DoNotRequireSharedFxHelix=true @MSBuildArguments
+    /p:DoNotRequireSharedFxHelix=true /p:NUGET_PACKAGES=$NUGET_PACKAGES @MSBuildArguments

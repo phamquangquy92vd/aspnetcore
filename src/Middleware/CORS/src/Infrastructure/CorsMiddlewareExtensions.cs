@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 
 namespace Microsoft.AspNetCore.Builder;
@@ -18,10 +17,7 @@ public static class CorsMiddlewareExtensions
     /// <returns>The original app parameter</returns>
     public static IApplicationBuilder UseCors(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseMiddleware<CorsMiddleware>();
     }
@@ -34,10 +30,7 @@ public static class CorsMiddlewareExtensions
     /// <returns>The original app parameter</returns>
     public static IApplicationBuilder UseCors(this IApplicationBuilder app, string policyName)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseMiddleware<CorsMiddleware>(policyName);
     }
@@ -52,15 +45,8 @@ public static class CorsMiddlewareExtensions
         this IApplicationBuilder app,
         Action<CorsPolicyBuilder> configurePolicy)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-
-        if (configurePolicy == null)
-        {
-            throw new ArgumentNullException(nameof(configurePolicy));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(configurePolicy);
 
         var policyBuilder = new CorsPolicyBuilder();
         configurePolicy(policyBuilder);

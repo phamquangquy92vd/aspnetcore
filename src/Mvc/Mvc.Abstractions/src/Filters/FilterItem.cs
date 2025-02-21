@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 
 namespace Microsoft.AspNetCore.Mvc.Filters;
@@ -12,7 +11,7 @@ namespace Microsoft.AspNetCore.Mvc.Filters;
 /// inspect <see cref="FilterProviderContext.Results"/> and set <see cref="Filter"/> and
 /// <see cref="IsReusable"/> as appropriate.
 /// </summary>
-[DebuggerDisplay("FilterItem: {Filter}")]
+[DebuggerDisplay("Filter = {Filter}")]
 public class FilterItem
 {
     /// <summary>
@@ -21,10 +20,7 @@ public class FilterItem
     /// <param name="descriptor">The <see cref="FilterDescriptor"/>.</param>
     public FilterItem(FilterDescriptor descriptor)
     {
-        if (descriptor == null)
-        {
-            throw new ArgumentNullException(nameof(descriptor));
-        }
+        ArgumentNullException.ThrowIfNull(descriptor);
 
         Descriptor = descriptor;
     }
@@ -37,10 +33,7 @@ public class FilterItem
     public FilterItem(FilterDescriptor descriptor, IFilterMetadata filter)
         : this(descriptor)
     {
-        if (filter == null)
-        {
-            throw new ArgumentNullException(nameof(filter));
-        }
+        ArgumentNullException.ThrowIfNull(filter);
 
         Filter = filter;
     }

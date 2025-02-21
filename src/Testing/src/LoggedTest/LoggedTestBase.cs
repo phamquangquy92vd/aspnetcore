@@ -3,22 +3,19 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
-using Serilog;
 using Xunit.Abstractions;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
-public class LoggedTestBase : ILoggedTest, ITestMethodLifecycle
+public abstract class LoggedTestBase : ITestMethodLifecycle, IDisposable
 {
     private ExceptionDispatchInfo _initializationException;
 
@@ -58,7 +55,7 @@ public class LoggedTestBase : ILoggedTest, ITestMethodLifecycle
         return AssemblyTestLog.ForAssembly(GetType().GetTypeInfo().Assembly).StartTestLog(TestOutputHelper, GetType().FullName, out loggerFactory, minLogLevel, testName);
     }
 
-    public virtual void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    protected virtual void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
         try
         {
@@ -119,7 +116,6 @@ public class LoggedTestBase : ILoggedTest, ITestMethodLifecycle
 
     Task ITestMethodLifecycle.OnTestStartAsync(TestContext context, CancellationToken cancellationToken)
     {
-
         Context = context;
         return InitializeAsync(context, context.TestMethod, context.MethodArguments, context.Output);
     }

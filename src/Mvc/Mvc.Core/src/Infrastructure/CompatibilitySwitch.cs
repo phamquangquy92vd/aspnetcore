@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -78,10 +77,7 @@ public class CompatibilitySwitch<TValue> : ICompatibilitySwitch where TValue : s
     /// </param>
     public CompatibilitySwitch(string name, TValue initialValue)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         Name = name;
         _value = initialValue;

@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Extensions.Primitives;
@@ -95,10 +92,7 @@ public abstract class OutputFormatter : IOutputFormatter, IApiResponseTypeMetada
     /// <inheritdoc />
     public virtual bool CanWriteResult(OutputFormatterCanWriteContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (SupportedMediaTypes.Count == 0)
         {
@@ -162,10 +156,7 @@ public abstract class OutputFormatter : IOutputFormatter, IApiResponseTypeMetada
     /// <inheritdoc />
     public virtual Task WriteAsync(OutputFormatterWriteContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         WriteResponseHeaders(context);
         return WriteResponseBodyAsync(context);
@@ -177,10 +168,7 @@ public abstract class OutputFormatter : IOutputFormatter, IApiResponseTypeMetada
     /// <param name="context">The formatter context associated with the call.</param>
     public virtual void WriteResponseHeaders(OutputFormatterWriteContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var response = context.HttpContext.Response;
         response.ContentType = context.ContentType.Value ?? string.Empty;

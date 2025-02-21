@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
 /// <summary>
@@ -65,6 +62,11 @@ public class OpenIdConnectEvents : RemoteAuthenticationEvents
     public Func<UserInformationReceivedContext, Task> OnUserInformationReceived { get; set; } = context => Task.CompletedTask;
 
     /// <summary>
+    /// Invoked before authorization parameters are pushed using PAR.
+    /// </summary>
+    public Func<PushedAuthorizationContext, Task> OnPushAuthorization { get; set; } = context => Task.CompletedTask;
+
+    /// <summary>
     /// Invoked if exceptions are thrown during request processing. The exceptions will be re-thrown after this event unless suppressed.
     /// </summary>
     public virtual Task AuthenticationFailed(AuthenticationFailedContext context) => OnAuthenticationFailed(context);
@@ -116,4 +118,11 @@ public class OpenIdConnectEvents : RemoteAuthenticationEvents
     /// Invoked when user information is retrieved from the UserInfoEndpoint.
     /// </summary>
     public virtual Task UserInformationReceived(UserInformationReceivedContext context) => OnUserInformationReceived(context);
+
+    /// <summary>
+    /// Invoked before authorization parameters are pushed during PAR.
+    /// </summary>
+    /// <param name="context"></param>
+    /// <returns></returns>
+    public virtual Task PushAuthorization(PushedAuthorizationContext context) => OnPushAuthorization(context);
 }

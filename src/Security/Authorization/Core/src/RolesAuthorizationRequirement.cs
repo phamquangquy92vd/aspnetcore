@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Authorization.Infrastructure;
 
@@ -20,10 +21,7 @@ public class RolesAuthorizationRequirement : AuthorizationHandler<RolesAuthoriza
     /// <param name="allowedRoles">A collection of allowed roles.</param>
     public RolesAuthorizationRequirement(IEnumerable<string> allowedRoles)
     {
-        if (allowedRoles == null)
-        {
-            throw new ArgumentNullException(nameof(allowedRoles));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(allowedRoles);
 
         if (!allowedRoles.Any())
         {
@@ -42,20 +40,21 @@ public class RolesAuthorizationRequirement : AuthorizationHandler<RolesAuthoriza
     /// </summary>
     /// <param name="context">The authorization context.</param>
     /// <param name="requirement">The requirement to evaluate.</param>
-
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, RolesAuthorizationRequirement requirement)
     {
         if (context.User != null)
         {
-            bool found = false;
-            if (requirement.AllowedRoles == null || !requirement.AllowedRoles.Any())
+            var found = false;
+
+            foreach (var role in requirement.AllowedRoles)
             {
-                // Review: What do we want to do here?  No roles requested is auto success?
+                if (context.User.IsInRole(role))
+                {
+                    found = true;
+                    break;
+                }
             }
-            else
-            {
-                found = requirement.AllowedRoles.Any(r => context.User.IsInRole(r));
-            }
+
             if (found)
             {
                 context.Succeed(requirement);

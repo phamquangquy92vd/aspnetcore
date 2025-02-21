@@ -1,13 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Server.IIS.Core;
 
-internal class IISNativeApplication
+internal sealed class IISNativeApplication
 {
     private readonly NativeSafeHandle _nativeApplication;
+    private bool _hasRegisteredCallbacks;
     private readonly object _sync = new object();
 
     public IISNativeApplication(NativeSafeHandle nativeApplication)
@@ -26,14 +25,22 @@ internal class IISNativeApplication
         }
     }
 
-    public void StopCallsIntoManaged()
+    public void Stop()
     {
         lock (_sync)
         {
-            if (!_nativeApplication.IsInvalid)
+            if (_nativeApplication.IsInvalid)
+            {
+                return;
+            }
+
+            if (_hasRegisteredCallbacks)
             {
                 NativeMethods.HttpStopCallsIntoManaged(_nativeApplication);
             }
+
+            _nativeApplication.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 
@@ -46,6 +53,8 @@ internal class IISNativeApplication
         IntPtr pvRequestContext,
         IntPtr pvShutdownContext)
     {
+        _hasRegisteredCallbacks = true;
+
         NativeMethods.HttpRegisterCallbacks(
             _nativeApplication,
             requestCallback,
@@ -57,20 +66,9 @@ internal class IISNativeApplication
             pvShutdownContext);
     }
 
-    public void Dispose()
-    {
-        lock (_sync)
-        {
-            GC.SuppressFinalize(this);
-
-            // Don't need to await here because pinvokes should never been called after disposing the safe handle.
-            _nativeApplication.Dispose();
-        }
-    }
-
     ~IISNativeApplication()
     {
         // If this finalize is invoked, try our best to block all calls into managed.
-        StopCallsIntoManaged();
+        Stop();
     }
 }

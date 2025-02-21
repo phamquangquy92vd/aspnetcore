@@ -3,11 +3,7 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
-using System.Threading;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -24,7 +20,7 @@ namespace Microsoft.AspNetCore.Mvc;
 /// <summary>
 /// Sets up default options for <see cref="MvcOptions"/>.
 /// </summary>
-internal class MvcCoreMvcOptionsSetup : IConfigureOptions<MvcOptions>, IPostConfigureOptions<MvcOptions>
+internal sealed class MvcCoreMvcOptionsSetup : IConfigureOptions<MvcOptions>, IPostConfigureOptions<MvcOptions>
 {
     private readonly IHttpRequestStreamReaderFactory _readerFactory;
     private readonly ILoggerFactory _loggerFactory;
@@ -37,20 +33,9 @@ internal class MvcCoreMvcOptionsSetup : IConfigureOptions<MvcOptions>, IPostConf
 
     public MvcCoreMvcOptionsSetup(IHttpRequestStreamReaderFactory readerFactory, ILoggerFactory loggerFactory, IOptions<JsonOptions> jsonOptions)
     {
-        if (readerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(readerFactory));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
-
-        if (jsonOptions == null)
-        {
-            throw new ArgumentNullException(nameof(jsonOptions));
-        }
+        ArgumentNullException.ThrowIfNull(readerFactory);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(jsonOptions);
 
         _readerFactory = readerFactory;
         _loggerFactory = loggerFactory;
@@ -68,6 +53,7 @@ internal class MvcCoreMvcOptionsSetup : IConfigureOptions<MvcOptions>, IPostConf
         options.ModelBinderProviders.Add(new EnumTypeModelBinderProvider(options));
         options.ModelBinderProviders.Add(new DateTimeModelBinderProvider());
         options.ModelBinderProviders.Add(new SimpleTypeModelBinderProvider());
+        options.ModelBinderProviders.Add(new TryParseModelBinderProvider());
         options.ModelBinderProviders.Add(new CancellationTokenModelBinderProvider());
         options.ModelBinderProviders.Add(new ByteArrayModelBinderProvider());
         options.ModelBinderProviders.Add(new FormFileModelBinderProvider());
@@ -109,7 +95,7 @@ internal class MvcCoreMvcOptionsSetup : IConfigureOptions<MvcOptions>, IPostConf
         options.ModelValidatorProviders.Add(new DefaultModelValidatorProvider());
     }
 
-    public void PostConfigure(string name, MvcOptions options)
+    public void PostConfigure(string? name, MvcOptions options)
     {
         // HasValidatorsValidationMetadataProvider uses the results of other ValidationMetadataProvider to determine if a model requires
         // validation. It is imperative that this executes later than all other metadata provider. We'll register it as part of PostConfigure.

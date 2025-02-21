@@ -1,10 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -18,6 +17,8 @@ namespace Microsoft.AspNetCore.Http;
 /// of arbitrary types. The metadata items are stored as an ordered collection with
 /// items arranged in ascending order of precedence.
 /// </remarks>
+[DebuggerTypeProxy(typeof(EndpointMetadataCollectionDebugView))]
+[DebuggerDisplay("Count = {Count}")]
 public sealed class EndpointMetadataCollection : IReadOnlyList<object>
 {
     /// <summary>
@@ -34,10 +35,7 @@ public sealed class EndpointMetadataCollection : IReadOnlyList<object>
     /// <param name="items">The metadata items.</param>
     public EndpointMetadataCollection(IEnumerable<object> items)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
 
         _items = items.ToArray();
         _cache = new ConcurrentDictionary<Type, object[]>();
@@ -129,6 +127,21 @@ public sealed class EndpointMetadataCollection : IReadOnlyList<object>
     }
 
     /// <summary>
+    /// Gets the most significant metadata item of type <typeparamref name="T"/>.
+    /// Throws an <see cref="InvalidOperationException"/> if the metadata is not found.
+    /// </summary>
+    /// <typeparam name="T">The type of metadata to retrieve.</typeparam>
+    /// <returns>
+    /// The most significant metadata of type <typeparamref name="T"/>.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public T GetRequiredMetadata<T>() where T : class
+    {
+        var metadata = GetMetadata<T>();
+        return metadata ?? throw new InvalidOperationException($"Metadata '{typeof(T)}' is not found.");
+    }
+
+    /// <summary>
     /// Gets an <see cref="IEnumerator"/> of all metadata items.
     /// </summary>
     /// <returns>An <see cref="IEnumerator"/> of all metadata items.</returns>
@@ -149,25 +162,26 @@ public sealed class EndpointMetadataCollection : IReadOnlyList<object>
     /// <summary>
     /// Enumerates the elements of an <see cref="EndpointMetadataCollection"/>.
     /// </summary>
-    public struct Enumerator : IEnumerator<object?>
+    public struct Enumerator : IEnumerator<object>
     {
 #pragma warning disable IDE0044
         // Intentionally not readonly to prevent defensive struct copies
         private object[] _items;
 #pragma warning restore IDE0044
         private int _index;
+        private object? _current;
 
         internal Enumerator(EndpointMetadataCollection collection)
         {
             _items = collection._items;
             _index = 0;
-            Current = null;
+            _current = null;
         }
 
         /// <summary>
         /// Gets the element at the current position of the enumerator
         /// </summary>
-        public object? Current { get; private set; }
+        public object Current => _current!;
 
         /// <summary>
         /// Releases all resources used by the <see cref="Enumerator"/>.
@@ -187,11 +201,11 @@ public sealed class EndpointMetadataCollection : IReadOnlyList<object>
         {
             if (_index < _items.Length)
             {
-                Current = _items[_index++];
+                _current = _items[_index++];
                 return true;
             }
 
-            Current = null;
+            _current = null;
             return false;
         }
 
@@ -201,7 +215,30 @@ public sealed class EndpointMetadataCollection : IReadOnlyList<object>
         public void Reset()
         {
             _index = 0;
-            Current = null;
+            _current = null;
+        }
+    }
+
+    private sealed class EndpointMetadataCollectionDebugView
+    {
+        private readonly EndpointMetadataCollection _collection;
+
+        public EndpointMetadataCollectionDebugView(EndpointMetadataCollection collection)
+        {
+            ArgumentNullException.ThrowIfNull(collection);
+
+            _collection = collection;
+        }
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public object[] Items
+        {
+            get
+            {
+                var items = new object[_collection.Count];
+                _collection._items.CopyTo(items, 0);
+                return items;
+            }
         }
     }
 }

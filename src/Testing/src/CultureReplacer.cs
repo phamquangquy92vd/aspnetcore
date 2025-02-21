@@ -4,10 +4,9 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Threading;
 using Xunit;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 public class CultureReplacer : IDisposable
 {

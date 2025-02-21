@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.DataProtection.XmlEncryption;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,10 +19,7 @@ public class CustomXmlEncryptor : IXmlEncryptor
 
     public EncryptedXmlInfo Encrypt(XElement plaintextElement)
     {
-        if (plaintextElement == null)
-        {
-            throw new ArgumentNullException(nameof(plaintextElement));
-        }
+        ArgumentNullException.ThrowIfNull(plaintextElement);
 
         _logger.LogInformation("Not encrypting key");
 

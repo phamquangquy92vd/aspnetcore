@@ -2,14 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Threading;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 
 namespace Microsoft.AspNetCore.SignalR.Client;
 
 /// <summary>
-/// Extension methods for <see cref="HubConnectionExtensions"/>.
+/// Extension methods for <see cref="HubConnection"/>.
 /// </summary>
 public static partial class HubConnectionExtensions
 {

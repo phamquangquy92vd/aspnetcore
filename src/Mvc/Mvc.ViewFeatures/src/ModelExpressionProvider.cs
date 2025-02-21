@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -22,10 +21,7 @@ public class ModelExpressionProvider : IModelExpressionProvider
     /// <param name="modelMetadataProvider">The <see cref="IModelMetadataProvider"/>.</param>
     public ModelExpressionProvider(IModelMetadataProvider modelMetadataProvider)
     {
-        if (modelMetadataProvider == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadataProvider));
-        }
+        ArgumentNullException.ThrowIfNull(modelMetadataProvider);
 
         _modelMetadataProvider = modelMetadataProvider;
         _expressionTextCache = new ConcurrentDictionary<LambdaExpression, string>(LambdaExpressionComparer.Instance);
@@ -40,10 +36,7 @@ public class ModelExpressionProvider : IModelExpressionProvider
     /// <returns>The expression name.</returns>
     public string GetExpressionText<TModel, TValue>(Expression<Func<TModel, TValue>> expression)
     {
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(expression);
 
         return ExpressionHelper.GetExpressionText(expression, _expressionTextCache);
     }
@@ -53,15 +46,8 @@ public class ModelExpressionProvider : IModelExpressionProvider
         ViewDataDictionary<TModel> viewData,
         Expression<Func<TModel, TValue>> expression)
     {
-        if (viewData == null)
-        {
-            throw new ArgumentNullException(nameof(viewData));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(viewData);
+        ArgumentNullException.ThrowIfNull(expression);
 
         var name = GetExpressionText(expression);
         var modelExplorer = ExpressionMetadataProvider.FromLambdaExpression(expression, viewData, _modelMetadataProvider);
@@ -86,15 +72,8 @@ public class ModelExpressionProvider : IModelExpressionProvider
         ViewDataDictionary<TModel> viewData,
         string expression)
     {
-        if (viewData == null)
-        {
-            throw new ArgumentNullException(nameof(viewData));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(viewData);
+        ArgumentNullException.ThrowIfNull(expression);
 
         var modelExplorer = ExpressionMetadataProvider.FromStringExpression(expression, viewData, _modelMetadataProvider);
         if (modelExplorer == null)

@@ -1,17 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Cryptography;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Session;
 
@@ -43,30 +39,11 @@ public class SessionMiddleware
         ISessionStore sessionStore,
         IOptions<SessionOptions> options)
     {
-        if (next == null)
-        {
-            throw new ArgumentNullException(nameof(next));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
-
-        if (dataProtectionProvider == null)
-        {
-            throw new ArgumentNullException(nameof(dataProtectionProvider));
-        }
-
-        if (sessionStore == null)
-        {
-            throw new ArgumentNullException(nameof(sessionStore));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(next);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(dataProtectionProvider);
+        ArgumentNullException.ThrowIfNull(sessionStore);
+        ArgumentNullException.ThrowIfNull(options);
 
         _next = next;
         _logger = loggerFactory.CreateLogger<SessionMiddleware>();
@@ -89,9 +66,15 @@ public class SessionMiddleware
         if (string.IsNullOrWhiteSpace(sessionKey) || sessionKey.Length != SessionKeyLength)
         {
             // No valid cookie, new session.
-            var guidBytes = new byte[16];
-            RandomNumberGenerator.Fill(guidBytes);
-            sessionKey = new Guid(guidBytes).ToString();
+            sessionKey = GetSessionKey();
+
+            static string GetSessionKey()
+            {
+                Span<byte> guidBytes = stackalloc byte[16];
+                RandomNumberGenerator.Fill(guidBytes);
+                return new Guid(guidBytes).ToString();
+            }
+
             cookieValue = CookieProtection.Protect(_dataProtector, sessionKey);
             var establisher = new SessionEstablisher(context, cookieValue, _options);
             tryEstablishSession = establisher.TryEstablishSession;
@@ -128,7 +111,7 @@ public class SessionMiddleware
         }
     }
 
-    private class SessionEstablisher
+    private sealed class SessionEstablisher
     {
         private readonly HttpContext _context;
         private readonly string _cookieValue;

@@ -3,18 +3,18 @@
 
 using System;
 using Microsoft.AspNetCore.JsonPatch.Adapters;
+using Microsoft.AspNetCore.Shared;
 using Newtonsoft.Json;
 
 namespace Microsoft.AspNetCore.JsonPatch.Operations;
 
 public class Operation : OperationBase
 {
-    [JsonProperty("value")]
+    [JsonProperty(nameof(value))]
     public object value { get; set; }
 
     public Operation()
     {
-
     }
 
     public Operation(string op, string path, string from, object value)
@@ -30,15 +30,8 @@ public class Operation : OperationBase
 
     public void Apply(object objectToApplyTo, IObjectAdapter adapter)
     {
-        if (objectToApplyTo == null)
-        {
-            throw new ArgumentNullException(nameof(objectToApplyTo));
-        }
-
-        if (adapter == null)
-        {
-            throw new ArgumentNullException(nameof(adapter));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(objectToApplyTo);
+        ArgumentNullThrowHelper.ThrowIfNull(adapter);
 
         switch (OperationType)
         {

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.HeaderPropagation;
 using Microsoft.Extensions.Options;
 
@@ -22,10 +21,7 @@ public static class HeaderPropagationHttpClientBuilderExtensions
     /// <returns>The <see cref="IHttpClientBuilder"/> so that additional calls can be chained.</returns>
     public static IHttpClientBuilder AddHeaderPropagation(this IHttpClientBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         builder.Services.AddHeaderPropagation();
 
@@ -54,15 +50,8 @@ public static class HeaderPropagationHttpClientBuilderExtensions
     /// <returns>The <see cref="IHttpClientBuilder"/> so that additional calls can be chained.</returns>
     public static IHttpClientBuilder AddHeaderPropagation(this IHttpClientBuilder builder, Action<HeaderPropagationMessageHandlerOptions> configure)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-
-        if (configure == null)
-        {
-            throw new ArgumentNullException(nameof(configure));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configure);
 
         builder.Services.AddHeaderPropagation();
 

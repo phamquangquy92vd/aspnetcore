@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Buffers;
@@ -16,7 +12,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures.Buffers;
 /// An <see cref="IHtmlContentBuilder"/> that is backed by a buffer provided by <see cref="IViewBufferScope"/>.
 /// </summary>
 [DebuggerDisplay("{DebuggerToString()}")]
-internal class ViewBuffer : IHtmlContentBuilder
+internal sealed class ViewBuffer : IHtmlContentBuilder
 {
     public const int PartialViewPageSize = 32;
     public const int TagHelperPageSize = 32;
@@ -37,15 +33,8 @@ internal class ViewBuffer : IHtmlContentBuilder
     /// <param name="pageSize">The size of buffer pages.</param>
     public ViewBuffer(IViewBufferScope bufferScope, string name, int pageSize)
     {
-        if (bufferScope == null)
-        {
-            throw new ArgumentNullException(nameof(bufferScope));
-        }
-
-        if (pageSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(pageSize));
-        }
+        ArgumentNullException.ThrowIfNull(bufferScope);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageSize);
 
         _bufferScope = bufferScope;
         _name = name;
@@ -86,7 +75,7 @@ internal class ViewBuffer : IHtmlContentBuilder
             {
                 return _currentPage;
             }
-            throw new IndexOutOfRangeException();
+            throw new ArgumentOutOfRangeException(nameof(index));
         }
     }
 
@@ -188,15 +177,8 @@ internal class ViewBuffer : IHtmlContentBuilder
     /// <inheritdoc />
     public void WriteTo(TextWriter writer, HtmlEncoder encoder)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (encoder == null)
-        {
-            throw new ArgumentNullException(nameof(encoder));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
 
         for (var i = 0; i < Count; i++)
         {
@@ -228,15 +210,8 @@ internal class ViewBuffer : IHtmlContentBuilder
     /// <returns>A <see cref="Task"/> which will complete once content has been written.</returns>
     public async Task WriteToAsync(TextWriter writer, HtmlEncoder encoder)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (encoder == null)
-        {
-            throw new ArgumentNullException(nameof(encoder));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
 
         for (var i = 0; i < Count; i++)
         {
@@ -257,6 +232,13 @@ internal class ViewBuffer : IHtmlContentBuilder
                     continue;
                 }
 
+                if (value.Value is IHtmlAsyncContent valueAsHtmlAsyncContent)
+                {
+                    await valueAsHtmlAsyncContent.WriteToAsync(writer);
+                    await writer.FlushAsync();
+                    continue;
+                }
+
                 if (value.Value is IHtmlContent valueAsHtmlContent)
                 {
                     valueAsHtmlContent.WriteTo(writer, encoder);
@@ -271,10 +253,7 @@ internal class ViewBuffer : IHtmlContentBuilder
 
     public void CopyTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         for (var i = 0; i < Count; i++)
         {
@@ -303,10 +282,7 @@ internal class ViewBuffer : IHtmlContentBuilder
 
     public void MoveTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         // Perf: We have an efficient implementation when the destination is another view buffer,
         // we can just insert our pages as-is.
@@ -378,20 +354,18 @@ internal class ViewBuffer : IHtmlContentBuilder
                 // Now we can return the source page, and it can be reused in the scope of this request.
                 Array.Clear(page.Buffer, 0, page.Count);
                 _bufferScope.ReturnSegment(page.Buffer);
-
             }
             else
             {
                 // Otherwise, let's just add the source page to the other buffer.
                 destination.AddPage(page);
             }
-
         }
 
         Clear();
     }
 
-    private class EncodingWrapper : IHtmlContent
+    private sealed class EncodingWrapper : IHtmlContent
     {
         private readonly string _unencoded;
 

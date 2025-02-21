@@ -1,10 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 
@@ -48,7 +45,7 @@ public class DictionaryModelBinderProviderTest
             }
             else
             {
-                Assert.False(true, "Not the right model type");
+                Assert.Fail("Not the right model type");
                 return null;
             }
         });

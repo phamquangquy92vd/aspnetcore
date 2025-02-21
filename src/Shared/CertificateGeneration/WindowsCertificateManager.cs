@@ -5,13 +5,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Principal;
 
 namespace Microsoft.AspNetCore.Certificates.Generation;
 
 [SupportedOSPlatform("windows")]
-internal class WindowsCertificateManager : CertificateManager
+internal sealed class WindowsCertificateManager : CertificateManager
 {
     private const int UserCancelledErrorCode = 1223;
 
@@ -28,8 +30,8 @@ internal class WindowsCertificateManager : CertificateManager
     protected override bool IsExportable(X509Certificate2 c)
     {
 #if XPLAT
-            // For the first run experience we don't need to know if the certificate can be exported.
-            return true;
+        // For the first run experience we don't need to know if the certificate can be exported.
+        return true;
 #else
         using var key = c.GetRSAPrivateKey();
         return (key is RSACryptoServiceProvider rsaPrivateKey &&
@@ -39,9 +41,8 @@ internal class WindowsCertificateManager : CertificateManager
 #endif
     }
 
-    internal override CheckCertificateStateResult CheckCertificateState(X509Certificate2 candidate, bool interactive)
+    internal override CheckCertificateStateResult CheckCertificateState(X509Certificate2 candidate)
     {
-        // Return true as we don't perform any check.
         return new CheckCertificateStateResult(true, null);
     }
 
@@ -70,28 +71,25 @@ internal class WindowsCertificateManager : CertificateManager
         return certificate;
     }
 
-    protected override void TrustCertificateCore(X509Certificate2 certificate)
+    protected override TrustLevel TrustCertificateCore(X509Certificate2 certificate)
     {
-        using var publicCertificate = new X509Certificate2(certificate.Export(X509ContentType.Cert));
-
-        publicCertificate.FriendlyName = certificate.FriendlyName;
-
         using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-
         store.Open(OpenFlags.ReadWrite);
-        var existing = store.Certificates.Find(X509FindType.FindByThumbprint, publicCertificate.Thumbprint, validOnly: false);
-        if (existing.Count > 0)
+
+        if (TryFindCertificateInStore(store, certificate, out _))
         {
             Log.WindowsCertificateAlreadyTrusted();
-            DisposeCertificates(existing.OfType<X509Certificate2>());
-            return;
+            return TrustLevel.Full;
         }
 
         try
         {
             Log.WindowsAddCertificateToRootStore();
+
+            using var publicCertificate = X509CertificateLoader.LoadCertificate(certificate.Export(X509ContentType.Cert));
+            publicCertificate.FriendlyName = certificate.FriendlyName;
             store.Add(publicCertificate);
-            store.Close();
+            return TrustLevel.Full;
         }
         catch (CryptographicException exception) when (exception.HResult == UserCancelledErrorCode)
         {
@@ -103,14 +101,11 @@ internal class WindowsCertificateManager : CertificateManager
     protected override void RemoveCertificateFromTrustedRoots(X509Certificate2 certificate)
     {
         Log.WindowsRemoveCertificateFromRootStoreStart();
+
         using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
-
         store.Open(OpenFlags.ReadWrite);
-        var matching = store.Certificates
-            .OfType<X509Certificate2>()
-            .SingleOrDefault(c => c.SerialNumber == certificate.SerialNumber);
 
-        if (matching != null)
+        if (TryFindCertificateInStore(store, certificate, out var matching))
         {
             store.Remove(matching);
         }
@@ -119,18 +114,55 @@ internal class WindowsCertificateManager : CertificateManager
             Log.WindowsRemoveCertificateFromRootStoreNotFound();
         }
 
-        store.Close();
         Log.WindowsRemoveCertificateFromRootStoreEnd();
     }
 
-    public override bool IsTrusted(X509Certificate2 certificate)
+    public override TrustLevel GetTrustLevel(X509Certificate2 certificate)
     {
-        return ListCertificates(StoreName.Root, StoreLocation.CurrentUser, isValid: true, requireExportable: false)
-            .Any(c => c.Thumbprint == certificate.Thumbprint);
+        var isTrusted = ListCertificates(StoreName.Root, StoreLocation.CurrentUser, isValid: true, requireExportable: false)
+            .Any(c => AreCertificatesEqual(c, certificate));
+        return isTrusted ? TrustLevel.Full : TrustLevel.None;
     }
 
     protected override IList<X509Certificate2> GetCertificatesToRemove(StoreName storeName, StoreLocation storeLocation)
     {
         return ListCertificates(storeName, storeLocation, isValid: false);
+    }
+
+    protected override void CreateDirectoryWithPermissions(string directoryPath)
+    {
+        var dirInfo = new DirectoryInfo(directoryPath);
+
+        if (!dirInfo.Exists)
+        {
+            // We trust the default permissions on Windows enough not to apply custom ACLs.
+            // We'll warn below if things seem really off.
+            dirInfo.Create();
+        }
+
+        var currentUser = WindowsIdentity.GetCurrent();
+        var currentUserSid = currentUser.User;
+        var systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, domainSid: null);
+        var adminGroupSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, domainSid: null);
+
+        var dirSecurity = dirInfo.GetAccessControl();
+        var accessRules = dirSecurity.GetAccessRules(true, true, typeof(SecurityIdentifier));
+
+        foreach (FileSystemAccessRule rule in accessRules)
+        {
+            var idRef = rule.IdentityReference;
+            if (rule.AccessControlType == AccessControlType.Allow &&
+                !idRef.Equals(currentUserSid) &&
+                !idRef.Equals(systemSid) &&
+                !idRef.Equals(adminGroupSid))
+            {
+                // This is just a heuristic - determining whether the cumulative effect of the rules
+                // is to allow access to anyone other than the current user, system, or administrators
+                // is very complicated.  We're not going to do anything but log, so an approximation
+                // is fine.
+                Log.DirectoryPermissionsNotSecure(dirInfo.FullName);
+                break;
+            }
+        }
     }
 }

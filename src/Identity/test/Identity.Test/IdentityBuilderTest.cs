@@ -1,16 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Identity.Test;
 
@@ -33,6 +27,18 @@ public class IdentityBuilderTest
     }
 
     [Fact]
+    public void IdentityBuilder_ValueTypeUser_Error()
+    {
+        Assert.Throws<ArgumentException>(() => new IdentityBuilder(typeof(int), new ServiceCollection()));
+    }
+
+    [Fact]
+    public void IdentityBuilder_ValueTypeRole_Error()
+    {
+        Assert.Throws<ArgumentException>(() => new IdentityBuilder(typeof(PocoUser), typeof(int), new ServiceCollection()));
+    }
+
+    [Fact]
     public void AddRolesWithoutStoreWillError()
     {
         var services = new ServiceCollection();
@@ -43,7 +49,6 @@ public class IdentityBuilderTest
         Assert.Null(sp.GetService<IRoleStore<PocoRole>>());
         Assert.Throws<InvalidOperationException>(() => sp.GetService<RoleManager<PocoRole>>());
     }
-
 
     [Fact]
     public void CanOverrideUserStore()
@@ -189,6 +194,45 @@ public class IdentityBuilderTest
 
         Assert.IsType<RoleManager<PocoRole>>(provider.GetRequiredService<RoleManager<PocoRole>>());
         Assert.IsType<UserManager<PocoUser>>(provider.GetRequiredService<UserManager<PocoUser>>());
+    }
+
+    [Fact]
+    public void EnsureDefaultSignInManagerDependenciesForIdentity()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddLogging()
+            .AddIdentity<PocoUser, PocoRole>()
+            .AddUserStore<NoopUserStore>()
+            .AddRoleStore<NoopRoleStore>()
+            .AddSignInManager<MySignInManager>();
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.IsType<MySignInManager>(provider.GetRequiredService<SignInManager<PocoUser>>());
+        Assert.IsType<SecurityStampValidator<PocoUser>>(provider.GetRequiredService<ISecurityStampValidator>());
+        Assert.IsType<TwoFactorSecurityStampValidator<PocoUser>>(provider.GetRequiredService<ITwoFactorSecurityStampValidator>());
+        Assert.NotNull(provider.GetService<IOptions<SecurityStampValidatorOptions>>());
+    }
+
+    [Fact]
+    public void EnsureDefaultSignInManagerDependenciesForIdentityCore()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddLogging()
+            .AddIdentityCore<PocoUser>()
+            .AddRoles<PocoRole>()
+            .AddUserStore<NoopUserStore>()
+            .AddRoleStore<NoopRoleStore>()
+            .AddSignInManager<MySignInManager>();
+
+        var provider = services.BuildServiceProvider();
+
+        Assert.IsType<MySignInManager>(provider.GetRequiredService<SignInManager<PocoUser>>());
+        Assert.IsType<SecurityStampValidator<PocoUser>>(provider.GetRequiredService<ISecurityStampValidator>());
+        Assert.IsType<TwoFactorSecurityStampValidator<PocoUser>>(provider.GetRequiredService<ITwoFactorSecurityStampValidator>());
+        Assert.NotNull(provider.GetService<IOptions<SecurityStampValidatorOptions>>());
     }
 
     [Fact]

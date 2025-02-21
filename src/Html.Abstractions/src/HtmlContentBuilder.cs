@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Text.Encodings.Web;
 
 namespace Microsoft.AspNetCore.Html;
@@ -45,10 +42,7 @@ public class HtmlContentBuilder : IHtmlContentBuilder
     /// </param>
     public HtmlContentBuilder(IList<object> entries)
     {
-        if (entries == null)
-        {
-            throw new ArgumentNullException(nameof(entries));
-        }
+        ArgumentNullException.ThrowIfNull(entries);
 
         Entries = entries;
     }
@@ -106,10 +100,7 @@ public class HtmlContentBuilder : IHtmlContentBuilder
     /// <inheritdoc />
     public void CopyTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         var count = Entries.Count;
         for (var i = 0; i < count; i++)
@@ -136,10 +127,7 @@ public class HtmlContentBuilder : IHtmlContentBuilder
     /// <inheritdoc />
     public void MoveTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         var count = Entries.Count;
         for (var i = 0; i < count; i++)
@@ -168,15 +156,8 @@ public class HtmlContentBuilder : IHtmlContentBuilder
     /// <inheritdoc />
     public void WriteTo(TextWriter writer, HtmlEncoder encoder)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (encoder == null)
-        {
-            throw new ArgumentNullException(nameof(encoder));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
 
         var count = Entries.Count;
         for (var i = 0; i < count; i++)

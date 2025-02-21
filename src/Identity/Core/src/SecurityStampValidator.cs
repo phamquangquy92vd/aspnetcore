@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,20 +23,35 @@ public class SecurityStampValidator<TUser> : ISecurityStampValidator where TUser
     /// <param name="signInManager">The <see cref="SignInManager{TUser}"/>.</param>
     /// <param name="clock">The system clock.</param>
     /// <param name="logger">The logger.</param>
+    [Obsolete("ISystemClock is obsolete, use TimeProvider on SecurityStampValidatorOptions instead.")]
     public SecurityStampValidator(IOptions<SecurityStampValidatorOptions> options, SignInManager<TUser> signInManager, ISystemClock clock, ILoggerFactory logger)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-        if (signInManager == null)
-        {
-            throw new ArgumentNullException(nameof(signInManager));
-        }
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(signInManager);
         SignInManager = signInManager;
         Options = options.Value;
-        Clock = clock;
-        Logger = logger.CreateLogger(this.GetType().FullName);
+        TimeProvider = Options.TimeProvider ?? TimeProvider.System;
+        Clock = new TimeProviderClock(TimeProvider);
+        Logger = logger.CreateLogger(GetType());
+    }
+
+    /// <summary>
+    /// Creates a new instance of <see cref="SecurityStampValidator{TUser}"/>.
+    /// </summary>
+    /// <param name="options">Used to access the <see cref="IdentityOptions"/>.</param>
+    /// <param name="signInManager">The <see cref="SignInManager{TUser}"/>.</param>
+    /// <param name="logger">The logger.</param>
+    public SecurityStampValidator(IOptions<SecurityStampValidatorOptions> options, SignInManager<TUser> signInManager, ILoggerFactory logger)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(signInManager);
+        SignInManager = signInManager;
+        Options = options.Value;
+        TimeProvider = Options.TimeProvider ?? TimeProvider.System;
+#pragma warning disable CS0618 // Type or member is obsolete
+        Clock = new TimeProviderClock(TimeProvider);
+#pragma warning restore CS0618 // Type or member is obsolete
+        Logger = logger.CreateLogger(GetType());
     }
 
     /// <summary>
@@ -54,7 +67,13 @@ public class SecurityStampValidator<TUser> : ISecurityStampValidator where TUser
     /// <summary>
     /// The <see cref="ISystemClock"/>.
     /// </summary>
+    [Obsolete("ISystemClock is obsolete, use TimeProvider instead.")]
     public ISystemClock Clock { get; }
+
+    /// <summary>
+    /// The <see cref="System.TimeProvider"/>.
+    /// </summary>
+    public TimeProvider TimeProvider { get; }
 
     /// <summary>
     /// Gets the <see cref="ILogger"/> used to log messages.
@@ -95,7 +114,7 @@ public class SecurityStampValidator<TUser> : ISecurityStampValidator where TUser
         {
             // On renewal calculate the new ticket length relative to now to avoid
             // extending the expiration.
-            context.Properties.IssuedUtc = Clock.UtcNow;
+            context.Properties.IssuedUtc = TimeProvider.GetUtcNow();
         }
     }
 
@@ -104,7 +123,7 @@ public class SecurityStampValidator<TUser> : ISecurityStampValidator where TUser
     /// </summary>
     /// <param name="principal">The principal to verify.</param>
     /// <returns>The verified user or null if verification fails.</returns>
-    protected virtual Task<TUser> VerifySecurityStamp(ClaimsPrincipal principal)
+    protected virtual Task<TUser?> VerifySecurityStamp(ClaimsPrincipal? principal)
         => SignInManager.ValidateSecurityStampAsync(principal);
 
     /// <summary>
@@ -116,11 +135,7 @@ public class SecurityStampValidator<TUser> : ISecurityStampValidator where TUser
     /// <returns>The <see cref="Task"/> that represents the asynchronous validation operation.</returns>
     public virtual async Task ValidateAsync(CookieValidatePrincipalContext context)
     {
-        var currentUtc = DateTimeOffset.UtcNow;
-        if (Clock != null)
-        {
-            currentUtc = Clock.UtcNow;
-        }
+        var currentUtc = TimeProvider.GetUtcNow();
         var issuedUtc = context.Properties.IssuedUtc;
 
         // Only validate if enough time has elapsed

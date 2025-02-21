@@ -1,11 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -17,7 +16,9 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 
+#pragma warning disable CA1852 // Seal internal types
 internal class DefaultApplicationModelProvider : IApplicationModelProvider
+#pragma warning restore CA1852 // Seal internal types
 {
     private readonly MvcOptions _mvcOptions;
     private readonly IModelMetadataProvider _modelMetadataProvider;
@@ -41,10 +42,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
     /// <inheritdoc />
     public void OnProvidersExecuting(ApplicationModelProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         foreach (var filter in _mvcOptions.Filters)
         {
@@ -108,12 +106,9 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
     /// </summary>
     /// <param name="typeInfo">The <see cref="TypeInfo"/>.</param>
     /// <returns>A <see cref="ControllerModel"/> for the given <see cref="TypeInfo"/>.</returns>
-    internal ControllerModel CreateControllerModel(TypeInfo typeInfo)
+    internal static ControllerModel CreateControllerModel(TypeInfo typeInfo)
     {
-        if (typeInfo == null)
-        {
-            throw new ArgumentNullException(nameof(typeInfo));
-        }
+        ArgumentNullException.ThrowIfNull(typeInfo);
 
         // For attribute routes on a controller, we want to support 'overriding' routes on a derived
         // class. So we need to walk up the hierarchy looking for the first class to define routes.
@@ -215,10 +210,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
     /// <returns>A <see cref="PropertyModel"/> for the given <see cref="PropertyInfo"/>.</returns>
     internal PropertyModel CreatePropertyModel(PropertyInfo propertyInfo)
     {
-        if (propertyInfo == null)
-        {
-            throw new ArgumentNullException(nameof(propertyInfo));
-        }
+        ArgumentNullException.ThrowIfNull(propertyInfo);
 
         var attributes = propertyInfo.GetCustomAttributes(inherit: true);
 
@@ -265,15 +257,8 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
         TypeInfo typeInfo,
         MethodInfo methodInfo)
     {
-        if (typeInfo == null)
-        {
-            throw new ArgumentNullException(nameof(typeInfo));
-        }
-
-        if (methodInfo == null)
-        {
-            throw new ArgumentNullException(nameof(methodInfo));
-        }
+        ArgumentNullException.ThrowIfNull(typeInfo);
+        ArgumentNullException.ThrowIfNull(methodInfo);
 
         if (!IsAction(typeInfo, methodInfo))
         {
@@ -365,7 +350,39 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
         applicableAttributes.AddRange(routeAttributes);
         AddRange(actionModel.Selectors, CreateSelectors(applicableAttributes));
 
+        AddReturnTypeMetadata(actionModel.Selectors, methodInfo);
+
         return actionModel;
+    }
+
+    internal static void AddReturnTypeMetadata(IList<SelectorModel> selectors, MethodInfo methodInfo)
+    {
+        // Get metadata from return type
+        var returnType = methodInfo.ReturnType;
+        if (CoercedAwaitableInfo.IsTypeAwaitable(returnType, out var coercedAwaitableInfo))
+        {
+            returnType = coercedAwaitableInfo.AwaitableInfo.ResultType;
+        }
+
+        if (returnType is not null && typeof(IEndpointMetadataProvider).IsAssignableFrom(returnType))
+        {
+            // Return type implements IEndpointMetadataProvider
+            var builder = new InertEndpointBuilder();
+            var invokeArgs = new object[2];
+            invokeArgs[0] = methodInfo;
+            invokeArgs[1] = builder;
+            EndpointMetadataPopulator.PopulateMetadataForEndpointMethod.MakeGenericMethod(returnType).Invoke(null, invokeArgs);
+
+            // The metadata is added to the builder's metadata collection.
+            // We need to populate the selectors with that metadata.
+            foreach (var metadata in builder.Metadata)
+            {
+                foreach (var selector in selectors)
+                {
+                    selector.EndpointMetadata.Add(metadata);
+                }
+            }
+        }
     }
 
     private string CanonicalizeActionName(string actionName)
@@ -390,17 +407,10 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
     /// <remarks>
     /// Override this method to provide custom logic to determine which methods are considered actions.
     /// </remarks>
-    internal bool IsAction(TypeInfo typeInfo, MethodInfo methodInfo)
+    internal static bool IsAction(TypeInfo typeInfo, MethodInfo methodInfo)
     {
-        if (typeInfo == null)
-        {
-            throw new ArgumentNullException(nameof(typeInfo));
-        }
-
-        if (methodInfo == null)
-        {
-            throw new ArgumentNullException(nameof(methodInfo));
-        }
+        ArgumentNullException.ThrowIfNull(typeInfo);
+        ArgumentNullException.ThrowIfNull(methodInfo);
 
         // The SpecialName bit is set to flag members that are treated in a special way by some compilers
         // (such as property accessors and operator overloading methods).
@@ -456,10 +466,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
     /// <returns>A <see cref="ParameterModel"/> for the given <see cref="ParameterInfo"/>.</returns>
     internal ParameterModel CreateParameterModel(ParameterInfo parameterInfo)
     {
-        if (parameterInfo == null)
-        {
-            throw new ArgumentNullException(nameof(parameterInfo));
-        }
+        ArgumentNullException.ThrowIfNull(parameterInfo);
 
         var attributes = parameterInfo.GetCustomAttributes(inherit: true);
 
@@ -484,7 +491,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
         return parameterModel;
     }
 
-    private IList<SelectorModel> CreateSelectors(IList<object> attributes)
+    private static IList<SelectorModel> CreateSelectors(IList<object> attributes)
     {
         // Route attributes create multiple selector models, we want to split the set of
         // attributes based on these so each selector only has the attributes that affect it.
@@ -670,7 +677,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
         return selectorModel;
     }
 
-    private bool IsIDisposableMethod(MethodInfo methodInfo)
+    private static bool IsIDisposableMethod(MethodInfo methodInfo)
     {
         // Ideally we do not want Dispose method to be exposed as an action. However there are some scenarios where a user
         // might want to expose a method with name "Dispose" (even though they might not be really disposing resources)
@@ -686,7 +693,7 @@ internal class DefaultApplicationModelProvider : IApplicationModelProvider
              declaringType.GetInterfaceMap(typeof(IDisposable)).TargetMethods[0] == baseMethodInfo);
     }
 
-    private bool IsSilentRouteAttribute(IRouteTemplateProvider routeTemplateProvider)
+    private static bool IsSilentRouteAttribute(IRouteTemplateProvider routeTemplateProvider)
     {
         return
             routeTemplateProvider.Template == null &&

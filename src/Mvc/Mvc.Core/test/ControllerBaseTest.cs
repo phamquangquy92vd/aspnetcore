@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
@@ -17,14 +12,13 @@ using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc;
 
@@ -112,29 +106,33 @@ public class ControllerBaseTest
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void Redirect_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void Redirect_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.Redirect(url: url), "url");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.Redirect(url: url),
+            "url",
+            expectedMessage);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void RedirectPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void RedirectPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.RedirectPreserveMethod(url: url), "url");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.RedirectPreserveMethod(url: url),
+            "url",
+            expectedMessage);
     }
 
     [Fact]
@@ -206,68 +204,78 @@ public class ControllerBaseTest
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void LocalRedirect_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void LocalRedirect_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.LocalRedirect(localUrl: url), "localUrl");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.LocalRedirect(localUrl: url),
+            "localUrl",
+            expectedMessage);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void LocalRedirectPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void LocalRedirectPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.LocalRedirectPreserveMethod(localUrl: url), "localUrl");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.LocalRedirectPreserveMethod(localUrl: url),
+            "localUrl",
+            expectedMessage);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void LocalRedirectPermanentPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void LocalRedirectPermanentPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.LocalRedirectPermanentPreserveMethod(localUrl: url), "localUrl");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.LocalRedirectPermanentPreserveMethod(localUrl: url),
+            "localUrl",
+            expectedMessage);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void RedirectPermanent_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void RedirectPermanent_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.RedirectPermanent(url: url), "url");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.RedirectPermanent(url: url),
+            "url",
+            expectedMessage);
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void RedirectPermanentPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url)
+    [InlineData(null, "Value cannot be null.")]
+    [InlineData("", "The value cannot be an empty string.")]
+    public void RedirectPermanentPreserveMethod_WithParameter_NullOrEmptyUrl_Throws(string url, string expectedMessage)
     {
         // Arrange
         var controller = new TestableController();
 
         // Act & Assert
-        ExceptionAssert.ThrowsArgumentNullOrEmpty(
-            () => controller.RedirectPermanentPreserveMethod(url: url), "url");
+        ExceptionAssert.ThrowsArgument(
+            () => controller.RedirectPermanentPreserveMethod(url: url),
+            "url",
+            expectedMessage);
     }
 
     [Fact]
@@ -1294,6 +1302,21 @@ public class ControllerBaseTest
     }
 
     [Fact]
+    public void Created_WithNullStringParameter_CreatedLocationNull()
+    {
+        // Arrange
+        var controller = new TestableController();
+
+        // Act
+        var result = controller.Created((string)null, null);
+
+        // Assert
+        Assert.IsType<CreatedResult>(result);
+        Assert.Equal(StatusCodes.Status201Created, result.StatusCode);
+        Assert.Null(result.Location);
+    }
+
+    [Fact]
     public void Created_WithAbsoluteUriParameter_SetsCreatedLocation()
     {
         // Arrange
@@ -1307,6 +1330,21 @@ public class ControllerBaseTest
         Assert.IsType<CreatedResult>(result);
         Assert.Equal(StatusCodes.Status201Created, result.StatusCode);
         Assert.Equal(uri.OriginalString, result.Location);
+    }
+
+    [Fact]
+    public void Created_WithNullUriParameter_CreatedLocationNull()
+    {
+        // Arrange
+        var controller = new TestableController();
+
+        // Act
+        var result = controller.Created((Uri)null, null);
+
+        // Assert
+        Assert.IsType<CreatedResult>(result);
+        Assert.Equal(StatusCodes.Status201Created, result.StatusCode);
+        Assert.Null(result.Location);
     }
 
     [Fact]
@@ -2319,7 +2357,7 @@ public class ControllerBaseTest
         Assert.Equal(400, badRequestResult.StatusCode);
         Assert.Equal(400, problemDetails.Status);
         Assert.Equal("One or more validation errors occurred.", problemDetails.Title);
-        Assert.Equal("https://tools.ietf.org/html/rfc7231#section-6.5.1", problemDetails.Type);
+        Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.5.1", problemDetails.Type);
         Assert.Equal("some-trace", problemDetails.Extensions["traceId"]);
         Assert.Equal(new[] { "error1" }, problemDetails.Errors["key1"]);
     }
@@ -2392,6 +2430,27 @@ public class ControllerBaseTest
     }
 
     [Fact]
+    public void ValidationProblemDetails_UsesSpecifiedExtensions()
+    {
+        // Arrange
+        var options = GetApiBehaviorOptions();
+
+        var controller = new TestableController
+        {
+            ProblemDetailsFactory = new DefaultProblemDetailsFactory(Options.Create(options)),
+        };
+
+        // Act
+        var actionResult = controller.ValidationProblem(extensions: new Dictionary<string, object> { { "ext1", 1 }, { "ext2", 2 } });
+
+        // Assert
+        var objectResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        var problemDetails = Assert.IsType<ValidationProblemDetails>(objectResult.Value);
+        Assert.Equal(1, problemDetails.Extensions["ext1"]);
+        Assert.Equal(2, problemDetails.Extensions["ext2"]);
+    }
+
+    [Fact]
     public void ProblemDetails_Works()
     {
         // Arrange
@@ -2417,7 +2476,7 @@ public class ControllerBaseTest
         Assert.Equal(500, actionResult.StatusCode);
         Assert.Equal(500, problemDetails.Status);
         Assert.Equal("An error occurred while processing your request.", problemDetails.Title);
-        Assert.Equal("https://tools.ietf.org/html/rfc7231#section-6.6.1", problemDetails.Type);
+        Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type);
         Assert.Equal("some-trace", problemDetails.Extensions["traceId"]);
     }
 
@@ -2443,8 +2502,29 @@ public class ControllerBaseTest
         Assert.Equal(500, actionResult.StatusCode);
         Assert.Equal(500, problemDetails.Status);
         Assert.Equal(title, problemDetails.Title);
-        Assert.Equal("https://tools.ietf.org/html/rfc7231#section-6.6.1", problemDetails.Type);
+        Assert.Equal("https://tools.ietf.org/html/rfc9110#section-15.6.1", problemDetails.Type);
         Assert.Equal(detail, problemDetails.Detail);
+    }
+
+    [Fact]
+    public void ProblemDetails_UsesPassedInExtensions()
+    {
+        // Arrange
+        var options = GetApiBehaviorOptions();
+
+        var controller = new TestableController
+        {
+            ProblemDetailsFactory = new DefaultProblemDetailsFactory(Options.Create(options)),
+        };
+
+        // Act
+        var actionResult = controller.Problem(extensions: new Dictionary<string, object> { { "ext1", 1 }, { "ext2", 2 } });
+
+        // Assert
+        var badRequestResult = Assert.IsType<ObjectResult>(actionResult);
+        var problemDetails = Assert.IsType<ProblemDetails>(badRequestResult.Value);
+        Assert.Equal(1, problemDetails.Extensions["ext1"]);
+        Assert.Equal(2, problemDetails.Extensions["ext2"]);
     }
 
     [Fact]
@@ -2479,7 +2559,7 @@ public class ControllerBaseTest
                     [400] = new ClientErrorData
                     {
                         Title = "One or more validation errors occurred.",
-                        Link = "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+                        Link = "https://tools.ietf.org/html/rfc9110#section-15.5.1"
                     },
                     [422] = new ClientErrorData
                     {
@@ -2489,7 +2569,7 @@ public class ControllerBaseTest
                     [500] = new ClientErrorData
                     {
                         Title = "An error occurred while processing your request.",
-                        Link = "https://tools.ietf.org/html/rfc7231#section-6.6.1"
+                        Link = "https://tools.ietf.org/html/rfc9110#section-15.6.1"
                     }
                 }
         };
@@ -2536,9 +2616,9 @@ public class ControllerBaseTest
             Assert.Empty(context.ModelName);
             Assert.Same(valueProvider, Assert.IsType<CompositeValueProvider>(context.ValueProvider)[0]);
 
-                // Include and exclude should be null, resulting in property
-                // being included.
-                Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
+            // Include and exclude should be null, resulting in property
+            // being included.
+            Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
             Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property2"]));
         });
 
@@ -2564,9 +2644,9 @@ public class ControllerBaseTest
         {
             Assert.Same(valueProvider, Assert.IsType<CompositeValueProvider>(context.ValueProvider)[0]);
 
-                // Include and exclude should be null, resulting in property
-                // being included.
-                Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
+            // Include and exclude should be null, resulting in property
+            // being included.
+            Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
             Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property2"]));
         });
 
@@ -2591,9 +2671,9 @@ public class ControllerBaseTest
               {
                   Assert.Same(valueProvider, context.ValueProvider);
 
-                      // Include and exclude should be null, resulting in property
-                      // being included.
-                      Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
+                  // Include and exclude should be null, resulting in property
+                  // being included.
+                  Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
                   Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property2"]));
               });
 
@@ -2721,7 +2801,6 @@ public class ControllerBaseTest
             Assert.False(context.PropertyFilter(context.ModelMetadata.Properties["Exclude2"]));
         });
 
-
         var controller = GetController(binder, valueProvider.Object);
         var model = new MyModel();
 
@@ -2735,8 +2814,7 @@ public class ControllerBaseTest
     [Theory]
     [InlineData("")]
     [InlineData("prefix")]
-    public async Task
-        TryUpdateModel_IncludeExpressionWithValueProviderOverload_UsesPassedArguments(string prefix)
+    public async Task TryUpdateModel_IncludeExpressionWithValueProviderOverload_UsesPassedArguments(string prefix)
     {
         // Arrange
         var valueProvider = new Mock<IValueProvider>();
@@ -2764,6 +2842,57 @@ public class ControllerBaseTest
         // Assert
         Assert.NotEqual(0, binder.BindModelCount);
     }
+
+#nullable enable
+    [Fact]
+    public async Task TryUpdateModel_SupportsNullableExpressions()
+    {
+        // Arrange
+        var valueProvider = new Mock<IValueProvider>();
+        valueProvider.Setup(v => v.ContainsPrefix(""))
+            .Returns(true);
+
+        StubModelBinder CreateBinder() => new StubModelBinder(context =>
+        {
+            Assert.Same(
+                valueProvider.Object,
+                Assert.IsType<CompositeValueProvider>(context.ValueProvider)[0]);
+
+            Assert.NotNull(context.PropertyFilter);
+
+            bool InvokePropertyFilter(string propertyName)
+            {
+                var modelMetadata = context.ModelMetadata.Properties[propertyName];
+                Assert.NotNull(modelMetadata);
+                return context.PropertyFilter!(modelMetadata!);
+            }
+
+            Assert.True(InvokePropertyFilter("Include"));
+            Assert.False(InvokePropertyFilter("Exclude"));
+        });
+
+        var binder1 = CreateBinder();
+        var controller1 = GetController(binder1, valueProvider.Object);
+        var model1 = new MyNullableModel();
+
+        // Act
+        await controller1.TryUpdateModelAsync(model1, prefix: "", m => m.Include);
+
+        // Assert
+        Assert.NotEqual(0, binder1.BindModelCount);
+
+        // Arrange (IModelBinder overload)
+        var binder2 = CreateBinder();
+        var controller2 = GetController(binder2, valueProvider.Object);
+        var model2 = new MyNullableModel();
+
+        // Act (IModelBinder overload)
+        await controller2.TryUpdateModelAsync(model2, prefix: "", m => m.Include);
+
+        // Assert (IModelBinder overload)
+        Assert.NotEqual(0, binder2.BindModelCount);
+    }
+#nullable restore
 
     [Fact]
     public async Task TryUpdateModelNonGeneric_PropertyFilterWithValueProviderOverload_UsesPassedArguments()
@@ -2811,9 +2940,9 @@ public class ControllerBaseTest
         {
             Assert.Same(valueProvider, Assert.IsType<CompositeValueProvider>(context.ValueProvider)[0]);
 
-                // Include and exclude should be null, resulting in property
-                // being included.
-                Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
+            // Include and exclude should be null, resulting in property
+            // being included.
+            Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
             Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property2"]));
         });
 
@@ -2839,9 +2968,9 @@ public class ControllerBaseTest
         {
             Assert.Same(valueProvider, Assert.IsType<CompositeValueProvider>(context.ValueProvider)[0]);
 
-                // Include and exclude should be null, resulting in property
-                // being included.
-                Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
+            // Include and exclude should be null, resulting in property
+            // being included.
+            Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property1"]));
             Assert.True(context.PropertyFilter(context.ModelMetadata.Properties["Property2"]));
         });
 
@@ -3121,11 +3250,19 @@ public class ControllerBaseTest
         public string Property3 { get; set; }
     }
 
+#nullable enable
+    private class MyNullableModel
+    {
+        public string? Include { get; set; }
+
+        public string? Exclude { get; set; }
+    }
+#nullable restore
+
     private class TryValidateModelModel
     {
         public int IntegerProperty { get; set; }
     }
-
 
     private class TestableController : ControllerBase
     {

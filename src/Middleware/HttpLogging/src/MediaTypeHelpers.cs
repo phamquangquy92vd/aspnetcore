@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Microsoft.Net.Http.Headers;
@@ -20,6 +18,7 @@ internal static class MediaTypeHelpers
             Encoding.Latin1 // TODO allowed by default? Make this configurable?
         };
 
+    // TODO Binary format https://github.com/dotnet/aspnetcore/issues/31884
     public static bool TryGetEncodingForMediaType(string? contentType, List<MediaTypeState> mediaTypeList, [NotNullWhen(true)] out Encoding? encoding)
     {
         encoding = null;
@@ -33,16 +32,23 @@ internal static class MediaTypeHelpers
             return false;
         }
 
-        if (mediaType.Charset.HasValue)
+        foreach (var state in mediaTypeList)
         {
-            // Create encoding based on charset
-            var requestEncoding = mediaType.Encoding;
-
-            if (requestEncoding != null)
+            var type = state.MediaTypeHeaderValue;
+            if (type.MatchesMediaType(mediaType.MediaType))
             {
+                encoding = mediaType.Encoding;
+                if (encoding == null)
+                {
+                    // No encoding specified, use the default.
+                    encoding = state.Encoding!;
+                    return true;
+                }
+
+                // Only allow specific encodings.
                 for (var i = 0; i < SupportedEncodings.Count; i++)
                 {
-                    if (string.Equals(requestEncoding.WebName,
+                    if (string.Equals(encoding.WebName,
                         SupportedEncodings[i].WebName,
                         StringComparison.OrdinalIgnoreCase))
                     {
@@ -50,20 +56,8 @@ internal static class MediaTypeHelpers
                         return true;
                     }
                 }
-            }
-        }
-        else
-        {
-            // TODO Binary format https://github.com/dotnet/aspnetcore/issues/31884
-            foreach (var state in mediaTypeList)
-            {
-                var type = state.MediaTypeHeaderValue;
-                if (type.MatchesMediaType(mediaType.MediaType))
-                {
-                    // We always set encoding
-                    encoding = state.Encoding!;
-                    return true;
-                }
+
+                break;
             }
         }
 

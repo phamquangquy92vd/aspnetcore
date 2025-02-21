@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.DirectoryServices.Protocols;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -83,10 +82,7 @@ public class LdapSettings
     {
         if (EnableLdapClaimResolution)
         {
-            if (string.IsNullOrEmpty(Domain))
-            {
-                throw new ArgumentException($"{nameof(EnableLdapClaimResolution)} is set to true but {nameof(Domain)} is not set.");
-            }
+            ArgumentException.ThrowIfNullOrEmpty(Domain);
 
             if (string.IsNullOrEmpty(MachineAccountName) && !string.IsNullOrEmpty(MachineAccountPassword))
             {

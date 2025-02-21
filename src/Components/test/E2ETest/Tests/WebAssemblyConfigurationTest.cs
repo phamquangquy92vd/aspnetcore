@@ -2,13 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using BasicTestApp;
-using Microsoft.AspNetCore.Components.E2ETest;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
-using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.Tests;
@@ -30,7 +27,7 @@ public class WebAssemblyConfigurationTest : ServerTestBase<BlazorWasmTestAppFixt
     {
         base.InitializeAsyncCore();
 
-        Navigate(ServerPathBase, noReload: false);
+        Navigate(ServerPathBase);
         _appElement = Browser.MountTestComponent<ConfigurationComponent>();
     }
 
@@ -40,8 +37,11 @@ public class WebAssemblyConfigurationTest : ServerTestBase<BlazorWasmTestAppFixt
         // Verify values from the default 'appsettings.json' are read.
         Browser.Equal("Default key1-value", () => _appElement.FindElement(By.Id("key1")).Text);
 
-        if (_serverFixture.TestTrimmedApps)
+        if (_serverFixture.TestTrimmedOrMultithreadingApps)
         {
+            // Verify that the environment gets detected as 'Production'.
+            Browser.Equal("Production", () => _appElement.FindElement(By.Id("environment")).Text);
+
             // Verify values overriden by an environment specific 'appsettings.$(Environment).json are read
             Assert.Equal("Prod key2-value", _appElement.FindElement(By.Id("key2")).Text);
 
@@ -50,6 +50,9 @@ public class WebAssemblyConfigurationTest : ServerTestBase<BlazorWasmTestAppFixt
         }
         else
         {
+            // Verify that the dev server always correctly serves the 'Blazor-Environment: Development' header.
+            Browser.Equal("Development", () => _appElement.FindElement(By.Id("environment")).Text);
+
             // Verify values overriden by an environment specific 'appsettings.$(Environment).json are read
             Assert.Equal("Development key2-value", _appElement.FindElement(By.Id("key2")).Text);
 

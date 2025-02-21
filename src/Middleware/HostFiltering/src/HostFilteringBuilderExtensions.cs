@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.HostFiltering;
 
 namespace Microsoft.AspNetCore.Builder;
@@ -19,10 +18,7 @@ public static class HostFilteringBuilderExtensions
     /// <returns>The original <see cref="IApplicationBuilder"/>.</returns>
     public static IApplicationBuilder UseHostFiltering(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         app.UseMiddleware<HostFilteringMiddleware>();
 

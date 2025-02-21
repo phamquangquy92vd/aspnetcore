@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
@@ -95,6 +92,9 @@ internal sealed class HttpResponsePipeWriter : PipeWriter
             _state = HttpStreamState.Aborted;
         }
     }
+
+    public override bool CanGetUnflushedBytes => true;
+    public override long UnflushedBytes => _pipeControl.UnflushedBytes;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ValidateState(CancellationToken cancellationToken = default)
