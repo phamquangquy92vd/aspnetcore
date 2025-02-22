@@ -1,6 +1,4 @@
 #nullable enable
-*REMOVED*abstract Microsoft.AspNetCore.Http.HttpResponse.ContentType.get -> string!
-Microsoft.AspNetCore.Http.Metadata.IFromFormMetadata
-Microsoft.AspNetCore.Http.Metadata.IFromFormMetadata.Name.get -> string?
-abstract Microsoft.AspNetCore.Http.HttpResponse.ContentType.get -> string?
-Microsoft.AspNetCore.Http.Metadata.ISkipStatusCodePagesMetadata
+Microsoft.AspNetCore.Http.ProducesResponseTypeMetadata.Description.get -> string?
+Microsoft.AspNetCore.Http.ProducesResponseTypeMetadata.Description.set -> void
+Microsoft.AspNetCore.Http.Metadata.IProducesResponseTypeMetadata.Description.get -> string?

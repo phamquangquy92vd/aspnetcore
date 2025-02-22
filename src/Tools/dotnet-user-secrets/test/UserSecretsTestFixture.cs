@@ -36,7 +36,7 @@ public class UserSecretsTestFixture : IDisposable
     private const string ProjectTemplate = @"<Project ToolsVersion=""15.0"" Sdk=""Microsoft.NET.Sdk"">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     {0}
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
@@ -68,8 +68,8 @@ public class UserSecretsTestFixture : IDisposable
         {
             try
             {
-                    // may throw if id is bad
-                    var secretsDir = Path.GetDirectoryName(PathHelper.GetSecretsPathFromSecretsId(id));
+                // may throw if id is bad
+                var secretsDir = Path.GetDirectoryName(PathHelper.GetSecretsPathFromSecretsId(id));
                 TryDelete(secretsDir);
             }
             catch { }

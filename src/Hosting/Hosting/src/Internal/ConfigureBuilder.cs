@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
@@ -9,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Hosting;
 
-internal class ConfigureBuilder
+internal sealed class ConfigureBuilder
 {
     public ConfigureBuilder(MethodInfo configure)
     {
@@ -44,7 +43,7 @@ internal class ConfigureBuilder
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception(string.Format(
+                        throw new InvalidOperationException(string.Format(
                             CultureInfo.InvariantCulture,
                             "Could not resolve a service of type '{0}' for the parameter '{1}' of method '{2}' on type '{3}'.",
                             parameterInfo.ParameterType.FullName,

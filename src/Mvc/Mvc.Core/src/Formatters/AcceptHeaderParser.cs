@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using Microsoft.AspNetCore.Http.Headers;
+using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters;
 
@@ -20,15 +18,8 @@ internal static class AcceptHeaderParser
 
     public static void ParseAcceptHeader(IList<string> acceptHeaders, IList<MediaTypeSegmentWithQuality> parsedValues)
     {
-        if (acceptHeaders == null)
-        {
-            throw new ArgumentNullException(nameof(acceptHeaders));
-        }
-
-        if (parsedValues == null)
-        {
-            throw new ArgumentNullException(nameof(parsedValues));
-        }
+        ArgumentNullException.ThrowIfNull(acceptHeaders);
+        ArgumentNullException.ThrowIfNull(parsedValues);
         for (var i = 0; i < acceptHeaders.Count; i++)
         {
             var charIndex = 0;
@@ -70,7 +61,7 @@ internal static class AcceptHeaderParser
             return true;
         }
 
-        var currentIndex = GetNextNonEmptyOrWhitespaceIndex(value, index, out var separatorFound);
+        var currentIndex = GetNextNonEmptyOrWhitespaceIndex(value, index, out _);
 
         if (currentIndex == value.Length)
         {
@@ -86,7 +77,7 @@ internal static class AcceptHeaderParser
         // In case we don't find the next separator, we simply advance the cursor to the
         // end of the string to signal that we are done parsing.
         var result = default(MediaTypeSegmentWithQuality);
-        var length = 0;
+        int length;
         try
         {
             length = GetMediaTypeWithQualityLength(value, currentIndex, out result);
@@ -110,7 +101,7 @@ internal static class AcceptHeaderParser
         }
 
         currentIndex = currentIndex + length;
-        currentIndex = GetNextNonEmptyOrWhitespaceIndex(value, currentIndex, out separatorFound);
+        currentIndex = GetNextNonEmptyOrWhitespaceIndex(value, currentIndex, out var separatorFound);
 
         // If we've not reached the end of the string, then we must have a separator.
         // E. g application/json, text/plain <- We must be at ',' otherwise, we've failed parsing.
@@ -134,7 +125,7 @@ internal static class AcceptHeaderParser
         Debug.Assert(startIndex <= input.Length); // it's OK if index == value.Length.
 
         separatorFound = false;
-        var current = startIndex + HttpTokenParsingRules.GetWhitespaceLength(input, startIndex);
+        var current = startIndex + HttpRuleParser.GetWhitespaceLength(input, startIndex);
 
         if ((current == input.Length) || (input[current] != ','))
         {
@@ -145,12 +136,12 @@ internal static class AcceptHeaderParser
         // continue until the current character is neither a separator nor a whitespace.
         separatorFound = true;
         current++; // skip delimiter.
-        current = current + HttpTokenParsingRules.GetWhitespaceLength(input, current);
+        current = current + HttpRuleParser.GetWhitespaceLength(input, current);
 
         while ((current < input.Length) && (input[current] == ','))
         {
             current++; // skip delimiter.
-            current = current + HttpTokenParsingRules.GetWhitespaceLength(input, current);
+            current = current + HttpRuleParser.GetWhitespaceLength(input, current);
         }
 
         return current;

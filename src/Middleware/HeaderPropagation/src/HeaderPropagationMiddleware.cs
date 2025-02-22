@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Net.Http;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -30,15 +27,13 @@ public class HeaderPropagationMiddleware
     /// </param>
     public HeaderPropagationMiddleware(RequestDelegate next, IOptions<HeaderPropagationOptions> options, HeaderPropagationValues values)
     {
-        _next = next ?? throw new ArgumentNullException(nameof(next));
+        ArgumentNullException.ThrowIfNull(next);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(values);
 
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        _next = next;
         _options = options.Value;
-
-        _values = values ?? throw new ArgumentNullException(nameof(values));
+        _values = values;
     }
 
     /// <summary>

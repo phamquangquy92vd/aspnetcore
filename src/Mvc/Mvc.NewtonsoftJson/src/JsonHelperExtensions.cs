@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,10 +31,7 @@ public static class JsonHelperExtensions
         object value,
         JsonSerializerSettings serializerSettings)
     {
-        if (jsonHelper == null)
-        {
-            throw new ArgumentNullException(nameof(jsonHelper));
-        }
+        ArgumentNullException.ThrowIfNull(jsonHelper);
 
         if (!(jsonHelper is NewtonsoftJsonHelper newtonsoftJsonHelper))
         {
@@ -48,15 +44,8 @@ public static class JsonHelperExtensions
             throw new ArgumentException(message, nameof(jsonHelper));
         }
 
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
-
-        if (serializerSettings == null)
-        {
-            throw new ArgumentNullException(nameof(serializerSettings));
-        }
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(serializerSettings);
 
         return newtonsoftJsonHelper.Serialize(value, serializerSettings);
     }

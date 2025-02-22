@@ -1,20 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Net.Http;
-using System.Threading.Tasks;
 using System.Web;
 using BasicTestApp.AuthTest;
+using BasicTestApp.PropertyInjection;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.WebAssembly.Services;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.JSInterop;
 
@@ -33,6 +29,7 @@ public class Program
         builder.RootComponents.RegisterForJavaScript<JavaScriptRootComponentParameterTypes>(
             "component-with-many-parameters",
             javaScriptInitializer: "myJsRootComponentInitializers.testInitializer");
+        builder.RootComponents.RegisterCustomElement<CustomElementParameterTypes>("my-custom-element");
 
         builder.Services.AddSingleton(new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
         builder.Services.AddSingleton<AuthenticationStateProvider, ServerAuthenticationStateProvider>();
@@ -43,6 +40,10 @@ public class Program
         });
 
         builder.Services.AddScoped<PreserveStateService>();
+        builder.Services.AddTransient<FormsTest.ValidationComponentDI.SaladChef>();
+
+        builder.Services.AddKeyedSingleton("keyed-service-1", TestKeyedService.Create("value-1"));
+        builder.Services.AddKeyedSingleton(TestServiceKey.ServiceB, TestKeyedService.Create("value-2"));
 
         builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
 

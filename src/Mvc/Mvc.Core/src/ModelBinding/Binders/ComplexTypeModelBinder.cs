@@ -3,12 +3,9 @@
 
 #nullable disable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Extensions.Logging;
@@ -19,7 +16,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 /// <see cref="IModelBinder"/> implementation for binding complex types.
 /// </summary>
 [Obsolete("This type is obsolete and will be removed in a future version. Use ComplexObjectModelBinder instead.")]
-public class ComplexTypeModelBinder : IModelBinder
+public partial class ComplexTypeModelBinder : IModelBinder
 {
     // Don't want a new public enum because communication between the private and internal methods of this class
     // should not be exposed. Can't use an internal enum because types of [TheoryData] values must be public.
@@ -70,27 +67,17 @@ public class ComplexTypeModelBinder : IModelBinder
         ILoggerFactory loggerFactory,
         bool allowValidatingTopLevelNodes)
     {
-        if (propertyBinders == null)
-        {
-            throw new ArgumentNullException(nameof(propertyBinders));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(propertyBinders);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _propertyBinders = propertyBinders;
-        _logger = loggerFactory.CreateLogger<ComplexTypeModelBinder>();
+        _logger = loggerFactory.CreateLogger(typeof(ComplexTypeModelBinder));
     }
 
     /// <inheritdoc/>
     public Task BindModelAsync(ModelBindingContext bindingContext)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
 
         _logger.AttemptingToBindModel(bindingContext);
 
@@ -361,7 +348,7 @@ public class ComplexTypeModelBinder : IModelBinder
         // level object. So we return false.
         if (bindingContext.ModelMetadata.Properties.Count == 0)
         {
-            _logger.NoPublicSettableProperties(bindingContext);
+            Log.NoPublicSettableProperties(_logger, bindingContext);
             return NoDataAvailable;
         }
 
@@ -427,7 +414,7 @@ public class ComplexTypeModelBinder : IModelBinder
             return GreedyPropertiesMayHaveData;
         }
 
-        _logger.CannotBindToComplexType(bindingContext);
+        Log.CannotBindToComplexType(_logger, bindingContext);
 
         return NoDataAvailable;
     }
@@ -471,10 +458,7 @@ public class ComplexTypeModelBinder : IModelBinder
     /// <returns>An <see cref="object"/> compatible with <see cref="ModelBindingContext.ModelType"/>.</returns>
     protected virtual object CreateModel(ModelBindingContext bindingContext)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
 
         // If model creator throws an exception, we want to propagate it back up the call stack, since the
         // application developer should know that this was an invalid type to try to bind to.
@@ -487,6 +471,14 @@ public class ComplexTypeModelBinder : IModelBinder
             var modelType = bindingContext.ModelType;
             if (modelType.IsAbstract || modelType.GetConstructor(Type.EmptyTypes) == null)
             {
+                // If the model is not a top-level object, we can't examine the defined constructor
+                // to evaluate if the non-null property has been set so we do not provide this as a valid
+                // alternative.
+                if (!bindingContext.IsTopLevelObject)
+                {
+                    throw new InvalidOperationException(Resources.FormatComplexTypeModelBinder_NoParameterlessConstructor_ForType(modelType.FullName));
+                }
+
                 var metadata = bindingContext.ModelMetadata;
                 switch (metadata.MetadataKind)
                 {
@@ -529,20 +521,9 @@ public class ComplexTypeModelBinder : IModelBinder
         ModelMetadata propertyMetadata,
         ModelBindingResult result)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
-
-        if (modelName == null)
-        {
-            throw new ArgumentNullException(nameof(modelName));
-        }
-
-        if (propertyMetadata == null)
-        {
-            throw new ArgumentNullException(nameof(propertyMetadata));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
+        ArgumentNullException.ThrowIfNull(modelName);
+        ArgumentNullException.ThrowIfNull(propertyMetadata);
 
         if (!result.IsModelSet)
         {
@@ -586,5 +567,20 @@ public class ComplexTypeModelBinder : IModelBinder
         {
             modelState.AddModelError(modelName, exception, bindingContext.ModelMetadata);
         }
+    }
+
+    private static partial class Log
+    {
+        public static void NoPublicSettableProperties(ILogger logger, ModelBindingContext bindingContext)
+            => NoPublicSettableProperties(logger, bindingContext.ModelName, bindingContext.ModelType);
+
+        [LoggerMessage(17, LogLevel.Debug, "Could not bind to model with name '{ModelName}' and type '{ModelType}' as the type has no public settable properties.", EventName = "NoPublicSettableProperties")]
+        private static partial void NoPublicSettableProperties(ILogger logger, string modelName, Type modelType);
+
+        public static void CannotBindToComplexType(ILogger logger, ModelBindingContext bindingContext)
+            => CannotBindToComplexType(logger, bindingContext.ModelType);
+
+        [LoggerMessage(18, LogLevel.Debug, "Could not bind to model of type '{ModelType}' as there were no values in the request for any of the properties.", EventName = "CannotBindToComplexType")]
+        private static partial void CannotBindToComplexType(ILogger logger, Type modelType);
     }
 }

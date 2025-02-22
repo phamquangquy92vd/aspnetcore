@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
@@ -12,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
 
@@ -3378,6 +3374,75 @@ public class DfaMatcherBuilderTest
     }
 
     [Fact]
+    public void CreateCandidate_InlineRouteConstraints_Duplicate_SameInstance()
+    {
+        // Arrange
+        var endpoint1 = CreateEndpoint("/a/b/{c:int}");
+        var endpoint2 = CreateEndpoint("/d/e/{f:int}");
+
+        var builder = CreateDfaMatcherBuilder();
+
+        // Act
+        var candidate1 = builder.CreateCandidate(endpoint1, score: 0);
+        var candidate2 = builder.CreateCandidate(endpoint2, score: 0);
+
+        // Assert
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate1.Flags);
+        var constraint1 = Assert.Single(candidate1.Constraints);
+
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate2.Flags);
+        var constraint2 = Assert.Single(candidate2.Constraints);
+
+        Assert.Same(constraint1.Value, constraint2.Value);
+    }
+
+    [Fact]
+    public void CreateCandidate_InlineRouteConstraintsWithArgument_Duplicate_SameInstance()
+    {
+        // Arrange
+        var endpoint1 = CreateEndpoint("/a/b/{c:regex([A-Z])}");
+        var endpoint2 = CreateEndpoint("/d/e/{f:regex([A-Z])}");
+
+        var builder = CreateDfaMatcherBuilder();
+
+        // Act
+        var candidate1 = builder.CreateCandidate(endpoint1, score: 0);
+        var candidate2 = builder.CreateCandidate(endpoint2, score: 0);
+
+        // Assert
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate1.Flags);
+        var constraint1 = Assert.Single(candidate1.Constraints);
+
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate2.Flags);
+        var constraint2 = Assert.Single(candidate2.Constraints);
+
+        Assert.Same(constraint1.Value, constraint2.Value);
+    }
+
+    [Fact]
+    public void CreateCandidate_InlineRouteConstraintsWithArgument_DifferentArgument_DifferentInstance()
+    {
+        // Arrange
+        var endpoint1 = CreateEndpoint("/a/b/{c:regex([A-Z])}");
+        var endpoint2 = CreateEndpoint("/d/e/{f:regex([a-z])}");
+
+        var builder = CreateDfaMatcherBuilder();
+
+        // Act
+        var candidate1 = builder.CreateCandidate(endpoint1, score: 0);
+        var candidate2 = builder.CreateCandidate(endpoint2, score: 0);
+
+        // Assert
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate1.Flags);
+        var constraint1 = Assert.Single(candidate1.Constraints);
+
+        Assert.Equal(Candidate.CandidateFlags.HasConstraints | Candidate.CandidateFlags.HasCaptures, candidate2.Flags);
+        var constraint2 = Assert.Single(candidate2.Constraints);
+
+        Assert.NotSame(constraint1.Value, constraint2.Value);
+    }
+
+    [Fact]
     public void CreateCandidate_CustomParameterPolicy()
     {
         // Arrange
@@ -3481,7 +3546,8 @@ public class DfaMatcherBuilderTest
                 ConstraintMap =
                 {
                         ["slugify"] = typeof(SlugifyParameterTransformer),
-                        ["upper-case"] = typeof(UpperCaseParameterTransform)
+                        ["upper-case"] = typeof(UpperCaseParameterTransform),
+                        ["regex"] = typeof(RegexInlineRouteConstraint) // Regex not included by default since introduction of CreateSlimBuilder
                 }
             }),
             serviceCollection.BuildServiceProvider());
@@ -3563,7 +3629,6 @@ public class DfaMatcherBuilderTest
         public IComparer<Endpoint> Comparer => EndpointMetadataComparer<TestMetadata2>.Default;
 
         public Action<IReadOnlyList<Endpoint>> OnGetEdges { get; set; }
-
 
         public bool AppliesToEndpoints(IReadOnlyList<Endpoint> endpoints)
         {

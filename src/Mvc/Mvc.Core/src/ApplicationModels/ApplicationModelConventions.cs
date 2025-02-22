@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
@@ -21,15 +19,8 @@ internal static class ApplicationModelConventions
         ApplicationModel applicationModel,
         IEnumerable<IApplicationModelConvention> conventions)
     {
-        if (applicationModel == null)
-        {
-            throw new ArgumentNullException(nameof(applicationModel));
-        }
-
-        if (conventions == null)
-        {
-            throw new ArgumentNullException(nameof(conventions));
-        }
+        ArgumentNullException.ThrowIfNull(applicationModel);
+        ArgumentNullException.ThrowIfNull(conventions);
 
         // Conventions are applied from the outside-in to allow for scenarios where an action overrides
         // a controller, etc.

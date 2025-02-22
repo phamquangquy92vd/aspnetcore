@@ -1,8 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Shared;
 
 namespace System.Security.Claims;
 
@@ -17,14 +16,10 @@ public static class PrincipalExtensions
     /// <param name="principal">The <see cref="ClaimsPrincipal"/> instance this method extends.</param>
     /// <param name="claimType">The claim type whose first value should be returned.</param>
     /// <returns>The value of the first instance of the specified claim type, or null if the claim is not present.</returns>
-    public static string FindFirstValue(this ClaimsPrincipal principal, string claimType)
+    public static string? FindFirstValue(this ClaimsPrincipal principal, string claimType)
     {
-        if (principal == null)
-        {
-            throw new ArgumentNullException(nameof(principal));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(principal);
         var claim = principal.FindFirst(claimType);
-        return claim != null ? claim.Value : null;
+        return claim?.Value;
     }
-
 }

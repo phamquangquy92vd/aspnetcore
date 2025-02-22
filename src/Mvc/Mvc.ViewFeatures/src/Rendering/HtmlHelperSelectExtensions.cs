@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Html;
 
@@ -38,10 +36,7 @@ public static class HtmlHelperSelectExtensions
     /// </remarks>
     public static IHtmlContent DropDownList(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DropDownList(expression, selectList: null, optionLabel: null, htmlAttributes: null);
     }
@@ -78,10 +73,7 @@ public static class HtmlHelperSelectExtensions
         string expression,
         string optionLabel)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DropDownList(
             expression,
@@ -119,10 +111,7 @@ public static class HtmlHelperSelectExtensions
         string expression,
         IEnumerable<SelectListItem> selectList)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DropDownList(expression, selectList, optionLabel: null, htmlAttributes: null);
     }
@@ -161,10 +150,7 @@ public static class HtmlHelperSelectExtensions
         IEnumerable<SelectListItem> selectList,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DropDownList(expression, selectList, optionLabel: null, htmlAttributes: htmlAttributes);
     }
@@ -202,10 +188,7 @@ public static class HtmlHelperSelectExtensions
         IEnumerable<SelectListItem> selectList,
         string optionLabel)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.DropDownList(expression, selectList, optionLabel, htmlAttributes: null);
     }
@@ -239,15 +222,8 @@ public static class HtmlHelperSelectExtensions
         Expression<Func<TModel, TResult>> expression,
         IEnumerable<SelectListItem> selectList)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DropDownListFor(expression, selectList, optionLabel: null, htmlAttributes: null);
     }
@@ -286,15 +262,8 @@ public static class HtmlHelperSelectExtensions
         IEnumerable<SelectListItem> selectList,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DropDownListFor(
             expression,
@@ -336,15 +305,8 @@ public static class HtmlHelperSelectExtensions
         IEnumerable<SelectListItem> selectList,
         string optionLabel)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.DropDownListFor(expression, selectList, optionLabel, htmlAttributes: null);
     }
@@ -374,10 +336,7 @@ public static class HtmlHelperSelectExtensions
     /// </remarks>
     public static IHtmlContent ListBox(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ListBox(expression, selectList: null, htmlAttributes: null);
     }
@@ -411,10 +370,7 @@ public static class HtmlHelperSelectExtensions
         string expression,
         IEnumerable<SelectListItem> selectList)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ListBox(expression, selectList, htmlAttributes: null);
     }
@@ -448,15 +404,8 @@ public static class HtmlHelperSelectExtensions
         Expression<Func<TModel, TResult>> expression,
         IEnumerable<SelectListItem> selectList)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ListBoxFor(expression, selectList, htmlAttributes: null);
     }

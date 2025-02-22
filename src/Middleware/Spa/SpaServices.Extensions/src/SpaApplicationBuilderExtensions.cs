@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.SpaServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -28,10 +27,7 @@ public static class SpaApplicationBuilderExtensions
     /// </param>
     public static void UseSpa(this IApplicationBuilder app, Action<ISpaBuilder> configuration)
     {
-        if (configuration == null)
-        {
-            throw new ArgumentNullException(nameof(configuration));
-        }
+        ArgumentNullException.ThrowIfNull(configuration);
 
         // Use the options configured in DI (or blank if none was configured). We have to clone it
         // otherwise if you have multiple UseSpa calls, their configurations would interfere with one another.

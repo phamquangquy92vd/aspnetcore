@@ -1,15 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -28,6 +27,20 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     /// </summary>
     public static readonly int DefaultOrder = 10000;
 
+    internal const string RequiresUnreferencedCodeMessage = "Resolving this property is not compatible with trimming, as it requires dynamic access to code that is not referenced statically.";
+    internal const string RequiresDynamicCodeMessage = "Resolving this property may require dynamic code generation.";
+
+    /// <summary>
+    /// Exposes a feature switch to disable generating model metadata with reflection-heavy strategies.
+    /// This is primarily intended for use in Minimal API-based scenarios where information is derived from
+    /// IParameterBindingMetadata
+    /// </summary>
+    [FeatureSwitchDefinition("Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported")]
+    [FeatureGuard(typeof(RequiresDynamicCodeAttribute))]
+    [FeatureGuard(typeof(RequiresUnreferencedCodeAttribute))]
+    private static bool IsEnhancedModelMetadataSupported { get; } =
+        AppContext.TryGetSwitch("Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported", out var isEnhancedModelMetadataSupported) ? isEnhancedModelMetadataSupported : true;
+
     private int? _hashCode;
     private IReadOnlyList<ModelMetadata>? _boundProperties;
     private IReadOnlyDictionary<ModelMetadata, ModelMetadata>? _parameterMapping;
@@ -44,6 +57,10 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
         Identity = identity;
 
         InitializeTypeInformation();
+        if (IsEnhancedModelMetadataSupported)
+        {
+            InitializeDynamicTypeInformation();
+        }
     }
 
     /// <summary>
@@ -215,7 +232,7 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     public abstract string? Description { get; }
 
     /// <summary>
-    /// Gets the format string (see https://msdn.microsoft.com/en-us/library/txafckwd.aspx) used to display the
+    /// Gets the format string (see <see href="https://msdn.microsoft.com/en-us/library/txafckwd.aspx"/>) used to display the
     /// model.
     /// </summary>
     public abstract string? DisplayFormatString { get; }
@@ -226,7 +243,7 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     public abstract string? DisplayName { get; }
 
     /// <summary>
-    /// Gets the format string (see https://msdn.microsoft.com/en-us/library/txafckwd.aspx) used to edit the model.
+    /// Gets the format string (see <see href="https://msdn.microsoft.com/en-us/library/txafckwd.aspx"/>) used to edit the model.
     /// </summary>
     public abstract string? EditFormatString { get; }
 
@@ -396,6 +413,7 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
 
     /// <summary>
     /// Gets a string used by the templating system to discover display-templates and editor-templates.
+    /// Use <see cref="System.ComponentModel.DataAnnotations.UIHintAttribute" /> to specify.
     /// </summary>
     public abstract string? TemplateHint { get; }
 
@@ -425,26 +443,54 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     /// </summary>
     public abstract IReadOnlyList<object> ValidatorMetadata { get; }
 
+    private Type? _elementType;
+
     /// <summary>
     /// Gets the <see cref="Type"/> for elements of <see cref="ModelType"/> if that <see cref="Type"/>
     /// implements <see cref="IEnumerable"/>.
     /// </summary>
-    public Type? ElementType { get; private set; }
+    public Type? ElementType
+    {
+        [RequiresDynamicCode(RequiresDynamicCodeMessage)]
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+        get
+        {
+            if (!IsEnhancedModelMetadataSupported)
+            {
+                throw new NotSupportedException("ElementType is not initialized when `Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported` is false.");
+            }
+            return _elementType;
+        }
+        private set
+        {
+            _elementType = value;
+        }
+    }
 
     /// <summary>
     /// Gets a value indicating whether <see cref="ModelType"/> is a complex type.
     /// </summary>
     /// <remarks>
     /// A complex type is defined as a <see cref="Type"/> without a <see cref="TypeConverter"/> that can convert
-    /// from <see cref="string"/>. Most POCO and <see cref="IEnumerable"/> types are therefore complex. Most, if
-    /// not all, BCL value types are simple types.
+    /// from <see cref="string"/> and without a <c>TryParse</c> method. Most POCO and <see cref="IEnumerable"/> types are therefore complex.
+    /// Most, if not all, BCL value types are simple types.
     /// </remarks>
-    public bool IsComplexType { get; private set; }
+    public bool IsComplexType
+    {
+        [RequiresDynamicCode(RequiresDynamicCodeMessage)]
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+        get
+        {
+            return !IsConvertibleType && !IsParseableType;
+        }
+    }
 
     /// <summary>
     /// Gets a value indicating whether or not <see cref="ModelType"/> is a <see cref="Nullable{T}"/>.
     /// </summary>
     public bool IsNullableValueType { get; private set; }
+
+    private bool? _isCollectionType;
 
     /// <summary>
     /// Gets a value indicating whether or not <see cref="ModelType"/> is a collection type.
@@ -452,7 +498,23 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     /// <remarks>
     /// A collection type is defined as a <see cref="Type"/> which is assignable to <see cref="ICollection{T}"/>.
     /// </remarks>
-    public bool IsCollectionType { get; private set; }
+    public bool IsCollectionType
+    {
+        [RequiresDynamicCode(RequiresDynamicCodeMessage)]
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+        get
+        {
+            if (_isCollectionType == null)
+            {
+                throw new NotSupportedException("IsCollectionType is not initialized when `Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported` is false.");
+            }
+            return _isCollectionType.Value;
+        }
+        private set
+        {
+            _isCollectionType = value;
+        }
+    }
 
     /// <summary>
     /// Gets a value indicating whether or not <see cref="ModelType"/> is an enumerable type.
@@ -477,6 +539,62 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     /// </remarks>
     public Type UnderlyingOrModelType { get; private set; } = default!;
 
+    private bool? _isParseableType;
+
+    /// <summary>
+    /// Gets a value indicating whether or not <see cref="ModelType"/> has a TryParse method.
+    /// </summary>
+    internal virtual bool IsParseableType
+    {
+        [RequiresDynamicCode(RequiresDynamicCodeMessage)]
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+        get
+        {
+            if (!_isParseableType.HasValue)
+            {
+                throw new NotSupportedException("IsParseableType is not initialized when `Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported` is false.");
+            }
+            return _isParseableType.Value;
+        }
+        private set
+        {
+            _isParseableType = value;
+        }
+    }
+
+    private bool? _isConvertibleType;
+
+    /// <summary>
+    /// Gets a value indicating whether or not <see cref="ModelType"/> has a <see cref="TypeConverter"/>
+    /// from <see cref="string"/>.
+    /// </summary>
+    internal bool IsConvertibleType
+    {
+        [RequiresUnreferencedCode(RequiresUnreferencedCodeMessage)]
+        get
+        {
+            if (!_isConvertibleType.HasValue)
+            {
+                throw new NotSupportedException("IsConvertibleType is not initialized when `Microsoft.AspNetCore.Mvc.ApiExplorer.IsEnhancedModelMetadataSupported` is false.");
+
+            }
+            return _isConvertibleType.Value;
+        }
+        private set
+        {
+            _isConvertibleType = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets a value indicating the NullabilityState of the value or reference type.
+    /// </summary>
+    /// <remarks>
+    /// The state will be set for Parameters and Properties <see cref="ModelMetadataKind"/>
+    /// otherwise the state will be <c>NullabilityState.Unknown</c>
+    /// </remarks>
+    internal NullabilityState NullabilityState { get; set; }
+
     /// <summary>
     /// Gets a property getter delegate to get the property value from a model object.
     /// </summary>
@@ -498,6 +616,17 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     internal virtual bool PropertyHasValidators => false;
 
     /// <summary>
+    /// Gets the name of a model, if specified explicitly, to be used on <see cref="ValidationEntry"/>
+    /// </summary>
+    internal virtual string? ValidationModelName { get; }
+
+    /// <summary>
+    /// Gets the value that indicates if the parameter has a default value set.
+    /// This is only available when <see cref="MetadataKind"/> is <see cref="ModelMetadataKind.Parameter"/> otherwise it will be false.
+    /// </summary>
+    internal bool HasDefaultValue { get; private set; }
+
+    /// <summary>
     /// Throws if the ModelMetadata is for a record type with validation on properties.
     /// </summary>
     internal void ThrowIfRecordTypeHasValidationOnProperties()
@@ -507,6 +636,21 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
         {
             throw _recordTypeValidatorsOnPropertiesError;
         }
+    }
+
+    [RequiresUnreferencedCode("Finding the TryParse method via reflection is not trim compatible.")]
+    [RequiresDynamicCode("Finding the TryParse method via reflection is not native AOT compatible.")]
+    internal static Func<ParameterExpression, Expression, Expression>? FindTryParseMethod(Type modelType)
+    {
+        if (modelType.IsByRef)
+        {
+            // ByRef is no supported in this case and
+            // will be reported later for the user.
+            return null;
+        }
+
+        modelType = Nullable.GetUnderlyingType(modelType) ?? modelType;
+        return ParameterBindingMethodCache.NonThrowingInstance.FindTryParseMethod(modelType);
     }
 
     [MemberNotNull(nameof(_parameterMapping), nameof(_boundConstructorPropertyMapping))]
@@ -604,35 +748,44 @@ public abstract class ModelMetadata : IEquatable<ModelMetadata?>, IModelMetadata
     {
         Debug.Assert(ModelType != null);
 
-        IsComplexType = !TypeDescriptor.GetConverter(ModelType).CanConvertFrom(typeof(string));
         IsNullableValueType = Nullable.GetUnderlyingType(ModelType) != null;
         IsReferenceOrNullableType = !ModelType.IsValueType || IsNullableValueType;
         UnderlyingOrModelType = Nullable.GetUnderlyingType(ModelType) ?? ModelType;
+        HasDefaultValue = MetadataKind == ModelMetadataKind.Parameter && Identity.ParameterInfo!.HasDefaultValue;
 
-        var collectionType = ClosedGenericMatcher.ExtractGenericInterface(ModelType, typeof(ICollection<>));
-        IsCollectionType = collectionType != null;
-
-        if (ModelType == typeof(string) || !typeof(IEnumerable).IsAssignableFrom(ModelType))
+        var nullabilityContext = new NullabilityInfoContext();
+        var nullability = MetadataKind switch
         {
-            // Do nothing, not Enumerable.
-        }
-        else if (ModelType.IsArray)
+            ModelMetadataKind.Parameter => Identity.ParameterInfo != null ? nullabilityContext.Create(Identity.ParameterInfo!) : null,
+            ModelMetadataKind.Property => Identity.PropertyInfo != null ? nullabilityContext.Create(Identity.PropertyInfo!) : null,
+            _ => null
+        };
+        NullabilityState = nullability?.ReadState ?? NullabilityState.Unknown;
+
+        if (ModelType.IsArray)
         {
             IsEnumerableType = true;
             ElementType = ModelType.GetElementType()!;
         }
-        else
+    }
+
+    [RequiresUnreferencedCode("Using ModelMetadata with IsEnhancedModelMetadataSupport=true is not trim compatible.")]
+    [RequiresDynamicCode("Using ModelMetadata with IsEnhancedModelMetadataSupport=true is not native AOT compatible.")]
+    private void InitializeDynamicTypeInformation()
+    {
+        Debug.Assert(ModelType != null);
+        IsConvertibleType = TypeDescriptor.GetConverter(ModelType).CanConvertFrom(typeof(string));
+        IsParseableType = FindTryParseMethod(ModelType) is not null;
+
+        var collectionType = ClosedGenericMatcher.ExtractGenericInterface(ModelType, typeof(ICollection<>));
+        _isCollectionType = collectionType != null;
+
+        if (ModelType != typeof(string) && !ModelType.IsArray && typeof(IEnumerable).IsAssignableFrom(ModelType))
         {
             IsEnumerableType = true;
-
             var enumerableType = ClosedGenericMatcher.ExtractGenericInterface(ModelType, typeof(IEnumerable<>));
-            ElementType = enumerableType?.GenericTypeArguments[0]!;
-
-            if (ElementType == null)
-            {
-                // ModelType implements IEnumerable but not IEnumerable<T>.
-                ElementType = typeof(object);
-            }
+            // Apply fallback when ModelType implements IEnumerable but not IEnumerable<T>.
+            ElementType = enumerableType?.GenericTypeArguments[0] ?? typeof(object);
 
             Debug.Assert(
                 ElementType != null,

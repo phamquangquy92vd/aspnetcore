@@ -5,6 +5,13 @@ using System.Diagnostics;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2.FlowControl;
 
+/// <summary>
+/// Represents the flow control window for an <see cref="InputFlowControl"/>.
+/// Mutated as the available quota changes.
+/// </summary>
+/// <remarks>
+/// "FlowControlWindow" would probably be a clearer name.
+/// </remarks>
 internal struct FlowControl
 {
     public FlowControl(uint initialWindowSize)
@@ -15,8 +22,8 @@ internal struct FlowControl
         IsAborted = false;
     }
 
-    public int Available { get; private set; }
-    public bool IsAborted { get; private set; }
+    public int Available { readonly get; private set; }
+    public bool IsAborted { readonly get; private set; }
 
     public void Advance(int bytes)
     {

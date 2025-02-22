@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Builder;
 
 namespace Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
@@ -25,10 +24,7 @@ public static class ReactDevelopmentServerMiddlewareExtensions
         this ISpaBuilder spaBuilder,
         string npmScript)
     {
-        if (spaBuilder == null)
-        {
-            throw new ArgumentNullException(nameof(spaBuilder));
-        }
+        ArgumentNullException.ThrowIfNull(spaBuilder);
 
         var spaOptions = spaBuilder.Options;
 

@@ -6,9 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 #if (EnableOpenAPI)
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddOpenApi();
 #endif
 #if (WindowsAuth)
 builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
@@ -27,16 +26,12 @@ var app = builder.Build();
 #if (EnableOpenAPI)
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
 }
 #endif
-#if (RequiresHttps)
+#if (HasHttpsProfile)
 
 app.UseHttpsRedirection();
-#endif
-#if (WindowsAuth)
-app.UseAuthentication();
 #endif
 
 var summaries = new[]
@@ -49,7 +44,7 @@ app.MapGet("/weatherforecast", () =>
     var forecast =  Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
         (
-            DateTime.Now.AddDays(index),
+            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
             Random.Shared.Next(-20, 55),
             summaries[Random.Shared.Next(summaries.Length)]
         ))
@@ -64,7 +59,7 @@ app.MapGet("/weatherforecast", () =>
 
 app.Run();
 
-record WeatherForecast(DateTime Date, int TemperatureC, string? Summary)
+record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }

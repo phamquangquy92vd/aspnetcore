@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Microsoft.AspNetCore.Mvc.Core;
-
 namespace Microsoft.AspNetCore.Mvc.ApplicationParts;
 
 /// <summary>
@@ -30,10 +27,7 @@ public sealed class ProvideApplicationPartFactoryAttribute : Attribute
     /// <param name="factoryTypeName">The assembly qualified type name.</param>
     public ProvideApplicationPartFactoryAttribute(string factoryTypeName)
     {
-        if (string.IsNullOrEmpty(factoryTypeName))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(factoryTypeName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(factoryTypeName);
 
         _applicationPartFactoryTypeName = factoryTypeName;
     }

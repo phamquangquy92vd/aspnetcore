@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
@@ -18,10 +17,7 @@ public abstract class OutputFormatterCanWriteContext
     /// <param name="httpContext">The <see cref="HttpContext"/> for the current request.</param>
     protected OutputFormatterCanWriteContext(HttpContext httpContext)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
 
         HttpContext = httpContext;
     }

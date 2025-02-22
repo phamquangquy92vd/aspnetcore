@@ -1,9 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Microsoft.AspNetCore.Http;
-
 namespace Microsoft.AspNetCore.Routing;
 
 /// <summary>
@@ -18,10 +15,7 @@ public sealed class EndpointGroupNameAttribute : Attribute, IEndpointGroupNameMe
     /// <param name="endpointGroupName">The endpoint group name.</param>
     public EndpointGroupNameAttribute(string endpointGroupName)
     {
-        if (endpointGroupName == null)
-        {
-            throw new ArgumentNullException(nameof(endpointGroupName));
-        }
+        ArgumentNullException.ThrowIfNull(endpointGroupName);
 
         EndpointGroupName = endpointGroupName;
     }

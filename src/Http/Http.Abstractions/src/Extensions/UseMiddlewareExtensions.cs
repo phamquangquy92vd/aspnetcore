@@ -1,15 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Abstractions;
-using Microsoft.Extensions.Internal;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Builder;
 
@@ -22,9 +21,11 @@ public static class UseMiddlewareExtensions
     internal const string InvokeAsyncMethodName = "InvokeAsync";
 
     private static readonly MethodInfo GetServiceInfo = typeof(UseMiddlewareExtensions).GetMethod(nameof(GetService), BindingFlags.NonPublic | BindingFlags.Static)!;
+    private static readonly MethodInfo GetKeyedServiceInfo = typeof(UseMiddlewareExtensions).GetMethod(nameof(GetKeyedService), BindingFlags.NonPublic | BindingFlags.Static)!;
 
     // We're going to keep all public constructors and public methods on middleware
-    private const DynamicallyAccessedMemberTypes MiddlewareAccessibility = DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods;
+    private const DynamicallyAccessedMemberTypes MiddlewareAccessibility =
+        DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicMethods;
 
     /// <summary>
     /// Adds a middleware type to the application's request pipeline.
@@ -45,7 +46,10 @@ public static class UseMiddlewareExtensions
     /// <param name="middleware">The middleware type.</param>
     /// <param name="args">The arguments to pass to the middleware type instance's constructor.</param>
     /// <returns>The <see cref="IApplicationBuilder"/> instance.</returns>
-    public static IApplicationBuilder UseMiddleware(this IApplicationBuilder app, [DynamicallyAccessedMembers(MiddlewareAccessibility)] Type middleware, params object?[] args)
+    public static IApplicationBuilder UseMiddleware(
+        this IApplicationBuilder app,
+        [DynamicallyAccessedMembers(MiddlewareAccessibility)] Type middleware,
+        params object?[] args)
     {
         if (typeof(IMiddleware).IsAssignableFrom(middleware))
         {
@@ -56,54 +60,89 @@ public static class UseMiddlewareExtensions
                 throw new NotSupportedException(Resources.FormatException_UseMiddlewareExplicitArgumentsNotSupported(typeof(IMiddleware)));
             }
 
-            return UseMiddlewareInterface(app, middleware);
+            var interfaceBinder = new InterfaceMiddlewareBinder(middleware);
+            return app.Use(interfaceBinder.CreateMiddleware);
         }
 
-        var applicationServices = app.ApplicationServices;
-        return app.Use(next =>
+        var methods = middleware.GetMethods(BindingFlags.Instance | BindingFlags.Public);
+        MethodInfo? invokeMethod = null;
+        foreach (var method in methods)
         {
-            var methods = middleware.GetMethods(BindingFlags.Instance | BindingFlags.Public);
-            var invokeMethods = methods.Where(m =>
-                string.Equals(m.Name, InvokeMethodName, StringComparison.Ordinal)
-                || string.Equals(m.Name, InvokeAsyncMethodName, StringComparison.Ordinal)
-                ).ToArray();
-
-            if (invokeMethods.Length > 1)
+            if (string.Equals(method.Name, InvokeMethodName, StringComparison.Ordinal) || string.Equals(method.Name, InvokeAsyncMethodName, StringComparison.Ordinal))
             {
-                throw new InvalidOperationException(Resources.FormatException_UseMiddleMutlipleInvokes(InvokeMethodName, InvokeAsyncMethodName));
-            }
+                if (invokeMethod is not null)
+                {
+                    throw new InvalidOperationException(Resources.FormatException_UseMiddleMutlipleInvokes(InvokeMethodName, InvokeAsyncMethodName));
+                }
 
-            if (invokeMethods.Length == 0)
-            {
-                throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoInvokeMethod(InvokeMethodName, InvokeAsyncMethodName, middleware));
+                invokeMethod = method;
             }
+        }
 
-            var methodInfo = invokeMethods[0];
-            if (!typeof(Task).IsAssignableFrom(methodInfo.ReturnType))
-            {
-                throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNonTaskReturnType(InvokeMethodName, InvokeAsyncMethodName, nameof(Task)));
-            }
+        if (invokeMethod is null)
+        {
+            throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoInvokeMethod(InvokeMethodName, InvokeAsyncMethodName, middleware));
+        }
 
-            var parameters = methodInfo.GetParameters();
-            if (parameters.Length == 0 || parameters[0].ParameterType != typeof(HttpContext))
-            {
-                throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoParameters(InvokeMethodName, InvokeAsyncMethodName, nameof(HttpContext)));
-            }
+        if (!typeof(Task).IsAssignableFrom(invokeMethod.ReturnType))
+        {
+            throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNonTaskReturnType(InvokeMethodName, InvokeAsyncMethodName, nameof(Task)));
+        }
 
-            var ctorArgs = new object[args.Length + 1];
+        var parameters = invokeMethod.GetParameters();
+        if (parameters.Length == 0 || parameters[0].ParameterType != typeof(HttpContext))
+        {
+            throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoParameters(InvokeMethodName, InvokeAsyncMethodName, nameof(HttpContext)));
+        }
+
+        var reflectionBinder = new ReflectionMiddlewareBinder(app, middleware, args, invokeMethod, parameters);
+        return app.Use(reflectionBinder.CreateMiddleware);
+    }
+
+    private sealed class ReflectionMiddlewareBinder
+    {
+        private readonly IApplicationBuilder _app;
+        [DynamicallyAccessedMembers(MiddlewareAccessibility)]
+        private readonly Type _middleware;
+        private readonly object?[] _args;
+        private readonly MethodInfo _invokeMethod;
+        private readonly ParameterInfo[] _parameters;
+
+        public ReflectionMiddlewareBinder(
+            IApplicationBuilder app,
+            [DynamicallyAccessedMembers(MiddlewareAccessibility)] Type middleware,
+            object?[] args,
+            MethodInfo invokeMethod,
+            ParameterInfo[] parameters)
+        {
+            _app = app;
+            _middleware = middleware;
+            _args = args;
+            _invokeMethod = invokeMethod;
+            _parameters = parameters;
+        }
+
+        // The CreateMiddleware method name is used by ApplicationBuilder to resolve the middleware type.
+        public RequestDelegate CreateMiddleware(RequestDelegate next)
+        {
+            var ctorArgs = new object[_args.Length + 1];
             ctorArgs[0] = next;
-            Array.Copy(args, 0, ctorArgs, 1, args.Length);
-            var instance = ActivatorUtilities.CreateInstance(app.ApplicationServices, middleware, ctorArgs);
-            if (parameters.Length == 1)
+            Array.Copy(_args, 0, ctorArgs, 1, _args.Length);
+            var instance = ActivatorUtilities.CreateInstance(_app.ApplicationServices, _middleware, ctorArgs);
+            if (_parameters.Length == 1)
             {
-                return (RequestDelegate)methodInfo.CreateDelegate(typeof(RequestDelegate), instance);
+                return (RequestDelegate)_invokeMethod.CreateDelegate(typeof(RequestDelegate), instance);
             }
 
-            var factory = Compile<object>(methodInfo, parameters);
+            // Performance optimization: Use compiled expressions to invoke middleware with services injected in Invoke.
+            // If IsDynamicCodeCompiled is false then use standard reflection to avoid overhead of interpreting expressions.
+            var factory = RuntimeFeature.IsDynamicCodeCompiled
+                ? CompileExpression<object>(_invokeMethod, _parameters)
+                : ReflectionFallback<object>(_invokeMethod, _parameters);
 
             return context =>
             {
-                var serviceProvider = context.RequestServices ?? applicationServices;
+                var serviceProvider = context.RequestServices ?? _app.ApplicationServices;
                 if (serviceProvider == null)
                 {
                     throw new InvalidOperationException(Resources.FormatException_UseMiddlewareIServiceProviderNotAvailable(nameof(IServiceProvider)));
@@ -111,27 +150,37 @@ public static class UseMiddlewareExtensions
 
                 return factory(instance, context, serviceProvider);
             };
-        });
+        }
+
+        public override string ToString() => _middleware.ToString();
     }
 
-    private static IApplicationBuilder UseMiddlewareInterface(IApplicationBuilder app, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type middlewareType)
+    private sealed class InterfaceMiddlewareBinder
     {
-        return app.Use(next =>
+        private readonly Type _middlewareType;
+
+        public InterfaceMiddlewareBinder(Type middlewareType)
+        {
+            _middlewareType = middlewareType;
+        }
+
+        // The CreateMiddleware method name is used by ApplicationBuilder to resolve the middleware type.
+        public RequestDelegate CreateMiddleware(RequestDelegate next)
         {
             return async context =>
             {
                 var middlewareFactory = (IMiddlewareFactory?)context.RequestServices.GetService(typeof(IMiddlewareFactory));
                 if (middlewareFactory == null)
                 {
-                        // No middleware factory
-                        throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoMiddlewareFactory(typeof(IMiddlewareFactory)));
+                    // No middleware factory
+                    throw new InvalidOperationException(Resources.FormatException_UseMiddlewareNoMiddlewareFactory(typeof(IMiddlewareFactory)));
                 }
 
-                var middleware = middlewareFactory.Create(middlewareType);
+                var middleware = middlewareFactory.Create(_middlewareType);
                 if (middleware == null)
                 {
-                        // The factory returned null, it's a broken implementation
-                        throw new InvalidOperationException(Resources.FormatException_UseMiddlewareUnableToCreateMiddleware(middlewareFactory.GetType(), middlewareType));
+                    // The factory returned null, it's a broken implementation
+                    throw new InvalidOperationException(Resources.FormatException_UseMiddlewareUnableToCreateMiddleware(middlewareFactory.GetType(), _middlewareType));
                 }
 
                 try
@@ -143,11 +192,80 @@ public static class UseMiddlewareExtensions
                     middlewareFactory.Release(middleware);
                 }
             };
-        });
+        }
+
+        public override string ToString() => _middlewareType.ToString();
     }
 
-    private static Func<T, HttpContext, IServiceProvider, Task> Compile<T>(MethodInfo methodInfo, ParameterInfo[] parameters)
+    private static Func<T, HttpContext, IServiceProvider, Task> ReflectionFallback<T>(MethodInfo methodInfo, ParameterInfo[] parameters)
     {
+        Debug.Assert(!RuntimeFeature.IsDynamicCodeSupported, "Use reflection fallback when dynamic code is not supported.");
+
+        for (var i = 1; i < parameters.Length; i++)
+        {
+            var parameterType = parameters[i].ParameterType;
+            if (parameterType.IsByRef)
+            {
+                throw new NotSupportedException(Resources.FormatException_InvokeDoesNotSupportRefOrOutParams(InvokeMethodName));
+            }
+        }
+
+        // Performance optimization: Precompute and cache the key results for each parameter
+        var precomputedKeys = new object?[parameters.Length];
+        for (var i = 1; i < parameters.Length; i++)
+        {
+            _ = TryGetServiceKey(parameters[i], out object? key);
+
+            precomputedKeys[i] = key;
+        }
+
+        return (middleware, context, serviceProvider) =>
+        {
+            var methodArguments = new object[parameters.Length];
+            methodArguments[0] = context;
+            for (var i = 1; i < parameters.Length; i++)
+            {
+                var key = precomputedKeys[i];
+                var parameterType = parameters[i].ParameterType;
+                var declaringType = methodInfo.DeclaringType!;
+
+                methodArguments[i] = key == null ? GetService(serviceProvider, parameterType, declaringType) : GetKeyedService(serviceProvider, key, parameterType, declaringType);
+            }
+
+            return (Task)methodInfo.Invoke(middleware, BindingFlags.DoNotWrapExceptions, binder: null, methodArguments, culture: null)!;
+        };
+    }
+
+    private static bool TryGetServiceKey(ParameterInfo parameterInfo, [NotNullWhen(true)] out object? key)
+    {
+        key = parameterInfo.GetCustomAttribute<FromKeyedServicesAttribute>(false)?.Key;
+
+        return key != null;
+    }
+
+    private static UnaryExpression GetMethodArgument(ParameterInfo parameter, ParameterExpression providerArg, Type parameterType, Type? declaringType)
+    {
+        var parameterTypeExpression = new List<Expression>() { providerArg };
+        var hasServiceKey = TryGetServiceKey(parameter, out object? key);
+
+        if (hasServiceKey)
+        {
+            parameterTypeExpression.Add(Expression.Constant(key, typeof(object)));
+        }
+
+        parameterTypeExpression.Add(Expression.Constant(parameterType, typeof(Type)));
+        parameterTypeExpression.Add(Expression.Constant(declaringType, typeof(Type)));
+
+        var getServiceCall = Expression.Call(hasServiceKey ? GetKeyedServiceInfo : GetServiceInfo, parameterTypeExpression);
+        var methodArgument = Expression.Convert(getServiceCall, parameterType);
+
+        return methodArgument;
+    }
+
+    private static Func<T, HttpContext, IServiceProvider, Task> CompileExpression<T>(MethodInfo methodInfo, ParameterInfo[] parameters)
+    {
+        Debug.Assert(RuntimeFeature.IsDynamicCodeSupported, "Use compiled expression when dynamic code is supported.");
+
         // If we call something like
         //
         // public class Middleware
@@ -182,23 +300,16 @@ public static class UseMiddlewareExtensions
 
         var methodArguments = new Expression[parameters.Length];
         methodArguments[0] = httpContextArg;
-        for (int i = 1; i < parameters.Length; i++)
+        for (var i = 1; i < parameters.Length; i++)
         {
-            var parameterType = parameters[i].ParameterType;
+            var parameter = parameters[i];
+            var parameterType = parameter.ParameterType;
             if (parameterType.IsByRef)
             {
                 throw new NotSupportedException(Resources.FormatException_InvokeDoesNotSupportRefOrOutParams(InvokeMethodName));
             }
 
-            var parameterTypeExpression = new Expression[]
-            {
-                    providerArg,
-                    Expression.Constant(parameterType, typeof(Type)),
-                    Expression.Constant(methodInfo.DeclaringType, typeof(Type))
-            };
-
-            var getServiceCall = Expression.Call(GetServiceInfo, parameterTypeExpression);
-            methodArguments[i] = Expression.Convert(getServiceCall, parameterType);
+            methodArguments[i] = GetMethodArgument(parameter, providerArg, parameterType, methodInfo.DeclaringType);
         }
 
         Expression middlewareInstanceArg = instanceArg;
@@ -216,12 +327,20 @@ public static class UseMiddlewareExtensions
 
     private static object GetService(IServiceProvider sp, Type type, Type middleware)
     {
-        var service = sp.GetService(type);
-        if (service == null)
-        {
-            throw new InvalidOperationException(Resources.FormatException_InvokeMiddlewareNoService(type, middleware));
-        }
+        var service = sp.GetService(type) ?? throw new InvalidOperationException(Resources.FormatException_InvokeMiddlewareNoService(type, middleware));
 
         return service;
+    }
+
+    private static object GetKeyedService(IServiceProvider sp, object key, Type type, Type middleware)
+    {
+        if (sp is IKeyedServiceProvider ksp)
+        {
+            var service = ksp.GetKeyedService(type, key) ?? throw new InvalidOperationException(Resources.FormatException_InvokeMiddlewareNoService(type, middleware));
+
+            return service;
+        }
+
+        throw new InvalidOperationException(Resources.Exception_KeyedServicesNotSupported);
     }
 }

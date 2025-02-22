@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
@@ -19,15 +16,8 @@ internal static class PageBinderFactory
         IModelBinderFactory modelBinderFactory,
         CompiledPageActionDescriptor actionDescriptor)
     {
-        if (parameterBinder == null)
-        {
-            throw new ArgumentNullException(nameof(parameterBinder));
-        }
-
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
+        ArgumentNullException.ThrowIfNull(parameterBinder);
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
 
         var properties = actionDescriptor.BoundProperties;
         if (properties == null || properties.Count == 0)
@@ -94,8 +84,7 @@ internal static class PageBinderFactory
         IModelMetadataProvider modelMetadataProvider,
         IModelBinderFactory modelBinderFactory,
         CompiledPageActionDescriptor actionDescriptor,
-        HandlerMethodDescriptor handler,
-        MvcOptions mvcOptions)
+        HandlerMethodDescriptor handler)
     {
         if (handler.Parameters == null || handler.Parameters.Count == 0)
         {

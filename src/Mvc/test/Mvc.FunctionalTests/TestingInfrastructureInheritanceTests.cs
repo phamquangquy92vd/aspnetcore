@@ -1,18 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
@@ -88,10 +83,11 @@ public class TestingInfrastructureInheritanceTests
     {
         // Arrange
         using var factory = new CustomizedFactory<GenericHostWebSite.Startup>().WithWebHostBuilder(ConfigureWebHostBuilder);
-        var sink = factory.Services.GetRequiredService<DisposableService>();
+        using var scope = factory.Services.CreateAsyncScope();
+        var sink = scope.ServiceProvider.GetRequiredService<DisposableService>();
 
         // Act
-        await factory.DisposeAsync();
+        await scope.DisposeAsync();
 
         // Assert
         Assert.True(sink._asyncDisposed);
@@ -102,10 +98,11 @@ public class TestingInfrastructureInheritanceTests
     {
         // Arrange
         using var factory = new CustomizedFactory<GenericHostWebSite.Startup>().WithWebHostBuilder(ConfigureWebHostBuilder);
-        var sink = factory.Services.GetRequiredService<DisposableService>();
+        using var scope = factory.Services.CreateScope();
+        var sink = scope.ServiceProvider.GetRequiredService<DisposableService>();
 
         // Act
-        factory.Dispose();
+        scope.Dispose();
 
         // Assert
         Assert.True(sink._asyncDisposed);
@@ -115,13 +112,17 @@ public class TestingInfrastructureInheritanceTests
         builder.UseStartup<GenericHostWebSite.Startup>()
         .ConfigureServices(s => s.AddScoped<DisposableService>());
 
-    private class DisposableService : IAsyncDisposable
+    private class DisposableService : IAsyncDisposable, IDisposable
     {
         public bool _asyncDisposed = false;
         public ValueTask DisposeAsync()
         {
             _asyncDisposed = true;
             return ValueTask.CompletedTask;
+        }
+        public void Dispose()
+        {
+            _asyncDisposed = true;
         }
     }
 

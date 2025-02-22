@@ -2,13 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Data.Common;
-using System.Linq;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Identity.EntityFrameworkCore.Test;
 
@@ -47,7 +45,7 @@ public static class DbUtil
 
         foreach (var property in context.Model.GetEntityTypes().Single(e => e.GetTableName() == table).GetProperties())
         {
-            if (!columns.Contains(property.GetColumnName(StoreObjectIdentifier.Table(table, property.DeclaringEntityType.GetSchema()))))
+            if (!columns.Contains(property.GetColumnName(StoreObjectIdentifier.Table(table, property.DeclaringType.GetSchema()))))
             {
                 continue;
             }

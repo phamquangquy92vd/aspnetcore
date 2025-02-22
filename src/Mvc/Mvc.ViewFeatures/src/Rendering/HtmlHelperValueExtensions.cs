@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 
 namespace Microsoft.AspNetCore.Mvc.Rendering;
@@ -27,10 +26,7 @@ public static class HtmlHelperValueExtensions
     /// </remarks>
     public static string Value(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Value(expression, format: null);
     }
@@ -54,15 +50,8 @@ public static class HtmlHelperValueExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ValueFor(expression, format: null);
     }
@@ -82,10 +71,7 @@ public static class HtmlHelperValueExtensions
     /// </remarks>
     public static string ValueForModel(this IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Value(expression: null, format: null);
     }
@@ -100,7 +86,7 @@ public static class HtmlHelperValueExtensions
     /// </summary>
     /// <param name="htmlHelper">The <see cref="IHtmlHelper"/> instance this method extends.</param>
     /// <param name="format">
-    /// The format string (see https://msdn.microsoft.com/en-us/library/txafckwd.aspx) used to format the return
+    /// The format string (see <see href="https://msdn.microsoft.com/en-us/library/txafckwd.aspx"/>) used to format the return
     /// value unless that came from model binding.
     /// </param>
     /// <returns>A <see cref="string"/> containing the formatted value.</returns>
@@ -110,10 +96,7 @@ public static class HtmlHelperValueExtensions
     /// </remarks>
     public static string ValueForModel(this IHtmlHelper htmlHelper, string format)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Value(expression: null, format: format);
     }

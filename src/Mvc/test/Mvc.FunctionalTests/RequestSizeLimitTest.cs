@@ -1,32 +1,37 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class RequestSizeLimitTest : IClassFixture<MvcTestFixture<BasicWebSite.StartupRequestLimitSize>>
+public class RequestSizeLimitTest : LoggedTest
 {
-    public RequestSizeLimitTest(MvcTestFixture<BasicWebSite.StartupRequestLimitSize> fixture)
-    {
-        var factory = fixture.Factories.FirstOrDefault() ?? fixture.WithWebHostBuilder(ConfigureWebHostBuilder);
-        Client = factory.CreateDefaultClient();
-    }
-
     private static void ConfigureWebHostBuilder(IWebHostBuilder builder) =>
         builder.UseStartup<BasicWebSite.StartupRequestLimitSize>();
 
-    public HttpClient Client { get; }
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    {
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<BasicWebSite.StartupRequestLimitSize>(LoggerFactory).WithWebHostBuilder(ConfigureWebHostBuilder);
+        Client = Factory.CreateDefaultClient();
+    }
+
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<BasicWebSite.StartupRequestLimitSize> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task RequestSizeLimitCheckHappens_BeforeAntiforgeryTokenValidation()

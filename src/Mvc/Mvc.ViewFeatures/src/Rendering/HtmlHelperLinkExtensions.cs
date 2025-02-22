@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Html;
 
 namespace Microsoft.AspNetCore.Mvc.Rendering;
@@ -23,15 +22,8 @@ public static class HtmlHelperLinkExtensions
         string linkText,
         string actionName)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -64,15 +56,8 @@ public static class HtmlHelperLinkExtensions
         string actionName,
         object routeValues)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -111,15 +96,8 @@ public static class HtmlHelperLinkExtensions
         object routeValues,
         object htmlAttributes)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -146,15 +124,8 @@ public static class HtmlHelperLinkExtensions
         string actionName,
         string controllerName)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -189,15 +160,8 @@ public static class HtmlHelperLinkExtensions
         string controllerName,
         object routeValues)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -238,15 +202,8 @@ public static class HtmlHelperLinkExtensions
         object routeValues,
         object htmlAttributes)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return helper.ActionLink(
             linkText,
@@ -277,15 +234,8 @@ public static class HtmlHelperLinkExtensions
         string linkText,
         object routeValues)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return htmlHelper.RouteLink(
                             linkText,
@@ -309,15 +259,8 @@ public static class HtmlHelperLinkExtensions
         string linkText,
         string routeName)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return htmlHelper.RouteLink(
                             linkText,
@@ -349,15 +292,8 @@ public static class HtmlHelperLinkExtensions
         string routeName,
         object routeValues)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return htmlHelper.RouteLink(
                             linkText,
@@ -393,15 +329,8 @@ public static class HtmlHelperLinkExtensions
         object routeValues,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return htmlHelper.RouteLink(
                             linkText,
@@ -439,15 +368,8 @@ public static class HtmlHelperLinkExtensions
         object routeValues,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (linkText == null)
-        {
-            throw new ArgumentNullException(nameof(linkText));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(linkText);
 
         return htmlHelper.RouteLink(
                              linkText,

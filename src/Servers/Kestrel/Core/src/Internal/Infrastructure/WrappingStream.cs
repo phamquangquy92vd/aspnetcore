@@ -1,11 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 
 internal sealed class WrappingStream : Stream
@@ -20,11 +15,7 @@ internal sealed class WrappingStream : Stream
 
     public void SetInnerStream(Stream inner)
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(WrappingStream));
-        }
-
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _inner = inner;
     }
 

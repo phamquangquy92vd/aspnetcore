@@ -1,23 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
-using System.Threading.Tasks;
 using AngleSharp.Dom.Html;
 using AngleSharp.Parser.Html;
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Identity.Test;
 
-[SkipOnHelix("https://github.com/dotnet/aspnetcore/issues/38542", Queues="OSX.1015.Amd64.Open;OSX.1015.Amd64")] //slow
+[SkipOnHelix("https://github.com/dotnet/aspnetcore/issues/38542", Queues = "OSX.1015.Amd64.Open;OSX.1015.Amd64")] //slow
 public class IdentityUIScriptsTest : IDisposable
 {
     private readonly ITestOutputHelper _output;
@@ -50,19 +44,24 @@ public class IdentityUIScriptsTest : IDisposable
     private async Task<string> GetShaIntegrity(ScriptTag scriptTag)
     {
         var isSha256 = scriptTag.Integrity.StartsWith("sha256", StringComparison.Ordinal);
-        var prefix = isSha256 ? "sha256" : "sha384";
+        var isSha384 = scriptTag.Integrity.StartsWith("sha384", StringComparison.Ordinal);
+        var prefix = isSha256 ? "sha256" : (isSha384 ? "sha384" : "sha512");
         using (var respStream = await _httpClient.GetStreamAsync(scriptTag.Src))
         using (var alg256 = SHA256.Create())
         using (var alg384 = SHA384.Create())
+        using (var alg512 = SHA512.Create())
         {
             byte[] hash;
             if (isSha256)
             {
                 hash = alg256.ComputeHash(respStream);
+            }else if(isSha384)
+            {
+                hash = alg384.ComputeHash(respStream);
             }
             else
             {
-                hash = alg384.ComputeHash(respStream);
+                hash = alg512.ComputeHash(respStream);
             }
             return $"{prefix}-" + Convert.ToBase64String(hash);
         }
@@ -82,8 +81,7 @@ public class IdentityUIScriptsTest : IDisposable
     [MemberData(nameof(ScriptWithFallbackSrcData))]
     public async Task IdentityUI_ScriptTags_FallbackSourceContent_Matches_CDNContent(ScriptTag scriptTag)
     {
-        var wwwrootDir = Path.Combine(GetProjectBasePath(), "wwwroot");
-
+        var wwwrootDir = Path.Combine(GetProjectBasePath(), "assets", scriptTag.Version);
         var cdnContent = await _httpClient.GetStringAsync(scriptTag.Src);
         var fallbackSrcContent = File.ReadAllText(
             Path.Combine(wwwrootDir, scriptTag.FallbackSrc.Replace("Identity", "").TrimStart('~').TrimStart('/')));
@@ -107,10 +105,10 @@ public class IdentityUIScriptsTest : IDisposable
 
     private static List<ScriptTag> GetScriptTags()
     {
-        var uiDirV4 = Path.Combine(GetProjectBasePath(), "Areas", "Identity", "Pages", "V5");
-        var cshtmlFiles = GetRazorFiles(uiDirV4);
-
         var scriptTags = new List<ScriptTag>();
+        var uiDirV4 = Path.Combine(GetProjectBasePath(), "Areas", "Identity", "Pages", "V4");
+        var uiDirV5 = Path.Combine(GetProjectBasePath(), "Areas", "Identity", "Pages", "V5");
+        var cshtmlFiles = GetRazorFiles(uiDirV4).Concat(GetRazorFiles(uiDirV5));
         foreach (var cshtmlFile in cshtmlFiles)
         {
             var tags = GetScriptTags(cshtmlFile);
@@ -141,7 +139,7 @@ public class IdentityUIScriptsTest : IDisposable
 
             scriptTags.Add(new ScriptTag
             {
-                Version = "V4",
+                Version = cshtmlFile.Contains("V4") ? "V4" : "V5",
                 Src = scriptElement.Source,
                 Integrity = scriptElement.Integrity,
                 FallbackSrc = fallbackSrcAttribute?.Value,
@@ -164,7 +162,7 @@ public class IdentityUIScriptsTest : IDisposable
     private static string GetProjectBasePath()
     {
         var projectPath = typeof(IdentityUIScriptsTest).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(a => a.Key == "Microsoft.AspNetCore.Testing.DefaultUIProjectPath").Value;
+            .Single(a => a.Key == "Microsoft.AspNetCore.InternalTesting.DefaultUIProjectPath").Value;
         return Directory.Exists(projectPath) ? projectPath : Path.Combine(FindHelixSlnFileDirectory(), "UI");
     }
 

@@ -1,27 +1,25 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Hosting;
 
 using static HostingRequestStartingLog;
 
-internal class HostingRequestFinishedLog : IReadOnlyList<KeyValuePair<string, object?>>
+internal sealed class HostingRequestFinishedLog : IReadOnlyList<KeyValuePair<string, object?>>
 {
     internal static readonly Func<object, Exception?, string> Callback = (state, exception) => ((HostingRequestFinishedLog)state).ToString();
 
+    private const string OriginalFormat = "Request finished {Protocol} {Method} {Scheme}://{Host}{PathBase}{Path}{QueryString} - {StatusCode} {ContentLength} {ContentType} {ElapsedMilliseconds}ms";
     private readonly HostingApplication.Context _context;
 
     private string? _cachedToString;
     public TimeSpan Elapsed { get; }
 
-    public int Count => 11;
+    public int Count => 12;
 
     public KeyValuePair<string, object?> this[int index]
     {
@@ -45,7 +43,8 @@ internal class HostingRequestFinishedLog : IReadOnlyList<KeyValuePair<string, ob
                 8 => new KeyValuePair<string, object?>(nameof(request.PathBase), request.PathBase.Value),
                 9 => new KeyValuePair<string, object?>(nameof(request.Path), request.Path.Value),
                 10 => new KeyValuePair<string, object?>(nameof(request.QueryString), request.QueryString.Value),
-                _ => throw new IndexOutOfRangeException(nameof(index)),
+                11 => new KeyValuePair<string, object?>("{OriginalFormat}", OriginalFormat),
+                _ => throw new ArgumentOutOfRangeException(nameof(index)),
             };
         }
     }
@@ -60,10 +59,11 @@ internal class HostingRequestFinishedLog : IReadOnlyList<KeyValuePair<string, ob
     {
         if (_cachedToString == null)
         {
-            Debug.Assert(_context.HttpContext != null && _context.StartLog != null);
+            Debug.Assert(_context.HttpContext != null);
 
+            var request = _context.HttpContext.Request;
             var response = _context.HttpContext.Response;
-            _cachedToString = $"Request finished {_context.StartLog.ToStringWithoutPreamble()} - {response.StatusCode.ToString(CultureInfo.InvariantCulture)} {ValueOrEmptyMarker(response.ContentLength)} {EscapedValueOrEmptyMarker(response.ContentType)} {Elapsed.TotalMilliseconds.ToString("0.0000", CultureInfo.InvariantCulture)}ms";
+            _cachedToString = $"Request finished {request.Protocol} {request.Method} {request.Scheme}://{request.Host.Value}{request.PathBase.Value}{request.Path.Value}{request.QueryString.Value} - {response.StatusCode.ToString(CultureInfo.InvariantCulture)} {ValueOrEmptyMarker(response.ContentLength)} {EscapedValueOrEmptyMarker(response.ContentType)} {Elapsed.TotalMilliseconds.ToString("0.0000", CultureInfo.InvariantCulture)}ms";
         }
 
         return _cachedToString;

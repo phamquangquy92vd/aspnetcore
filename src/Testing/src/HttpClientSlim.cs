@@ -14,7 +14,7 @@ using System.Security.Authentication;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 /// <summary>
 /// Lightweight version of HttpClient implemented using Socket and SslStream.
@@ -41,7 +41,7 @@ public static class HttpClientSlim
 
                 return await ReadResponse(stream).ConfigureAwait(false);
             }
-        });
+        }).ConfigureAwait(false);
     }
 
     internal static string GetHost(Uri requestUri)
@@ -73,7 +73,7 @@ public static class HttpClientSlim
     {
         return await RetryRequest(async () =>
         {
-            using (var stream = await GetStream(requestUri, validateCertificate))
+            using (var stream = await GetStream(requestUri, validateCertificate).ConfigureAwait(false))
             {
                 using (var writer = new StreamWriter(stream, Encoding.ASCII, bufferSize: 1024, leaveOpen: true))
                 {
@@ -88,7 +88,7 @@ public static class HttpClientSlim
 
                 return await ReadResponse(stream).ConfigureAwait(false);
             }
-        });
+        }).ConfigureAwait(false);
     }
 
     private static async Task<string> ReadResponse(Stream stream)
@@ -108,11 +108,7 @@ public static class HttpClientSlim
 
     private static async Task<string> RetryRequest(Func<Task<string>> retryBlock)
     {
-        var retryCount = 1;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            retryCount = 3;
-        }
+        var retryCount = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 1 : 3;
 
         for (var retry = 0; retry < retryCount; retry++)
         {
@@ -144,12 +140,16 @@ public static class HttpClientSlim
             throw new InvalidDataException($"No StatusCode found in '{response}'");
         }
 
+#if NETSTANDARD2_0 || NETFRAMEWORK
         return (HttpStatusCode)int.Parse(response.Substring(statusStart, statusLength), CultureInfo.InvariantCulture);
+#else
+        return (HttpStatusCode)int.Parse(response.AsSpan(statusStart, statusLength), CultureInfo.InvariantCulture);
+#endif
     }
 
     private static async Task<Stream> GetStream(Uri requestUri, bool validateCertificate)
     {
-        var socket = await GetSocket(requestUri);
+        var socket = await GetSocket(requestUri).ConfigureAwait(false);
         var stream = new NetworkStream(socket, ownsSocket: true);
 
         if (requestUri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
@@ -186,7 +186,12 @@ public static class HttpClientSlim
 
         if (socket == null)
         {
+#if NETCOREAPP
+            // Include the host and port explicitly in case there's a parsing issue
+            throw new SocketException((int)socketArgs.SocketError, $"Failed to connect to server {requestUri.Host} on port {requestUri.Port}");
+#else
             throw new SocketException((int)socketArgs.SocketError);
+#endif
         }
         else
         {

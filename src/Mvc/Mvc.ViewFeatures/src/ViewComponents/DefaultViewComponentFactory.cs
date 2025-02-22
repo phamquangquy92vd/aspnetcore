@@ -1,10 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Internal;
 
 namespace Microsoft.AspNetCore.Mvc.ViewComponents;
@@ -26,10 +24,7 @@ public class DefaultViewComponentFactory : IViewComponentFactory
     /// </param>
     public DefaultViewComponentFactory(IViewComponentActivator activator)
     {
-        if (activator == null)
-        {
-            throw new ArgumentNullException(nameof(activator));
-        }
+        ArgumentNullException.ThrowIfNull(activator);
 
         _activator = activator;
 
@@ -44,10 +39,7 @@ public class DefaultViewComponentFactory : IViewComponentFactory
     /// <inheritdoc />
     public object CreateViewComponent(ViewComponentContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var component = _activator.Create(context);
 
@@ -77,15 +69,8 @@ public class DefaultViewComponentFactory : IViewComponentFactory
     /// <inheritdoc />
     public void ReleaseViewComponent(ViewComponentContext context, object component)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (component == null)
-        {
-            throw new ArgumentNullException(nameof(component));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(component);
 
         _activator.Release(context, component);
     }
@@ -93,15 +78,8 @@ public class DefaultViewComponentFactory : IViewComponentFactory
     /// <inheritdoc />
     public ValueTask ReleaseViewComponentAsync(ViewComponentContext context, object component)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (component == null)
-        {
-            throw new ArgumentNullException(nameof(component));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(component);
 
         return _activator.ReleaseAsync(context, component);
     }

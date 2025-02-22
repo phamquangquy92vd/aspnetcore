@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
@@ -40,10 +38,7 @@ public class DelegatingEnumerable<TWrapped, TDeclared> : IEnumerable<TWrapped>
     /// <param name="elementWrapperProvider">The wrapper provider for wrapping individual elements.</param>
     public DelegatingEnumerable(IEnumerable<TDeclared> source, IWrapperProvider elementWrapperProvider)
     {
-        if (source == null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
+        ArgumentNullException.ThrowIfNull(source);
 
         _source = source;
         _wrapperProvider = elementWrapperProvider;

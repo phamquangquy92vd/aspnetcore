@@ -1,3 +1,6 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 import '@microsoft/dotnet-js-interop';
 
 export const domFunctions = {
@@ -19,7 +22,7 @@ function focus(element: HTMLOrSVGElement, preventScroll: boolean): void {
   }
 }
 
-function focusBySelector(selector: string): void {
+function focusBySelector(selector: string) {
   const element = document.querySelector(selector) as HTMLElement;
   if (element) {
     // If no explicit tabindex is defined, mark it as programmatically-focusable.
@@ -29,6 +32,6 @@ function focusBySelector(selector: string): void {
       element.tabIndex = -1;
     }
 
-    element.focus();
+    element.focus({ preventScroll: true });
   }
 }

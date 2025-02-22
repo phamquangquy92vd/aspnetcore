@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 
@@ -20,10 +19,7 @@ public static class HttpMethodOverrideExtensions
     /// <param name="builder">The <see cref="IApplicationBuilder"/> instance this method extends.</param>
     public static IApplicationBuilder UseHttpMethodOverride(this IApplicationBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         return builder.UseMiddleware<HttpMethodOverrideMiddleware>();
     }
@@ -38,14 +34,8 @@ public static class HttpMethodOverrideExtensions
     /// </param>
     public static IApplicationBuilder UseHttpMethodOverride(this IApplicationBuilder builder, HttpMethodOverrideOptions options)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(options);
 
         return builder.UseMiddleware<HttpMethodOverrideMiddleware>(Options.Create(options));
     }

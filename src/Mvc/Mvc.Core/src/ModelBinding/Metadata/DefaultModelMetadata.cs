@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -64,25 +62,10 @@ public class DefaultModelMetadata : ModelMetadata
         DefaultModelBindingMessageProvider modelBindingMessageProvider)
         : base(details.Key)
     {
-        if (provider == null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
-
-        if (detailsProvider == null)
-        {
-            throw new ArgumentNullException(nameof(detailsProvider));
-        }
-
-        if (details == null)
-        {
-            throw new ArgumentNullException(nameof(details));
-        }
-
-        if (modelBindingMessageProvider == null)
-        {
-            throw new ArgumentNullException(nameof(modelBindingMessageProvider));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(detailsProvider);
+        ArgumentNullException.ThrowIfNull(details);
+        ArgumentNullException.ThrowIfNull(modelBindingMessageProvider);
 
         _provider = provider;
         _detailsProvider = detailsProvider;
@@ -472,6 +455,9 @@ public class DefaultModelMetadata : ModelMetadata
     }
 
     internal override bool PropertyHasValidators => ValidationMetadata.PropertyHasValidators;
+
+    /// <inheritdoc />
+    internal override string? ValidationModelName => ValidationMetadata.ValidationModelName;
 
     internal static bool CalculateHasValidators(HashSet<DefaultModelMetadata> visited, ModelMetadata metadata)
     {

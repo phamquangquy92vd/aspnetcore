@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text;
-using System.Threading.Tasks;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components;
 
@@ -30,7 +27,6 @@ public class EventCallbackTest
         await callback.InvokeAsync();
     }
 
-
     [Fact]
     public async Task EventCallback_NullReceiver()
     {
@@ -40,7 +36,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -55,7 +50,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -72,7 +66,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -91,7 +84,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.Equal(1, runCount);
         Assert.Equal(1, component.Count);
@@ -109,7 +101,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Null(arg);
@@ -130,7 +121,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.NotNull(arg);
         Assert.Equal(1, runCount);
@@ -149,7 +139,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync(17);
-
 
         // Assert
         Assert.Equal(17, arg);
@@ -186,7 +175,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync();
 
-
         // Assert
         Assert.Equal(1, runCount);
         Assert.Equal(1, component.Count);
@@ -203,7 +191,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync(new EventArgs());
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -222,7 +209,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Null(arg);
@@ -243,7 +229,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.NotNull(arg);
         Assert.Equal(1, runCount);
@@ -262,7 +247,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync(17);
-
 
         // Assert
         Assert.Equal(17, arg);
@@ -288,6 +272,24 @@ public class EventCallbackTest
     }
 
     [Fact]
+    public void EventCallbackOf_Equals_WhenANewDelegateIsCreated()
+    {
+        // Arrange
+        var component = new EventCountingComponent();
+
+        var delegate_1 = (EventArgs _) => { };
+        var delegate_2 = (MulticastDelegate)MulticastDelegate.CreateDelegate(typeof(Action<EventArgs>), delegate_1.Target, delegate_1.Method);
+        var eventcallback_1 = new EventCallback(component, delegate_1);
+        var eventcallback_2 = new EventCallback(component, delegate_2);
+
+        // Act
+        var result = eventcallback_1.Equals(eventcallback_2);
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
     public async Task EventCallbackOfT_Action_Null()
     {
         // Arrange
@@ -298,7 +300,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -317,7 +318,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.Equal(1, runCount);
         Assert.Equal(1, component.Count);
@@ -335,7 +335,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Null(arg);
@@ -356,7 +355,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.NotNull(arg);
         Assert.Equal(1, runCount);
@@ -375,7 +373,6 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync();
 
-
         // Assert
         Assert.Equal(1, runCount);
         Assert.Equal(1, component.Count);
@@ -392,7 +389,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync(new EventArgs());
-
 
         // Assert
         Assert.Equal(1, runCount);
@@ -411,7 +407,6 @@ public class EventCallbackTest
 
         // Act
         await callback.InvokeAsync();
-
 
         // Assert
         Assert.Null(arg);
@@ -432,11 +427,28 @@ public class EventCallbackTest
         // Act
         await callback.InvokeAsync(new EventArgs());
 
-
         // Assert
         Assert.NotNull(arg);
         Assert.Equal(1, runCount);
         Assert.Equal(1, component.Count);
+    }
+
+    [Fact]
+    public void EventCallbackOfT_Equals_WhenANewDelegateIsCreated()
+    {
+        // Arrange
+        var component = new EventCountingComponent();
+
+        var delegate_1 = (EventArgs _) => { };
+        var delegate_2 = (MulticastDelegate)MulticastDelegate.CreateDelegate(typeof(Action<EventArgs>), delegate_1.Target, delegate_1.Method);
+        var eventcallback_1 = new EventCallback<EventArgs>(component, delegate_1);
+        var eventcallback_2 = new EventCallback<EventArgs>(component, delegate_2);
+
+        // Act
+        var result = eventcallback_1.Equals(eventcallback_2);
+
+        // Assert
+        Assert.True(result);
     }
 
     private class EventCountingComponent : IComponent, IHandleEvent

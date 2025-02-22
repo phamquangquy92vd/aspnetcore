@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Xml;
 using System.Xml.Serialization;
 
@@ -39,10 +38,7 @@ public class ValidationProblemDetailsWrapper : ProblemDetailsWrapper, IUnwrappab
     /// <inheritdoc />
     protected override void ReadValue(XmlReader reader, string name)
     {
-        if (reader == null)
-        {
-            throw new ArgumentNullException(nameof(reader));
-        }
+        ArgumentNullException.ThrowIfNull(reader);
 
         if (string.Equals(name, ErrorKey, StringComparison.Ordinal))
         {
@@ -79,10 +75,7 @@ public class ValidationProblemDetailsWrapper : ProblemDetailsWrapper, IUnwrappab
     /// <inheritdoc />
     public override void WriteXml(XmlWriter writer)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
 
         base.WriteXml(writer);
 
@@ -115,10 +108,7 @@ public class ValidationProblemDetailsWrapper : ProblemDetailsWrapper, IUnwrappab
 
     object IUnwrappable.Unwrap(Type declaredType)
     {
-        if (declaredType == null)
-        {
-            throw new ArgumentNullException(nameof(declaredType));
-        }
+        ArgumentNullException.ThrowIfNull(declaredType);
 
         return ProblemDetails;
     }

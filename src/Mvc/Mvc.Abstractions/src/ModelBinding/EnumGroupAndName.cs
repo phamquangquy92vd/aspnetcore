@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
 /// <summary>
@@ -20,15 +18,8 @@ public readonly struct EnumGroupAndName
     /// <param name="name">The name.</param>
     public EnumGroupAndName(string group, string name)
     {
-        if (group == null)
-        {
-            throw new ArgumentNullException(nameof(group));
-        }
-
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(name);
 
         Group = group;
         _name = () => name;
@@ -43,15 +34,8 @@ public readonly struct EnumGroupAndName
         string group,
         Func<string> name)
     {
-        if (group == null)
-        {
-            throw new ArgumentNullException(nameof(group));
-        }
-
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentNullException.ThrowIfNull(name);
 
         Group = group;
         _name = name;

@@ -1,14 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Mvc.Testing.Handlers;
@@ -35,10 +31,7 @@ public class RedirectHandler : DelegatingHandler
     /// equal or greater than 0.</param>
     public RedirectHandler(int maxRedirects)
     {
-        if (maxRedirects <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(maxRedirects));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(maxRedirects);
 
         MaxRedirects = maxRedirects;
     }
@@ -68,7 +61,7 @@ public class RedirectHandler : DelegatingHandler
     }
 
     private static bool HasBody(HttpRequestMessage request) =>
-        request.Method == HttpMethod.Post || request.Method == HttpMethod.Put;
+        request.Method == HttpMethod.Post || request.Method == HttpMethod.Put || request.Method == HttpMethod.Patch;
 
     private static async Task<HttpContent?> DuplicateRequestContent(HttpRequestMessage request)
     {
@@ -148,9 +141,7 @@ public class RedirectHandler : DelegatingHandler
         {
             if (!location.IsAbsoluteUri && response.RequestMessage.RequestUri is Uri requestUri)
             {
-                location = new Uri(
-                    new Uri(requestUri.GetLeftPart(UriPartial.Authority)),
-                    location);
+                location = new Uri(requestUri, location);
             }
 
             redirect.RequestUri = location;
@@ -177,7 +168,7 @@ public class RedirectHandler : DelegatingHandler
         response.StatusCode == HttpStatusCode.RedirectKeepVerb ||
             (int)response.StatusCode == 308;
 
-    private bool IsRedirect(HttpResponseMessage response) =>
+    private static bool IsRedirect(HttpResponseMessage response) =>
         response.StatusCode == HttpStatusCode.MovedPermanently ||
             response.StatusCode == HttpStatusCode.Redirect ||
             response.StatusCode == HttpStatusCode.RedirectMethod ||

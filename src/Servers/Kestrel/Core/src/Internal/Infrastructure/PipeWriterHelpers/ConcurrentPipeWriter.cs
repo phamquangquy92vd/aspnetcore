@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.PipeWriterHelpers;
 
@@ -22,9 +19,9 @@ internal sealed class ConcurrentPipeWriter : PipeWriter
     private const int MaxSegmentPoolSize = 256; // 1MB
     private const int MinimumBufferSize = 4096; // 4K
 
-    private static readonly Exception _successfullyCompletedSentinel = new Exception();
+    private static readonly Exception _successfullyCompletedSentinel = new UnreachableException();
 
-    private readonly object _sync;
+    private readonly Lock _sync;
     private readonly PipeWriter _innerPipeWriter;
     private readonly MemoryPool<byte> _pool;
     private readonly BufferSegmentStack _bufferSegmentPool = new BufferSegmentStack(InitialSegmentPoolSize);
@@ -53,7 +50,7 @@ internal sealed class ConcurrentPipeWriter : PipeWriter
     // If an Complete() is called while a flush is in progress, we clean up after the flush loop completes, and call Complete() on the inner PipeWriter.
     private Exception? _completeException;
 
-    public ConcurrentPipeWriter(PipeWriter innerPipeWriter, MemoryPool<byte> pool, object sync)
+    public ConcurrentPipeWriter(PipeWriter innerPipeWriter, MemoryPool<byte> pool, Lock sync)
     {
         _innerPipeWriter = innerPipeWriter;
         _pool = pool;
@@ -209,6 +206,15 @@ internal sealed class ConcurrentPipeWriter : PipeWriter
             CleanupSegmentsUnsynchronized();
 
             _innerPipeWriter.Complete(exception);
+        }
+    }
+
+    public override bool CanGetUnflushedBytes => _innerPipeWriter.CanGetUnflushedBytes;
+    public override long UnflushedBytes
+    {
+        get
+        {
+            return _innerPipeWriter.UnflushedBytes + _bytesBuffered;
         }
     }
 

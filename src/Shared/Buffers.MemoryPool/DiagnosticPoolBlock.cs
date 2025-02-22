@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Threading;
 
 #nullable enable
 
@@ -27,7 +26,6 @@ internal sealed class DiagnosticPoolBlock : MemoryManager<byte>
     private readonly object _syncObj = new object();
     private bool _isDisposed;
     private int _pinCount;
-
 
     /// <summary>
     /// This object cannot be instantiated outside of the static Create method

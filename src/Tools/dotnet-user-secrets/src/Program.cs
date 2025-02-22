@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using Microsoft.Extensions.CommandLineUtils;
 using Microsoft.Extensions.SecretManager.Tools.Internal;
 using Microsoft.Extensions.Tools.Internal;
@@ -28,6 +26,9 @@ public class Program
         _console = console;
         _workingDirectory = workingDirectory;
     }
+
+    // For testing.
+    internal string SecretsFilePath { get; private set; }
 
     public bool TryRun(string[] args, out int returnCode)
     {
@@ -77,20 +78,20 @@ public class Program
             return 0;
         }
 
-        string userSecretsId;
-        try
+        var userSecretsId = ResolveId(options, reporter);
+
+        if (string.IsNullOrEmpty(userSecretsId))
         {
-            userSecretsId = ResolveId(options, reporter);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException || ex is FileNotFoundException)
-        {
-            reporter.Error(ex.Message);
             return 1;
         }
 
         var store = new SecretsStore(userSecretsId, reporter);
         var context = new Internal.CommandContext(store, reporter, _console);
         options.Command.Execute(context);
+
+        // For testing.
+        SecretsFilePath = store.SecretsFilePath;
+
         return 0;
     }
 

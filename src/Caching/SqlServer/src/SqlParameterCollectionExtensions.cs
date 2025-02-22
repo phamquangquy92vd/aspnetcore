@@ -22,20 +22,42 @@ internal static class SqlParameterCollectionExtensions
         return parameters.AddWithValue(Columns.Names.CacheItemId, SqlDbType.NVarChar, CacheItemIdColumnWidth, value);
     }
 
-    public static SqlParameterCollection AddCacheItemValue(this SqlParameterCollection parameters, byte[] value)
+    public static SqlParameterCollection AddCacheItemValue(this SqlParameterCollection parameters, ArraySegment<byte> value)
     {
-        if (value != null && value.Length < DefaultValueColumnWidth)
+        if (value.Array is null) // null array (not really anticipating this, but...)
         {
-            return parameters.AddWithValue(
-                Columns.Names.CacheItemValue,
-                SqlDbType.VarBinary,
-                DefaultValueColumnWidth,
-                value);
+            return parameters.AddWithValue(Columns.Names.CacheItemValue, SqlDbType.VarBinary, Array.Empty<byte>());
         }
-        else
+
+        if (value.Count == 0)
         {
-            // do not mention the size
-            return parameters.AddWithValue(Columns.Names.CacheItemValue, SqlDbType.VarBinary, value);
+            // workaround for https://github.com/dotnet/SqlClient/issues/2465
+            value = new([], 0, 0);
+        }
+
+        if (value.Offset == 0 & value.Count == value.Array!.Length) // right-sized array
+        {
+            if (value.Count < DefaultValueColumnWidth)
+            {
+                return parameters.AddWithValue(
+                    Columns.Names.CacheItemValue,
+                    SqlDbType.VarBinary,
+                    DefaultValueColumnWidth, // send as varbinary(constantSize)
+                    value.Array);
+            }
+            else
+            {
+                // do not mention the size
+                return parameters.AddWithValue(Columns.Names.CacheItemValue, SqlDbType.VarBinary, value.Array);
+            }
+        }
+        else // array fragment; set the Size and Offset accordingly
+        {
+            var p = new SqlParameter(Columns.Names.CacheItemValue, SqlDbType.VarBinary, value.Count);
+            p.Value = value.Array;
+            p.Offset = value.Offset;
+            parameters.Add(p);
+            return parameters;
         }
     }
 
@@ -74,7 +96,7 @@ internal static class SqlParameterCollectionExtensions
         this SqlParameterCollection parameters,
         string parameterName,
         SqlDbType dbType,
-        object value)
+        object? value)
     {
         var parameter = new SqlParameter(parameterName, dbType);
         parameter.Value = value;
@@ -88,7 +110,7 @@ internal static class SqlParameterCollectionExtensions
         string parameterName,
         SqlDbType dbType,
         int size,
-        object value)
+        object? value)
     {
         var parameter = new SqlParameter(parameterName, dbType, size);
         parameter.Value = value;

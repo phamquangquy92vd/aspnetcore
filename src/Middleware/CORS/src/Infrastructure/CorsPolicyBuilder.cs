@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 
 namespace Microsoft.AspNetCore.Cors.Infrastructure;
@@ -42,22 +41,19 @@ public class CorsPolicyBuilder
     /// the normalization performed by the browser on the value sent in the <c>ORIGIN</c> header.
     /// <list type="bullet">
     /// <item>
-    /// If the specified origin has an internationalized domain name (IDN), the punycoded value is used. If the origin
+    /// <description>If the specified origin has an internationalized domain name (IDN), the punycoded value is used. If the origin
     /// specifies a default port (e.g. 443 for HTTPS or 80 for HTTP), this will be dropped as part of normalization.
     /// Finally, the scheme and punycoded host name are culture invariant lower cased before being added to the <see cref="CorsPolicy.Origins"/>
-    /// collection.
+    /// collection.</description>
     /// </item>
     /// <item>
-    /// For all other origins, normalization involves performing a culture invariant lower casing of the host name.
+    /// <description>For all other origins, normalization involves performing a culture invariant lower casing of the host name.</description>
     /// </item>
     /// </list>
     /// </remarks>
     public CorsPolicyBuilder WithOrigins(params string[] origins)
     {
-        if (origins is null)
-        {
-            throw new ArgumentNullException(nameof(origins));
-        }
+        ArgumentNullException.ThrowIfNull(origins);
 
         foreach (var origin in origins)
         {
@@ -70,10 +66,7 @@ public class CorsPolicyBuilder
 
     internal static string GetNormalizedOrigin(string origin)
     {
-        if (origin is null)
-        {
-            throw new ArgumentNullException(nameof(origin));
-        }
+        ArgumentNullException.ThrowIfNull(origin);
 
         if (Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
             (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
@@ -178,7 +171,7 @@ public class CorsPolicyBuilder
     public CorsPolicyBuilder AllowAnyMethod()
     {
         _policy.Methods.Clear();
-        _policy.Methods.Add("*");
+        _policy.Methods.Add(CorsConstants.AnyMethod);
         return this;
     }
 
@@ -189,7 +182,7 @@ public class CorsPolicyBuilder
     public CorsPolicyBuilder AllowAnyHeader()
     {
         _policy.Headers.Clear();
-        _policy.Headers.Add("*");
+        _policy.Headers.Add(CorsConstants.AnyHeader);
         return this;
     }
 
@@ -249,10 +242,7 @@ public class CorsPolicyBuilder
     /// <returns>The current policy builder.</returns>
     private CorsPolicyBuilder Combine(CorsPolicy policy)
     {
-        if (policy == null)
-        {
-            throw new ArgumentNullException(nameof(policy));
-        }
+        ArgumentNullException.ThrowIfNull(policy);
 
         WithOrigins(policy.Origins.ToArray());
         WithHeaders(policy.Headers.ToArray());

@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -21,30 +18,11 @@ internal static class ControllerBinderDelegateProvider
         ControllerActionDescriptor actionDescriptor,
         MvcOptions mvcOptions)
     {
-        if (parameterBinder == null)
-        {
-            throw new ArgumentNullException(nameof(parameterBinder));
-        }
-
-        if (modelBinderFactory == null)
-        {
-            throw new ArgumentNullException(nameof(modelBinderFactory));
-        }
-
-        if (modelMetadataProvider == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadataProvider));
-        }
-
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
-
-        if (mvcOptions == null)
-        {
-            throw new ArgumentNullException(nameof(mvcOptions));
-        }
+        ArgumentNullException.ThrowIfNull(parameterBinder);
+        ArgumentNullException.ThrowIfNull(modelBinderFactory);
+        ArgumentNullException.ThrowIfNull(modelMetadataProvider);
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
+        ArgumentNullException.ThrowIfNull(mvcOptions);
 
         var parameterBindingInfo = GetParameterBindingInfo(
             modelBinderFactory,

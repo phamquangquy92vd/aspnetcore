@@ -1,11 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class NameValueHeaderValueTest
@@ -34,7 +29,7 @@ public class NameValueHeaderValueTest
     public void Ctor_NameValidFormat_SuccessfullyCreated()
     {
         var nameValue = new NameValueHeaderValue("text", null);
-        Assert.Equal("text", nameValue.Name);
+        Assert.Equal("text", nameValue.Name.AsSpan());
     }
 
     [Fact]
@@ -71,7 +66,7 @@ public class NameValueHeaderValueTest
 
         // Change one value and verify the other is unchanged.
         pair0.Value = "othervalue";
-        Assert.Equal("othervalue", pair0.Value);
+        Assert.Equal("othervalue", pair0.Value.AsSpan());
         Assert.Null(pair1.Value.Value);
     }
 
@@ -89,7 +84,7 @@ public class NameValueHeaderValueTest
 
         // Change one value and verify the other is unchanged.
         pair0.Value = "othervalue";
-        Assert.Equal("othervalue", pair0.Value);
+        Assert.Equal("othervalue", pair0.Value.AsSpan());
         Assert.Null(pair1.Value.Value);
         Assert.Throws<InvalidOperationException>(() => { pair1.Value = "othervalue"; });
     }
@@ -105,8 +100,8 @@ public class NameValueHeaderValueTest
 
         // Change one value and verify the other is unchanged.
         pair0.Value = "othervalue";
-        Assert.Equal("othervalue", pair0.Value);
-        Assert.Equal("value", pair1.Value);
+        Assert.Equal("othervalue", pair0.Value.AsSpan());
+        Assert.Equal("value", pair1.Value.AsSpan());
     }
 
     [Fact]
@@ -122,8 +117,8 @@ public class NameValueHeaderValueTest
 
         // Change one value and verify the other is unchanged.
         pair0.Value = "othervalue";
-        Assert.Equal("othervalue", pair0.Value);
-        Assert.Equal("value", pair1.Value);
+        Assert.Equal("othervalue", pair0.Value.AsSpan());
+        Assert.Equal("value", pair1.Value.AsSpan());
         Assert.Throws<InvalidOperationException>(() => { pair1.Value = "othervalue"; });
     }
 
@@ -139,8 +134,8 @@ public class NameValueHeaderValueTest
 
         // Change one value and verify the other is unchanged.
         pair2.Value = "othervalue";
-        Assert.Equal("othervalue", pair2.Value);
-        Assert.Equal("value", pair1.Value);
+        Assert.Equal("othervalue", pair2.Value.AsSpan());
+        Assert.Equal("value", pair1.Value.AsSpan());
     }
 
     [Fact]
@@ -586,7 +581,7 @@ public class NameValueHeaderValueTest
 
         var actual = header.GetUnescapedValue();
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(expected.AsSpan(), actual);
     }
 
     [Theory]
@@ -607,9 +602,8 @@ public class NameValueHeaderValueTest
 
         var actual = header.Value;
 
-        Assert.Equal(expected, actual);
+        Assert.Equal(expected.AsSpan(), actual);
     }
-
 
     [Theory]
     [InlineData("\n")]
@@ -634,7 +628,7 @@ public class NameValueHeaderValueTest
 
         var actual = header.Value;
 
-        Assert.Equal(input, actual);
+        Assert.Equal(input.AsSpan(), actual);
     }
 
     [Theory]
@@ -650,7 +644,6 @@ public class NameValueHeaderValueTest
 
         Assert.NotEqual(input, actual);
     }
-
 
     #region Helper methods
 
@@ -680,7 +673,7 @@ public class NameValueHeaderValueTest
     private static void CheckValue(string? value)
     {
         var nameValue = new NameValueHeaderValue("text", value);
-        Assert.Equal(value, nameValue.Value);
+        Assert.Equal(value.AsSpan(), nameValue.Value);
     }
 
     private static void AssertFormatException(string name, string? value)

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.IO.Compression;
 using Microsoft.Extensions.Options;
 
@@ -19,10 +17,7 @@ public class BrotliCompressionProvider : ICompressionProvider
     /// <param name="options">The options for this instance.</param>
     public BrotliCompressionProvider(IOptions<BrotliCompressionProviderOptions> options)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         Options = options.Value;
     }

@@ -1,12 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.IO.Pipelines;
-using System.Threading;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Connections;
 
 namespace Microsoft.AspNetCore.Http.Connections;
 
@@ -70,10 +68,7 @@ public class HttpConnectionDispatcherOptions
         get => _transportMaxBufferSize;
         set
         {
-            if (value < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
 
             _transportMaxBufferSize = value;
         }
@@ -90,17 +85,14 @@ public class HttpConnectionDispatcherOptions
         get => _applicationMaxBufferSize;
         set
         {
-            if (value < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
 
             _applicationMaxBufferSize = value;
         }
     }
 
     /// <summary>
-    /// Gets or sets the minimum protocol verison supported by the server.
+    /// Gets or sets the minimum protocol version supported by the server.
     /// The default value is 0, the lowest possible protocol version.
     /// </summary>
     public int MinimumProtocolVersion { get; set; }
@@ -117,13 +109,9 @@ public class HttpConnectionDispatcherOptions
         get => _transportSendTimeout;
         set
         {
-            if (value == TimeSpan.Zero)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfEqual(value, TimeSpan.Zero);
 
             _transportSendTimeout = value;
-            TransportSendTimeoutTicks = value.Ticks;
         }
     }
 
@@ -136,7 +124,14 @@ public class HttpConnectionDispatcherOptions
     /// </remarks>
     public bool CloseOnAuthenticationExpiration { get; set; }
 
-    internal long TransportSendTimeoutTicks { get; private set; }
+    /// <summary>
+    /// Set to allow connections to reconnect with the same <see cref="BaseConnectionContext.ConnectionId"/>.
+    /// </summary>
+    /// <remarks>
+    /// Client still has to negotiate this option.
+    /// </remarks>
+    public bool AllowStatefulReconnects { get; set; }
+
     internal bool TransportSendTimeoutEnabled => _transportSendTimeout != Timeout.InfiniteTimeSpan;
 
     // We initialize these lazily based on the state of the options specified here.

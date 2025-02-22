@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Patterns;
 
@@ -32,15 +29,8 @@ public sealed class RouteEndpoint : Endpoint
         string? displayName)
         : base(requestDelegate, metadata, displayName)
     {
-        if (requestDelegate == null)
-        {
-            throw new ArgumentNullException(nameof(requestDelegate));
-        }
-
-        if (routePattern == null)
-        {
-            throw new ArgumentNullException(nameof(routePattern));
-        }
+        ArgumentNullException.ThrowIfNull(requestDelegate);
+        ArgumentNullException.ThrowIfNull(routePattern);
 
         RoutePattern = routePattern;
         Order = order;

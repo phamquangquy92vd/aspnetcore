@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Rendering;
 
 namespace Microsoft.AspNetCore.Components;
@@ -24,6 +22,7 @@ namespace Microsoft.AspNetCore.Components;
 public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRender
 {
     private readonly RenderFragment _renderFragment;
+    private (IComponentRenderMode? mode, bool cached) _renderMode;
     private RenderHandle _renderHandle;
     private bool _initialized;
     private bool _hasNeverRendered = true;
@@ -41,6 +40,32 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
             _hasNeverRendered = false;
             BuildRenderTree(builder);
         };
+    }
+
+    /// <summary>
+    /// Gets the <see cref="Components.RendererInfo"/> the component is running on.
+    /// </summary>
+    protected RendererInfo RendererInfo => _renderHandle.RendererInfo;
+
+    /// <summary>
+    /// Gets the <see cref="ResourceAssetCollection"/> for the application.
+    /// </summary>
+    protected ResourceAssetCollection Assets => _renderHandle.Assets;
+
+    /// <summary>
+    /// Gets the <see cref="IComponentRenderMode"/> assigned to this component.
+    /// </summary>
+    protected IComponentRenderMode? AssignedRenderMode
+    {
+        get
+        {
+            if (!_renderMode.cached)
+            {
+                _renderMode = (_renderHandle.RenderMode, true);
+            }
+
+            return _renderMode.mode;
+        }
     }
 
     /// <summary>
@@ -126,7 +151,12 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
         => true;
 
     /// <summary>
-    /// Method invoked after each time the component has been rendered.
+    /// Method invoked after each time the component has rendered interactively and the UI has finished
+    /// updating (for example, after elements have been added to the browser DOM). Any <see cref="ElementReference" />
+    /// fields will be populated by the time this runs.
+    ///
+    /// This method is not invoked during prerendering or server-side rendering, because those processes
+    /// are not attached to any live browser DOM and are already complete before the DOM is updated.
     /// </summary>
     /// <param name="firstRender">
     /// Set to <c>true</c> if this is the first time <see cref="OnAfterRender(bool)"/> has been invoked
@@ -143,9 +173,15 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
     }
 
     /// <summary>
-    /// Method invoked after each time the component has been rendered. Note that the component does
-    /// not automatically re-render after the completion of any returned <see cref="Task"/>, because
-    /// that would cause an infinite render loop.
+    /// Method invoked after each time the component has been rendered interactively and the UI has finished
+    /// updating (for example, after elements have been added to the browser DOM). Any <see cref="ElementReference" />
+    /// fields will be populated by the time this runs.
+    ///
+    /// This method is not invoked during prerendering or server-side rendering, because those processes
+    /// are not attached to any live browser DOM and are already complete before the DOM is updated.
+    ///
+    /// Note that the component does not automatically re-render after the completion of any returned <see cref="Task"/>,
+    /// because that would cause an infinite render loop.
     /// </summary>
     /// <param name="firstRender">
     /// Set to <c>true</c> if this is the first time <see cref="OnAfterRender(bool)"/> has been invoked
@@ -177,6 +213,19 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
     protected Task InvokeAsync(Func<Task> workItem)
         => _renderHandle.Dispatcher.InvokeAsync(workItem);
 
+    /// <summary>
+    /// Treats the supplied <paramref name="exception"/> as being thrown by this component. This will cause the
+    /// enclosing ErrorBoundary to transition into a failed state. If there is no enclosing ErrorBoundary,
+    /// it will be regarded as an exception from the enclosing renderer.
+    ///
+    /// This is useful if an exception occurs outside the component lifecycle methods, but you wish to treat it
+    /// the same as an exception from a component lifecycle method.
+    /// </summary>
+    /// <param name="exception">The <see cref="Exception"/> that will be dispatched to the renderer.</param>
+    /// <returns>A <see cref="Task"/> that will be completed when the exception has finished dispatching.</returns>
+    protected Task DispatchExceptionAsync(Exception exception)
+        => _renderHandle.DispatchExceptionAsync(exception);
+
     void IComponent.Attach(RenderHandle renderHandle)
     {
         // This implicitly means a ComponentBase can only be associated with a single
@@ -189,7 +238,6 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
 
         _renderHandle = renderHandle;
     }
-
 
     /// <summary>
     /// Sets parameters supplied by the component's parent in the render tree.
@@ -317,7 +365,7 @@ public abstract class ComponentBase : IComponent, IHandleEvent, IHandleAfterRend
     Task IHandleAfterRender.OnAfterRenderAsync()
     {
         var firstRender = !_hasCalledOnAfterRender;
-        _hasCalledOnAfterRender |= true;
+        _hasCalledOnAfterRender = true;
 
         OnAfterRender(firstRender);
 

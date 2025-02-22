@@ -1,16 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
-using Microsoft.Net.Http.Headers;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Antiforgery.Internal;
 
@@ -117,6 +110,65 @@ public class DefaultAntiforgeryTokenStoreTest
             Cookie = { Name = "cookie-name" },
             FormFieldName = "form-field-name",
             HeaderName = "header-name",
+        };
+
+        var tokenStore = new DefaultAntiforgeryTokenStore(new TestOptionsManager(options));
+
+        // Act
+        var tokens = await tokenStore.GetRequestTokensAsync(httpContext);
+
+        // Assert
+        Assert.Equal("cookie-value", tokens.CookieToken);
+        Assert.Equal("header-value", tokens.RequestToken);
+    }
+
+    [Fact]
+    public async Task GetRequestTokens_FormTokenDisabled_ReturnsNullToken()
+    {
+        // Arrange
+        var httpContext = GetHttpContext("cookie-name", "cookie-value");
+        httpContext.Request.ContentType = "application/x-www-form-urlencoded";
+        httpContext.Request.Form = new FormCollection(new Dictionary<string, StringValues>
+            {
+                { "form-field-name", "form-value" },
+            });
+
+        var options = new AntiforgeryOptions
+        {
+            Cookie = { Name = "cookie-name" },
+            FormFieldName = "form-field-name",
+            HeaderName = "header-name",
+            SuppressReadingTokenFromFormBody = true
+        };
+
+        var tokenStore = new DefaultAntiforgeryTokenStore(new TestOptionsManager(options));
+
+        // Act
+        var tokens = await tokenStore.GetRequestTokensAsync(httpContext);
+
+        // Assert
+        Assert.Equal("cookie-value", tokens.CookieToken);
+        Assert.Null(tokens.RequestToken);
+    }
+
+    [Fact]
+    public async Task GetRequestTokens_FormTokenDisabled_ReturnsHeaderToken()
+    {
+        // Arrange
+        var httpContext = GetHttpContext("cookie-name", "cookie-value");
+        httpContext.Request.ContentType = "application/x-www-form-urlencoded";
+        httpContext.Request.Form = new FormCollection(new Dictionary<string, StringValues>
+            {
+                { "form-field-name", "form-value" },
+            });
+        httpContext.Request.Headers.Add("header-name", "header-value");
+
+        var options = new AntiforgeryOptions
+        {
+            Cookie = { Name = "cookie-name" },
+            FormFieldName = "form-field-name",
+            HeaderName = "header-name",
+            SuppressReadingTokenFromFormBody = true
         };
 
         var tokenStore = new DefaultAntiforgeryTokenStore(new TestOptionsManager(options));
@@ -344,7 +396,7 @@ public class DefaultAntiforgeryTokenStoreTest
     [InlineData("/", "/")]
     [InlineData("/vdir1", "/vdir1")]
     [InlineData("/vdir1/vdir2", "/vdir1/vdir2")]
-    public void SaveCookieToken_SetsCookieWithApproriatePathBase(string requestPathBase, string expectedCookiePath)
+    public void SaveCookieToken_SetsCookieWithApproriatePathBase(string? requestPathBase, string expectedCookiePath)
     {
         // Arrange
         var token = "serialized-value";

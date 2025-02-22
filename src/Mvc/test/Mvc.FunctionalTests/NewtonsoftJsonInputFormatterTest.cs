@@ -4,18 +4,11 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
 public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase<FormatterWebSite.Startup>
 {
-    public NewtonsoftJsonInputFormatterTest(MvcTestFixture<FormatterWebSite.Startup> fixture)
-        : base(fixture)
-    {
-    }
-
     [Fact] // This test covers the 2.0 behavior. JSON.Net error messages are not preserved.
     public virtual async Task JsonInputFormatter_SuppliedJsonDeserializationErrorMessage()
     {
@@ -35,6 +28,23 @@ public class NewtonsoftJsonInputFormatterTest : JsonInputFormatterTestBase<Forma
     [InlineData("application/json", "")]
     [InlineData("application/json", "    ")]
     public async Task JsonInputFormatter_ReturnsBadRequest_ForEmptyRequestBody(
+        string requestContentType,
+        string jsonInput)
+    {
+        // Arrange
+        var content = new StringContent(jsonInput, Encoding.UTF8, requestContentType);
+
+        // Act
+        var response = await Client.PostAsync("http://localhost/JsonFormatter/ReturnNonNullableInput/", content);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("application/json", "")]
+    [InlineData("application/json", "    ")]
+    public async Task JsonInputFormatter_ReturnsBadRequest_ForEmptyRequestBody_WhenNullableIsNotSet(
         string requestContentType,
         string jsonInput)
     {

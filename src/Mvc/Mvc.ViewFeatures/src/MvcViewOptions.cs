@@ -3,9 +3,7 @@
 
 #nullable enable
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
@@ -29,10 +27,7 @@ public class MvcViewOptions : IEnumerable<ICompatibilitySwitch>
         get => _htmlHelperOptions;
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _htmlHelperOptions = value;
         }

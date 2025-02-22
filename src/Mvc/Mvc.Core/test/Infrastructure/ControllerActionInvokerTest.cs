@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
@@ -16,7 +11,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
@@ -24,7 +19,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
@@ -69,7 +63,7 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
         var routeValues = listener.BeforeAction?.RouteData?.Values;
         Assert.NotNull(routeValues);
 
-        Assert.Equal(1, routeValues.Count);
+        Assert.Single(routeValues);
         Assert.Contains(routeValues, kvp => kvp.Key == "tag" && string.Equals(kvp.Value, "value"));
     }
 
@@ -102,6 +96,99 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
         // Assert
         Assert.NotNull(listener.AfterAction?.ActionDescriptor);
         Assert.NotNull(listener.AfterAction?.HttpContext);
+    }
+
+    [Fact]
+    public async Task InvokeAction_ResourceFilter_WritesDiagnostic_Not_ShortCircuited()
+    {
+        // Arrange
+        var actionDescriptor = new ControllerActionDescriptor()
+        {
+            FilterDescriptors = new List<FilterDescriptor>(),
+            Parameters = new List<ParameterDescriptor>(),
+            BoundProperties = new List<ParameterDescriptor>(),
+        };
+
+        actionDescriptor.MethodInfo = typeof(TestController).GetMethod(nameof(TestController.ActionMethod));
+        actionDescriptor.ControllerTypeInfo = typeof(TestController).GetTypeInfo();
+
+        var listener = new TestDiagnosticListener();
+        var resourceFilter = new Mock<IAsyncResourceFilter>(MockBehavior.Strict);
+        resourceFilter
+            .Setup(f => f.OnResourceExecutionAsync(It.IsAny<ResourceExecutingContext>(), It.IsAny<ResourceExecutionDelegate>()))
+            .Returns<ResourceExecutingContext, ResourceExecutionDelegate>(async (c, next) =>
+            {
+                await next();
+            })
+            .Verifiable();
+
+        var invoker = CreateInvoker(
+            new IFilterMetadata[] { resourceFilter.Object },
+            actionDescriptor,
+            controller: new TestController(),
+            diagnosticListener: listener);
+
+        // Act
+        await invoker.InvokeAsync();
+
+        // Assert
+        resourceFilter.Verify(f => f.OnResourceExecutionAsync(It.IsAny<ResourceExecutingContext>(), It.IsAny<ResourceExecutionDelegate>()), Times.Once);
+        Assert.NotNull(listener.BeforeResource?.ActionDescriptor);
+        Assert.NotNull(listener.BeforeResource?.ExecutingContext);
+        Assert.NotNull(listener.BeforeResource?.Filter);
+        Assert.NotNull(listener.AfterResource?.ActionDescriptor);
+        Assert.NotNull(listener.AfterResource?.ExecutedContext);
+        Assert.NotNull(listener.AfterResource?.Filter);
+    }
+
+    [Fact]
+    public async Task InvokeAction_ResourceFilter_WritesDiagnostic_ShortCircuited()
+    {
+        // Arrange
+        var actionDescriptor = new ControllerActionDescriptor()
+        {
+            FilterDescriptors = new List<FilterDescriptor>(),
+            Parameters = new List<ParameterDescriptor>(),
+            BoundProperties = new List<ParameterDescriptor>(),
+        };
+
+        var expected = new Mock<IActionResult>(MockBehavior.Strict);
+        expected
+            .Setup(r => r.ExecuteResultAsync(It.IsAny<ActionContext>()))
+            .Returns(Task.FromResult(true))
+            .Verifiable();
+
+        actionDescriptor.MethodInfo = typeof(TestController).GetMethod(nameof(TestController.ActionMethod));
+        actionDescriptor.ControllerTypeInfo = typeof(TestController).GetTypeInfo();
+
+        var listener = new TestDiagnosticListener();
+        var resourceFilter = new Mock<IAsyncResourceFilter>(MockBehavior.Strict);
+        resourceFilter
+            .Setup(f => f.OnResourceExecutionAsync(It.IsAny<ResourceExecutingContext>(), It.IsAny<ResourceExecutionDelegate>()))
+            .Returns<ResourceExecutingContext, ResourceExecutionDelegate>((c, next) =>
+            {
+                c.Result = expected.Object;
+                return Task.FromResult(true);
+            })
+            .Verifiable();
+
+        var invoker = CreateInvoker(
+            new IFilterMetadata[] { resourceFilter.Object },
+            actionDescriptor,
+            controller: new TestController(),
+            diagnosticListener: listener);
+
+        // Act
+        await invoker.InvokeAsync();
+
+        // Assert
+        resourceFilter.Verify(f => f.OnResourceExecutionAsync(It.IsAny<ResourceExecutingContext>(), It.IsAny<ResourceExecutionDelegate>()), Times.Once());
+        Assert.NotNull(listener.BeforeResource?.ActionDescriptor);
+        Assert.NotNull(listener.BeforeResource?.ExecutingContext);
+        Assert.NotNull(listener.BeforeResource?.Filter);
+        Assert.NotNull(listener.AfterResource?.ActionDescriptor);
+        Assert.NotNull(listener.AfterResource?.ExecutedContext);
+        Assert.NotNull(listener.AfterResource?.Filter);
     }
 
     #endregion
@@ -165,7 +252,7 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
         // Assert
         var controllerContext = Assert.IsType<ControllerActionInvoker>(invoker).ControllerContext;
         Assert.NotNull(controllerContext);
-        Assert.Equal(1, controllerContext.ValueProviderFactories.Count);
+        Assert.Single(controllerContext.ValueProviderFactories);
         Assert.Same(valueProviderFactory2, controllerContext.ValueProviderFactories[0]);
     }
 
@@ -308,8 +395,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             .Setup(f => f.OnActionExecutionAsync(It.IsAny<ActionExecutingContext>(), It.IsAny<ActionExecutionDelegate>()))
             .Returns<ActionExecutingContext, ActionExecutionDelegate>((c, next) =>
             {
-                    // Notice we're not calling next
-                    c.Result = result.Object;
+                // Notice we're not calling next
+                c.Result = result.Object;
                 return Task.FromResult(true);
             })
             .Verifiable();
@@ -371,8 +458,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             .Setup(f => f.OnActionExecutionAsync(It.IsAny<ActionExecutingContext>(), It.IsAny<ActionExecutionDelegate>()))
             .Returns<ActionExecutingContext, ActionExecutionDelegate>((c, next) =>
             {
-                    // Notice we're not calling next
-                    return Task.FromResult(true);
+                // Notice we're not calling next
+                return Task.FromResult(true);
             })
             .Verifiable();
 
@@ -449,8 +536,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             {
                 context = c;
 
-                    // Handle the exception so the test doesn't throw.
-                    Assert.False(c.ExceptionHandled);
+                // Handle the exception so the test doesn't throw.
+                Assert.False(c.ExceptionHandled);
                 c.ExceptionHandled = true;
             })
             .Verifiable();
@@ -483,8 +570,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             {
                 context = c;
 
-                    // Handle the exception so the test doesn't throw.
-                    Assert.False(c.ExceptionHandled);
+                // Handle the exception so the test doesn't throw.
+                Assert.False(c.ExceptionHandled);
                 c.ExceptionHandled = true;
             })
             .Verifiable();
@@ -525,8 +612,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             {
                 context = await next();
 
-                    // Handle the exception so the test doesn't throw.
-                    Assert.False(context.ExceptionHandled);
+                // Handle the exception so the test doesn't throw.
+                Assert.False(context.ExceptionHandled);
                 context.ExceptionHandled = true;
             })
             .Verifiable();
@@ -570,8 +657,8 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             .Setup(f => f.OnActionExecuted(It.IsAny<ActionExecutedContext>()))
             .Callback<ActionExecutedContext>(c =>
             {
-                    // Handle the exception so the test doesn't throw.
-                    Assert.False(c.ExceptionHandled);
+                // Handle the exception so the test doesn't throw.
+                Assert.False(c.ExceptionHandled);
                 c.ExceptionHandled = true;
 
                 c.Result = result.Object;
@@ -1339,6 +1426,7 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
             (_, __) => default,
             (_, __, ___) => Task.CompletedTask,
             objectMethodExecutor,
+            controllerMethodExecutor,
             controllerMethodExecutor);
 
         var invoker = new ControllerActionInvoker(
@@ -1669,6 +1757,7 @@ public class ControllerActionInvokerTest : CommonResourceInvokerTest
                 return Task.CompletedTask;
             },
             objectMethodExecutor,
+            actionMethodExecutor,
             actionMethodExecutor);
 
         var actionContext = new ActionContext(httpContext, routeData, actionDescriptor);

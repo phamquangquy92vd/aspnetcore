@@ -8,13 +8,15 @@ using System.IO.Pipelines;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections.Client.Internal;
 using Microsoft.AspNetCore.SignalR.Tests;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
 using Xunit;
@@ -117,8 +119,8 @@ public class LongPollingTransportTests : VerifiableLoggedTest
                 else if (requests == 2)
                 {
                     requests++;
-                        // Time out
-                        return ResponseUtils.CreateResponse(HttpStatusCode.OK);
+                    // Time out
+                    return ResponseUtils.CreateResponse(HttpStatusCode.OK);
                 }
                 else if (requests == 3)
                 {
@@ -126,8 +128,8 @@ public class LongPollingTransportTests : VerifiableLoggedTest
                     return ResponseUtils.CreateResponse(HttpStatusCode.OK, "World");
                 }
 
-                    // Done
-                    return ResponseUtils.CreateResponse(HttpStatusCode.NoContent);
+                // Done
+                return ResponseUtils.CreateResponse(HttpStatusCode.NoContent);
             });
 
         using (var httpClient = new HttpClient(mockHttpHandler.Object))
@@ -234,8 +236,8 @@ public class LongPollingTransportTests : VerifiableLoggedTest
                 await Task.Yield();
                 if (request.Method == HttpMethod.Delete)
                 {
-                        // Simulate the server having already cleaned up the connection on the server
-                        return ResponseUtils.CreateResponse(HttpStatusCode.NotFound);
+                    // Simulate the server having already cleaned up the connection on the server
+                    return ResponseUtils.CreateResponse(HttpStatusCode.NotFound);
                 }
                 else
                 {
@@ -464,21 +466,21 @@ public class LongPollingTransportTests : VerifiableLoggedTest
                 await Task.Yield();
                 if (request.Method == HttpMethod.Post)
                 {
-                        // Build a new request object, but convert the entire payload to string
-                        sentRequests.Add(await request.Content.ReadAsByteArrayAsync());
+                    // Build a new request object, but convert the entire payload to string
+                    sentRequests.Add(await request.Content.ReadAsByteArrayAsync());
                 }
                 else if (request.Method == HttpMethod.Get)
                 {
-                        // First poll completes immediately
-                        if (firstPoll)
+                    // First poll completes immediately
+                    if (firstPoll)
                     {
                         firstPoll = false;
                         return ResponseUtils.CreateResponse(HttpStatusCode.OK);
                     }
 
                     cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken));
-                        // This is the poll task
-                        return await tcs.Task;
+                    // This is the poll task
+                    return await tcs.Task;
                 }
                 else if (request.Method == HttpMethod.Delete)
                 {
@@ -532,26 +534,26 @@ public class LongPollingTransportTests : VerifiableLoggedTest
                 await Task.Yield();
                 if (request.Method == HttpMethod.Post)
                 {
-                        // Build a new request object, but convert the entire payload to string
-                        sentRequests.Add(await request.Content.ReadAsByteArrayAsync());
+                    // Build a new request object, but convert the entire payload to string
+                    sentRequests.Add(await request.Content.ReadAsByteArrayAsync());
                 }
                 else if (request.Method == HttpMethod.Get)
                 {
-                        // First poll completes immediately
-                        if (firstPoll)
+                    // First poll completes immediately
+                    if (firstPoll)
                     {
                         firstPoll = false;
                         return ResponseUtils.CreateResponse(HttpStatusCode.OK);
                     }
 
                     cancellationToken.Register(() => pollTcs.TrySetCanceled(cancellationToken));
-                        // This is the poll task
-                        return await pollTcs.Task;
+                    // This is the poll task
+                    return await pollTcs.Task;
                 }
                 else if (request.Method == HttpMethod.Delete)
                 {
-                        // The poll task should have been completed
-                        Assert.True(pollTcs.Task.IsCompleted);
+                    // The poll task should have been completed
+                    Assert.True(pollTcs.Task.IsCompleted);
 
                     deleteTcs.TrySetResult();
 
@@ -690,6 +692,61 @@ public class LongPollingTransportTests : VerifiableLoggedTest
             var deleteRequest = handler.ReceivedRequests.SingleOrDefault(r => r.Method == HttpMethod.Delete);
             Assert.NotNull(deleteRequest);
             Assert.Equal(TestUri, deleteRequest.RequestUri);
+        }
+    }
+
+    [Fact]
+    public async Task PollRequestsContainCorrectAcceptHeader()
+    {
+        var testHttpHandler = new TestHttpMessageHandler();
+        var responseTaskCompletionSource = new TaskCompletionSource<HttpResponseMessage>();
+        var requestCount = 0;
+        var allHeadersCorrect = true;
+        var secondRequestReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        testHttpHandler.OnRequest(async (request, next, cancellationToken) =>
+        {
+            if (request.Headers.Accept?.Contains(new MediaTypeWithQualityHeaderValue("*/*")) != true)
+            {
+                allHeadersCorrect = false;
+            }
+
+            requestCount++;
+
+            if (requestCount == 2)
+            {
+                secondRequestReceived.SetResult();
+            }
+
+            if (requestCount >= 2)
+            {
+                if (allHeadersCorrect)
+                {
+                    responseTaskCompletionSource.TrySetResult(new HttpResponseMessage(HttpStatusCode.OK));
+                }
+                else
+                {
+                    responseTaskCompletionSource.TrySetResult(new HttpResponseMessage(HttpStatusCode.NoContent));
+                }
+            }
+
+            return await Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        });
+
+        using (var httpClient = new HttpClient(testHttpHandler))
+        {
+            var loggerFactory = NullLoggerFactory.Instance;
+            var transport = new LongPollingTransport(httpClient, loggerFactory: loggerFactory);
+
+            var startTask = transport.StartAsync(TestUri, TransferFormat.Text);
+
+            await secondRequestReceived.Task.DefaultTimeout();
+
+            await transport.StopAsync();
+
+            Assert.True(responseTaskCompletionSource.Task.IsCompleted);
+            var response = await responseTaskCompletionSource.Task.DefaultTimeout();
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }
 }

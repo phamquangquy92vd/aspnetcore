@@ -1,8 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -31,20 +29,9 @@ public class DefaultValidationHtmlAttributeProvider : ValidationHtmlAttributePro
         IModelMetadataProvider metadataProvider,
         ClientValidatorCache clientValidatorCache)
     {
-        if (optionsAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(optionsAccessor));
-        }
-
-        if (metadataProvider == null)
-        {
-            throw new ArgumentNullException(nameof(metadataProvider));
-        }
-
-        if (clientValidatorCache == null)
-        {
-            throw new ArgumentNullException(nameof(clientValidatorCache));
-        }
+        ArgumentNullException.ThrowIfNull(optionsAccessor);
+        ArgumentNullException.ThrowIfNull(metadataProvider);
+        ArgumentNullException.ThrowIfNull(clientValidatorCache);
 
         _clientValidatorCache = clientValidatorCache;
         _metadataProvider = metadataProvider;
@@ -59,20 +46,9 @@ public class DefaultValidationHtmlAttributeProvider : ValidationHtmlAttributePro
         ModelExplorer modelExplorer,
         IDictionary<string, string> attributes)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (modelExplorer == null)
-        {
-            throw new ArgumentNullException(nameof(modelExplorer));
-        }
-
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(modelExplorer);
+        ArgumentNullException.ThrowIfNull(attributes);
 
         var formContext = viewContext.ClientValidationEnabled ? viewContext.FormContext : null;
         if (formContext == null)

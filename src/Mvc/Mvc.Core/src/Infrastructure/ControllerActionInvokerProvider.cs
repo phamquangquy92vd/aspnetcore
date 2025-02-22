@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -15,11 +13,13 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
-internal class ControllerActionInvokerProvider : IActionInvokerProvider
+internal sealed class ControllerActionInvokerProvider : IActionInvokerProvider
 {
     private readonly ControllerActionInvokerCache _controllerActionInvokerCache;
     private readonly IReadOnlyList<IValueProviderFactory> _valueProviderFactories;
     private readonly int _maxModelValidationErrors;
+    private readonly int? _maxValidationDepth;
+    private readonly int _maxModelBindingRecursionDepth;
     private readonly ILogger _logger;
     private readonly DiagnosticListener _diagnosticListener;
     private readonly IActionResultTypeMapper _mapper;
@@ -46,7 +46,9 @@ internal class ControllerActionInvokerProvider : IActionInvokerProvider
         _controllerActionInvokerCache = controllerActionInvokerCache;
         _valueProviderFactories = optionsAccessor.Value.ValueProviderFactories.ToArray();
         _maxModelValidationErrors = optionsAccessor.Value.MaxModelValidationErrors;
-        _logger = loggerFactory.CreateLogger<ControllerActionInvoker>();
+        _maxValidationDepth = optionsAccessor.Value.MaxValidationDepth;
+        _maxModelBindingRecursionDepth = optionsAccessor.Value.MaxModelBindingRecursionDepth;
+        _logger = loggerFactory.CreateLogger(typeof(ControllerActionInvoker));
         _diagnosticListener = diagnosticListener;
         _mapper = mapper;
         _actionContextAccessor = actionContextAccessor ?? ActionContextAccessor.Null;
@@ -57,10 +59,7 @@ internal class ControllerActionInvokerProvider : IActionInvokerProvider
     /// <inheritdoc />
     public void OnProvidersExecuting(ActionInvokerProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.ActionContext.ActionDescriptor is ControllerActionDescriptor)
         {
@@ -70,6 +69,8 @@ internal class ControllerActionInvokerProvider : IActionInvokerProvider
                 ValueProviderFactories = new CopyOnWriteList<IValueProviderFactory>(_valueProviderFactories)
             };
             controllerContext.ModelState.MaxAllowedErrors = _maxModelValidationErrors;
+            controllerContext.ModelState.MaxValidationDepth = _maxValidationDepth;
+            controllerContext.ModelState.MaxStateDepth = _maxModelBindingRecursionDepth;
 
             var (cacheEntry, filters) = _controllerActionInvokerCache.GetCachedResult(controllerContext);
 

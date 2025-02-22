@@ -2,13 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Immutable;
-using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
-using Microsoft.CodeAnalysis.Testing.Verifiers;
 
 namespace Microsoft.AspNetCore.Mvc.Analyzers;
 
@@ -16,8 +14,8 @@ public class TagHelpersInCodeBlocksAnalyzerTest
 {
     private readonly DiagnosticDescriptor DiagnosticDescriptor = DiagnosticDescriptors.MVC1006_FunctionsContainingTagHelpersMustBeAsyncAndReturnTask;
 
-    private static readonly DiagnosticResult CS4033Result = new ("CS4033", DiagnosticSeverity.Error);
-    private static readonly DiagnosticResult CS4034Result = new ("CS4034", DiagnosticSeverity.Error);
+    private static readonly DiagnosticResult CS4033Result = new("CS4033", DiagnosticSeverity.Error);
+    private static readonly DiagnosticResult CS4034Result = new("CS4034", DiagnosticSeverity.Error);
 
     [Fact]
     public Task DiagnosticsAreReturned_ForUseOfTagHelpersInActions()
@@ -59,7 +57,7 @@ namespace AspNetCore
         {
             WriteLiteral(""\r\n"");
             WriteLiteral(""\r\n"");
-  
+
     Action sometMethod = {|#0:() =>
     {
 
@@ -112,7 +110,6 @@ namespace AspNetCore
         return VerifyAnalyzerAsync(source, diagnosticResult, CS4034Result.WithLocation(1), CS4034Result.WithLocation(2));
     }
 
-
     [Fact]
     public Task DiagnosticsAreReturned_ForUseOfTagHelpersInNonAsyncFunc()
     {
@@ -153,7 +150,7 @@ namespace AspNetCore
         {
             WriteLiteral(""\r\n"");
             WriteLiteral(""\r\n"");
-  
+
     Func<Task> sometMethod = {|#0:() =>
     {
 
@@ -245,13 +242,13 @@ namespace AspNetCore
         public async override global::System.Threading.Tasks.Task ExecuteAsync()
         {
             WriteLiteral(""\r\n"");
-  
+
     SometMethod();
 
             WriteLiteral(""\r\n"");
         }
         #pragma warning restore 1998
-            
+
     {|#0:void SometMethod()
     {
 
@@ -338,7 +335,7 @@ namespace AspNetCore
         {
             WriteLiteral(""\r\n"");
             WriteLiteral(""\r\n"");
-  
+
     TestDelegate sometMethod = {|#0:delegate ()
     {
 
@@ -370,7 +367,7 @@ namespace AspNetCore
             WriteLiteral(""\r\n"");
         }
         #pragma warning restore 1998
-            
+
     delegate void TestDelegate();
 
         [global::Microsoft.AspNetCore.Mvc.Razor.Internal.RazorInjectAttribute]
@@ -432,7 +429,7 @@ namespace AspNetCore
         public async override global::System.Threading.Tasks.Task ExecuteAsync()
         {
             WriteLiteral(""\r\n"");
-  
+
     {|#0:void SometMethod()
     {
 
@@ -522,13 +519,13 @@ namespace AspNetCore
         public async override global::System.Threading.Tasks.Task ExecuteAsync()
         {
             WriteLiteral(""\r\n"");
-  
+
     await SometMethod();
 
             WriteLiteral(""\r\n"");
         }
         #pragma warning restore 1998
-            
+
     async Task SometMethod()
     {
 
@@ -613,7 +610,7 @@ namespace AspNetCore
         {
             WriteLiteral(""\r\n"");
             WriteLiteral(""\r\n"");
-  
+
     TestDelegate sometMethod = async delegate ()
     {
 
@@ -645,7 +642,7 @@ namespace AspNetCore
             WriteLiteral(""\r\n"");
         }
         #pragma warning restore 1998
-            
+
     delegate Task TestDelegate();
 
         [global::Microsoft.AspNetCore.Mvc.Razor.Internal.RazorInjectAttribute]
@@ -709,7 +706,7 @@ namespace AspNetCore
         public async override global::System.Threading.Tasks.Task ExecuteAsync()
         {
             WriteLiteral(""\r\n"");
-  
+
     async Task SometMethod()
     {
 
@@ -796,13 +793,13 @@ namespace AspNetCore
         public async override global::System.Threading.Tasks.Task ExecuteAsync()
         {
             WriteLiteral(""\r\n"");
-  
+
     SometMethod();
 
             WriteLiteral(""\r\n"");
         }
         #pragma warning restore 1998
-            
+
     {|#0:void SometMethod()
     {
 
@@ -888,7 +885,6 @@ namespace AspNetCore
         var diagnosticResult = new DiagnosticResult(DiagnosticDescriptor)
             .WithLocation(0);
 
-
         return VerifyAnalyzerAsync(source,
             diagnosticResult,
             CS4033Result.WithLocation(1),
@@ -901,7 +897,7 @@ namespace AspNetCore
 
     private static Task VerifyAnalyzerAsync(string source, params DiagnosticResult[] expected)
     {
-        var test = new TagHelpersInCodeBlocksCSharpAnalzyerTest(TestReferences.MetadataReferences)
+        var test = new TagHelpersInCodeBlocksCSharpAnalyzerTest(TestReferences.MetadataReferences)
         {
             TestCode = source,
             ReferenceAssemblies = TestReferences.EmptyReferenceAssemblies,
@@ -911,9 +907,9 @@ namespace AspNetCore
         return test.RunAsync();
     }
 
-    private sealed class TagHelpersInCodeBlocksCSharpAnalzyerTest : CSharpAnalyzerTest<AttributesShouldNotBeAppliedToPageModelAnalyzer, XUnitVerifier>
+    private sealed class TagHelpersInCodeBlocksCSharpAnalyzerTest : CSharpAnalyzerTest<AttributesShouldNotBeAppliedToPageModelAnalyzer, DefaultVerifier>
     {
-        public TagHelpersInCodeBlocksCSharpAnalzyerTest(ImmutableArray<MetadataReference> metadataReferences)
+        public TagHelpersInCodeBlocksCSharpAnalyzerTest(ImmutableArray<MetadataReference> metadataReferences)
         {
             TestState.AdditionalReferences.AddRange(metadataReferences);
         }

@@ -1,15 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Localization;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Localization;
 
@@ -65,15 +61,11 @@ public class MvcLocalizationServicesTest
 
         if (matches.Length == 0)
         {
-            Assert.True(
-                false,
-                $"Could not find an instance of {implementationType} registered as {serviceType}");
+            Assert.Fail($"Could not find an instance of {implementationType} registered as {serviceType}");
         }
         else if (matches.Length > 1)
         {
-            Assert.True(
-                false,
-                $"Found multiple instances of {implementationType} registered as {serviceType}");
+            Assert.Fail($"Found multiple instances of {implementationType} registered as {serviceType}");
         }
     }
 

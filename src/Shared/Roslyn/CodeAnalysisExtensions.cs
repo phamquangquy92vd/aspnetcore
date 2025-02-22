@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Microsoft.CodeAnalysis;
 
@@ -20,7 +22,7 @@ internal static class CodeAnalysisExtensions
     {
         foreach (var declaredAttribute in symbol.GetAttributes())
         {
-            if (attribute.IsAssignableFrom(declaredAttribute.AttributeClass))
+            if (declaredAttribute.AttributeClass is not null && attribute.IsAssignableFrom(declaredAttribute.AttributeClass))
             {
                 yield return declaredAttribute;
             }
@@ -130,7 +132,7 @@ internal static class CodeAnalysisExtensions
     {
         foreach (var declaredAttribute in symbol.GetAttributes())
         {
-            if (attribute.IsAssignableFrom(declaredAttribute.AttributeClass))
+            if (declaredAttribute.AttributeClass is not null && attribute.IsAssignableFrom(declaredAttribute.AttributeClass))
             {
                 return true;
             }
@@ -139,7 +141,7 @@ internal static class CodeAnalysisExtensions
         return false;
     }
 
-    private static IEnumerable<ITypeSymbol> GetTypeHierarchy(this ITypeSymbol? typeSymbol)
+    public static IEnumerable<ITypeSymbol> GetTypeHierarchy(this ITypeSymbol? typeSymbol)
     {
         while (typeSymbol != null)
         {
@@ -167,6 +169,41 @@ internal static class CodeAnalysisExtensions
         else
         {
             yield return method;
+        }
+    }
+
+    // Adapted from IOperationExtensions.GetReceiverType in dotnet/roslyn-analyzers.
+    // See https://github.com/dotnet/roslyn-analyzers/blob/762b08948cdcc1d94352fba681296be7bf474dd7/src/Utilities/Compiler/Extensions/IOperationExtensions.cs#L22-L51
+    public static INamedTypeSymbol? GetReceiverType(
+        this IInvocationOperation invocation,
+        CancellationToken cancellationToken)
+    {
+        if (invocation.Instance != null)
+        {
+            return GetReceiverType(invocation.Instance.Syntax, invocation.SemanticModel, cancellationToken);
+        }
+        else if (invocation.TargetMethod.IsExtensionMethod && !invocation.TargetMethod.Parameters.IsEmpty)
+        {
+            var firstArg = invocation.Arguments.FirstOrDefault();
+            if (firstArg != null)
+            {
+                return GetReceiverType(firstArg.Value.Syntax, invocation.SemanticModel, cancellationToken);
+            }
+            else if (invocation.TargetMethod.Parameters[0].IsParams)
+            {
+                return invocation.TargetMethod.Parameters[0].Type as INamedTypeSymbol;
+            }
+        }
+
+        return null;
+
+        static INamedTypeSymbol? GetReceiverType(
+            SyntaxNode receiverSyntax,
+            SemanticModel? model,
+            CancellationToken cancellationToken)
+        {
+            var typeInfo = model?.GetTypeInfo(receiverSyntax, cancellationToken);
+            return typeInfo?.Type as INamedTypeSymbol;
         }
     }
 }

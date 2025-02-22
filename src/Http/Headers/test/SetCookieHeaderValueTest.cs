@@ -1,14 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
 using System.Text;
-using Microsoft.Extensions.Primitives;
-using Moq;
-using Xunit;
 
 namespace Microsoft.Net.Http.Headers;
 
@@ -69,6 +62,18 @@ public class SetCookieHeaderValueTest
             header8.Extensions.Add("extension2=value");
             dataset.Add(header8, "name8=value8; extension1; extension2=value");
 
+            var header9 = new SetCookieHeaderValue("name9", "value9")
+            {
+                MaxAge = TimeSpan.FromDays(-1),
+            };
+            dataset.Add(header9, "name9=value9; max-age=-86400");
+
+            var header10 = new SetCookieHeaderValue("name10", "value10")
+            {
+                MaxAge = TimeSpan.FromDays(0),
+            };
+            dataset.Add(header10, "name10=value10; max-age=0");
+
             return dataset;
         }
     }
@@ -81,7 +86,6 @@ public class SetCookieHeaderValueTest
                 {
                     "expires=Sun, 06 Nov 1994 08:49:37 GMT; max-age=86400; domain=domain1",
                     "name=value; expires=Sun, 06 Nov 1994 08:49:37 ZZZ; max-age=86400; domain=domain1",
-                    "name=value; expires=Sun, 06 Nov 1994 08:49:37 GMT; max-age=-86400; domain=domain1",
                 };
         }
     }
@@ -186,7 +190,6 @@ public class SetCookieHeaderValueTest
             header9.Extensions.Add("extension1");
             header9.Extensions.Add("extension2=value");
             var string9 = "name9=value9; extension1; extension2=value";
-
 
             dataset.Add(new[] { header1 }.ToList(), new[] { string1 });
             dataset.Add(new[] { header1, header1 }.ToList(), new[] { string1, string1 });
@@ -315,8 +318,8 @@ public class SetCookieHeaderValueTest
     public void SetCookieHeaderValue_Ctor1_InitializesCorrectly()
     {
         var header = new SetCookieHeaderValue("cookie");
-        Assert.Equal("cookie", header.Name);
-        Assert.Equal(string.Empty, header.Value);
+        Assert.Equal("cookie", header.Name.AsSpan());
+        Assert.Equal(string.Empty, header.Value.AsSpan());
     }
 
     [Theory]
@@ -326,18 +329,18 @@ public class SetCookieHeaderValueTest
     public void SetCookieHeaderValue_Ctor2InitializesCorrectly(string name, string value)
     {
         var header = new SetCookieHeaderValue(name, value);
-        Assert.Equal(name, header.Name);
-        Assert.Equal(value, header.Value);
+        Assert.Equal(name, header.Name.AsSpan());
+        Assert.Equal(value, header.Value.AsSpan());
     }
 
     [Fact]
     public void SetCookieHeaderValue_Value()
     {
         var cookie = new SetCookieHeaderValue("name");
-        Assert.Equal(string.Empty, cookie.Value);
+        Assert.Equal(string.Empty, cookie.Value.AsSpan());
 
         cookie.Value = "value1";
-        Assert.Equal("value1", cookie.Value);
+        Assert.Equal("value1", cookie.Value.AsSpan());
     }
 
     [Theory]
@@ -444,7 +447,7 @@ public class SetCookieHeaderValueTest
 
     [Theory]
     [MemberData(nameof(ListWithInvalidSetCookieHeaderDataSet))]
-    public void SetCookieHeaderValue_ParseList_ExcludesInvalidValues(IList<SetCookieHeaderValue> cookies, string[] input)
+    public void SetCookieHeaderValue_ParseList_ExcludesInvalidValues(IList<SetCookieHeaderValue>? cookies, string[] input)
     {
         var results = SetCookieHeaderValue.ParseList(input);
         // ParseList always returns a list, even if empty. TryParseList may return null (via out).
@@ -453,7 +456,7 @@ public class SetCookieHeaderValueTest
 
     [Theory]
     [MemberData(nameof(ListWithInvalidSetCookieHeaderDataSet))]
-    public void SetCookieHeaderValue_TryParseList_ExcludesInvalidValues(IList<SetCookieHeaderValue> cookies, string[] input)
+    public void SetCookieHeaderValue_TryParseList_ExcludesInvalidValues(IList<SetCookieHeaderValue>? cookies, string[] input)
     {
         bool result = SetCookieHeaderValue.TryParseList(input, out var results);
         Assert.Equal(cookies, results);
@@ -464,7 +467,7 @@ public class SetCookieHeaderValueTest
     [MemberData(nameof(ListWithInvalidSetCookieHeaderDataSet))]
     public void SetCookieHeaderValue_ParseStrictList_ThrowsForAnyInvalidValues(
 #pragma warning disable xUnit1026 // Theory methods should use all of their parameters
-            IList<SetCookieHeaderValue> cookies,
+            IList<SetCookieHeaderValue>? cookies,
 #pragma warning restore xUnit1026 // Theory methods should use all of their parameters
             string[] input)
     {
@@ -475,7 +478,7 @@ public class SetCookieHeaderValueTest
     [MemberData(nameof(ListWithInvalidSetCookieHeaderDataSet))]
     public void SetCookieHeaderValue_TryParseStrictList_FailsForAnyInvalidValues(
 #pragma warning disable xUnit1026 // Theory methods should use all of their parameters
-            IList<SetCookieHeaderValue> cookies,
+            IList<SetCookieHeaderValue>? cookies,
 #pragma warning restore xUnit1026 // Theory methods should use all of their parameters
             string[] input)
     {

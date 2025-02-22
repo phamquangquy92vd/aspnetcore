@@ -9,7 +9,7 @@ using System.Xml.Linq;
 using Microsoft.AspNetCore.Server.IIS.FunctionalTests.Utilities;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
 using Microsoft.AspNetCore.Server.IntegrationTesting.IIS;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Xunit;
 
 #if !IIS_FUNCTIONALS
@@ -28,6 +28,7 @@ namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests;
 #endif
 
 [Collection(PublishedSitesCollection.Name)]
+[SkipOnHelix("Unsupported queue", Queues = "Windows.Amd64.VS2022.Pre.Open;")]
 public class MultiApplicationTests : IISFunctionalTestBase
 {
     private PublishedApplication _publishedApplication;
@@ -49,7 +50,6 @@ public class MultiApplicationTests : IISFunctionalTestBase
     }
 
     [ConditionalFact]
-    [MaximumOSVersion(OperatingSystems.Windows, WindowsVersions.Win10_20H2, SkipReason = "Shutdown hangs https://github.com/dotnet/aspnetcore/issues/25107")]
     public async Task FailsAndLogsWhenRunningTwoInProcessApps()
     {
         var parameters = Fixture.GetBaseDeploymentParameters(HostingModel.InProcess);
@@ -67,11 +67,10 @@ public class MultiApplicationTests : IISFunctionalTestBase
             Assert.Contains("500.35", await result2.Content.ReadAsStringAsync());
         }
 
-        EventLogHelpers.VerifyEventLogEvent(result, EventLogHelpers.OnlyOneAppPerAppPool(), Logger);
+        await EventLogHelpers.VerifyEventLogEventAsync(result, EventLogHelpers.OnlyOneAppPerAppPool(), Logger);
     }
 
     [ConditionalTheory]
-    [MaximumOSVersion(OperatingSystems.Windows, WindowsVersions.Win10_20H2, SkipReason = "Shutdown hangs https://github.com/dotnet/aspnetcore/issues/25107")]
     [InlineData(HostingModel.OutOfProcess)]
     [InlineData(HostingModel.InProcess)]
     public async Task FailsAndLogsEventLogForMixedHostingModel(HostingModel firstApp)
@@ -95,7 +94,7 @@ public class MultiApplicationTests : IISFunctionalTestBase
             Assert.Contains("500.34", await result2.Content.ReadAsStringAsync());
         }
 
-        EventLogHelpers.VerifyEventLogEvent(result, "Mixed hosting model is not supported.", Logger);
+        await EventLogHelpers.VerifyEventLogEventAsync(result, "Mixed hosting model is not supported.", Logger);
     }
 
     private void SetHostingModel(string directory, HostingModel model)

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Internal;
@@ -16,7 +14,7 @@ namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
 /// <summary>
 /// Provides data from cookie to the current <see cref="ITempDataDictionary"/> object.
 /// </summary>
-public class CookieTempDataProvider : ITempDataProvider
+public partial class CookieTempDataProvider : ITempDataProvider
 {
     /// <summary>
     /// The name of the cookie.
@@ -57,10 +55,7 @@ public class CookieTempDataProvider : ITempDataProvider
     /// <returns>The temp data.</returns>
     public IDictionary<string, object> LoadTempData(HttpContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.Request.Cookies.ContainsKey(_options.Cookie.Name))
         {
@@ -78,14 +73,13 @@ public class CookieTempDataProvider : ITempDataProvider
                     var protectedData = WebEncoders.Base64UrlDecode(encodedValue);
                     var unprotectedData = _dataProtector.Unprotect(protectedData);
                     var tempData = _tempDataSerializer.Deserialize(unprotectedData);
-
-                    _logger.TempDataCookieLoadSuccess(_options.Cookie.Name);
+                    Log.TempDataCookieLoadSuccess(_logger, _options.Cookie.Name);
                     return tempData;
                 }
             }
             catch (Exception ex)
             {
-                _logger.TempDataCookieLoadFailure(_options.Cookie.Name, ex);
+                Log.TempDataCookieLoadFailure(_logger, _options.Cookie.Name, ex);
 
                 // If we've failed, we want to try and clear the cookie so that this won't keep happening
                 // over and over.
@@ -96,7 +90,7 @@ public class CookieTempDataProvider : ITempDataProvider
             }
         }
 
-        _logger.TempDataCookieNotFound(_options.Cookie.Name);
+        Log.TempDataCookieNotFound(_logger, _options.Cookie.Name);
         return new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -107,10 +101,7 @@ public class CookieTempDataProvider : ITempDataProvider
     /// <param name="values">The values.</param>
     public void SaveTempData(HttpContext context, IDictionary<string, object> values)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var cookieOptions = _options.Cookie.Build(context);
         SetCookiePath(context, cookieOptions);
@@ -143,5 +134,17 @@ public class CookieTempDataProvider : ITempDataProvider
                 cookieOptions.Path = pathBase;
             }
         }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Debug, "The temp data cookie {CookieName} was not found.", EventName = "TempDataCookieNotFound")]
+        public static partial void TempDataCookieNotFound(ILogger logger, string cookieName);
+
+        [LoggerMessage(2, LogLevel.Debug, "The temp data cookie {CookieName} was used to successfully load temp data.", EventName = "TempDataCookieLoadSuccess")]
+        public static partial void TempDataCookieLoadSuccess(ILogger logger, string cookieName);
+
+        [LoggerMessage(3, LogLevel.Warning, "The temp data cookie {CookieName} could not be loaded.", EventName = "TempDataCookieLoadFailure")]
+        public static partial void TempDataCookieLoadFailure(ILogger logger, string cookieName, Exception exception);
     }
 }

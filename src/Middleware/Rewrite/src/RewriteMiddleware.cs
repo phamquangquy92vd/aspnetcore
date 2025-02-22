@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -11,7 +9,6 @@ using Microsoft.AspNetCore.Rewrite.Logging;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Rewrite;
 
@@ -38,15 +35,8 @@ public class RewriteMiddleware
         ILoggerFactory loggerFactory,
         IOptions<RewriteOptions> options)
     {
-        if (next == null)
-        {
-            throw new ArgumentNullException(nameof(next));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(next);
+        ArgumentNullException.ThrowIfNull(options);
 
         _next = next;
         _options = options.Value;
@@ -61,10 +51,7 @@ public class RewriteMiddleware
     /// <returns>A task that represents the execution of this middleware.</returns>
     public Task Invoke(HttpContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var rewriteContext = new RewriteContext
         {

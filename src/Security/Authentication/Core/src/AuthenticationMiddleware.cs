@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,14 +21,8 @@ public class AuthenticationMiddleware
     /// <param name="schemes">The <see cref="IAuthenticationSchemeProvider"/>.</param>
     public AuthenticationMiddleware(RequestDelegate next, IAuthenticationSchemeProvider schemes)
     {
-        if (next == null)
-        {
-            throw new ArgumentNullException(nameof(next));
-        }
-        if (schemes == null)
-        {
-            throw new ArgumentNullException(nameof(schemes));
-        }
+        ArgumentNullException.ThrowIfNull(next);
+        ArgumentNullException.ThrowIfNull(schemes);
 
         _next = next;
         Schemes = schemes;

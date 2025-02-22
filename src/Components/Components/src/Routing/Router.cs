@@ -7,7 +7,9 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Runtime.ExceptionServices;
 using Microsoft.AspNetCore.Components.HotReload;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Components.Routing;
 
@@ -16,7 +18,6 @@ namespace Microsoft.AspNetCore.Components.Routing;
 /// </summary>
 public partial class Router : IComponent, IHandleAfterRender, IDisposable
 {
-    static readonly char[] _queryOrHashStartChar = new[] { '?', '#' };
     // Dictionary is intentionally used instead of ReadOnlyDictionary to reduce Blazor size
     static readonly IReadOnlyDictionary<string, object> _emptyParametersDictionary
         = new Dictionary<string, object>();
@@ -26,6 +27,9 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
     string _locationAbsolute;
     bool _navigationInterceptionEnabled;
     ILogger<Router> _logger;
+
+    private string _updateScrollPositionForHashLastLocation;
+    private bool _updateScrollPositionForHash;
 
     private CancellationTokenSource _onNavigateCts;
 
@@ -39,7 +43,13 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
 
     [Inject] private INavigationInterception NavigationInterception { get; set; }
 
+    [Inject] private IScrollToLocationHash ScrollToLocationHash { get; set; }
+
     [Inject] private ILoggerFactory LoggerFactory { get; set; }
+
+    [Inject] IServiceProvider ServiceProvider { get; set; }
+
+    private IRoutingStateProvider? RoutingStateProvider { get; set; }
 
     /// <summary>
     /// Gets or sets the assembly that should be searched for components matching the URI.
@@ -58,7 +68,6 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
     /// Gets or sets the content to display when no match is found for the requested route.
     /// </summary>
     [Parameter]
-    [EditorRequired]
     public RenderFragment NotFound { get; set; }
 
     /// <summary>
@@ -83,6 +92,7 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
     /// over wildcards.
     /// <para>This property is obsolete and configuring it does nothing.</para>
     /// </summary>
+    [Obsolete("This property is obsolete and configuring it has no effect.")]
     [Parameter] public bool PreferExactMatches { get; set; }
 
     private RouteTable Routes { get; set; }
@@ -95,6 +105,7 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
         _baseUri = NavigationManager.BaseUri;
         _locationAbsolute = NavigationManager.Uri;
         NavigationManager.LocationChanged += OnLocationChanged;
+        RoutingStateProvider = ServiceProvider.GetService<IRoutingStateProvider>();
 
         if (HotReloadManager.Default.MetadataUpdateSupported)
         {
@@ -120,20 +131,15 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
             throw new InvalidOperationException($"The {nameof(Router)} component requires a value for the parameter {nameof(Found)}.");
         }
 
-        // NotFound content is mandatory, because even though we could display a default message like "Not found",
-        // it has to be specified explicitly so that it can also be wrapped in a specific layout
-        if (NotFound == null)
-        {
-            throw new InvalidOperationException($"The {nameof(Router)} component requires a value for the parameter {nameof(NotFound)}.");
-        }
-
         if (!_onNavigateCalled)
         {
             _onNavigateCalled = true;
             await RunOnNavigateAsync(NavigationManager.ToBaseRelativePath(_locationAbsolute), isNavigationIntercepted: false);
         }
-
-        Refresh(isNavigationIntercepted: false);
+        else
+        {
+            Refresh(isNavigationIntercepted: false);
+        }
     }
 
     /// <inheritdoc />
@@ -146,12 +152,12 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
         }
     }
 
-    private static string StringUntilAny(string str, char[] chars)
+    private static ReadOnlySpan<char> TrimQueryOrHash(ReadOnlySpan<char> str)
     {
-        var firstIndex = str.IndexOfAny(chars);
+        var firstIndex = str.IndexOfAny('?', '#');
         return firstIndex < 0
             ? str
-            : str.Substring(0, firstIndex);
+            : str[0..firstIndex];
     }
 
     private void RefreshRouteTable()
@@ -160,14 +166,14 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
 
         if (!routeKey.Equals(_routeTableLastBuiltForRouteKey))
         {
+            Routes = RouteTableFactory.Instance.Create(routeKey, ServiceProvider);
             _routeTableLastBuiltForRouteKey = routeKey;
-            Routes = RouteTableFactory.Create(routeKey);
         }
     }
 
     private void ClearRouteCaches()
     {
-        RouteTableFactory.ClearCaches();
+        RouteTableFactory.Instance.ClearCaches();
         _routeTableLastBuiltForRouteKey = default;
     }
 
@@ -186,10 +192,28 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
             return;
         }
 
+        var relativePath = NavigationManager.ToBaseRelativePath(_locationAbsolute.AsSpan());
+        var locationPathSpan = TrimQueryOrHash(relativePath);
+        var locationPath = $"/{locationPathSpan}";
+
+        // In order to avoid routing twice we check for RouteData
+        if (RoutingStateProvider?.RouteData is { } endpointRouteData)
+        {
+            // Other routers shouldn't provide RouteData, this is specific to our router component
+            // and must abide by our syntax and behaviors.
+            // Other routers must create their own abstractions to flow data from their SSR routing
+            // scheme to their interactive router.
+            Log.NavigatingToComponent(_logger, endpointRouteData.PageType, locationPath, _baseUri);
+            // Post process the entry to add Blazor specific behaviors:
+            // - Add 'null' for unused route parameters.
+            // - Convert constrained parameters with (int, double, etc) to the target type.
+            endpointRouteData = RouteTable.ProcessParameters(endpointRouteData);
+            _renderHandle.Render(Found(endpointRouteData));
+            return;
+        }
+
         RefreshRouteTable();
 
-        var locationPath = NavigationManager.ToBaseRelativePath(_locationAbsolute);
-        locationPath = StringUntilAny(locationPath, _queryOrHashStartChar);
         var context = new RouteContext(locationPath);
         Routes.Route(context);
 
@@ -206,7 +230,15 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
             var routeData = new RouteData(
                 context.Handler,
                 context.Parameters ?? _emptyParametersDictionary);
+
             _renderHandle.Render(Found(routeData));
+
+            // If you navigate to a different path, then after the next render we'll update the scroll position
+            if (relativePath != _updateScrollPositionForHashLastLocation)
+            {
+                _updateScrollPositionForHashLastLocation = relativePath.ToString();
+                _updateScrollPositionForHash = true;
+            }
         }
         else
         {
@@ -217,7 +249,7 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
                 // We did not find a Component that matches the route.
                 // Only show the NotFound content if the application developer programatically got us here i.e we did not
                 // intercept the navigation. In all other cases, force a browser navigation since this could be non-Blazor content.
-                _renderHandle.Render(NotFound);
+                _renderHandle.Render(NotFound ?? DefaultNotFoundContent);
             }
             else
             {
@@ -227,11 +259,22 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
         }
     }
 
+    private static void DefaultNotFoundContent(RenderTreeBuilder builder)
+    {
+        // This output can't use any layout (none is specified), and it can't use any web-specific concepts
+        // such as <p role="alert">, and we can't localize the output. However none of that matters because
+        // in all cases we expect either:
+        // 1. The app to be hosted with MapRazorPages, and then it will never use any NotFound content
+        // 2. Or, the app to supply its own NotFound content
+        // ... so this is just a fallback for badly-set-up apps.
+        builder.AddContent(0, "Not found");
+    }
+
     internal async ValueTask RunOnNavigateAsync(string path, bool isNavigationIntercepted)
     {
         // Cancel the CTS instead of disposing it, since disposing does not
         // actually cancel and can cause unintended Object Disposed Exceptions.
-        // This effectivelly cancels the previously running task and completes it.
+        // This effectively cancels the previously running task and completes it.
         _onNavigateCts?.Cancel();
         // Then make sure that the task has been completely cancelled or completed
         // before starting the next one. This avoid race conditions where the cancellation
@@ -277,15 +320,19 @@ public partial class Router : IComponent, IHandleAfterRender, IDisposable
         }
     }
 
-    Task IHandleAfterRender.OnAfterRenderAsync()
+    async Task IHandleAfterRender.OnAfterRenderAsync()
     {
         if (!_navigationInterceptionEnabled)
         {
             _navigationInterceptionEnabled = true;
-            return NavigationInterception.EnableNavigationInterceptionAsync();
+            await NavigationInterception.EnableNavigationInterceptionAsync();
         }
 
-        return Task.CompletedTask;
+        if (_updateScrollPositionForHash)
+        {
+            _updateScrollPositionForHash = false;
+            await ScrollToLocationHash.RefreshScrollPositionForHash(_locationAbsolute);
+        }
     }
 
     private static partial class Log

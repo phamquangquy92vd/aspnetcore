@@ -1,9 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -24,7 +23,7 @@ public abstract class LoginWith2faModel : PageModel
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
     [BindProperty]
-    public InputModel Input { get; set; }
+    public InputModel Input { get; set; } = default!;
 
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -36,7 +35,7 @@ public abstract class LoginWith2faModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public string ReturnUrl { get; set; }
+    public string? ReturnUrl { get; set; }
 
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -52,7 +51,7 @@ public abstract class LoginWith2faModel : PageModel
         [StringLength(7, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
         [DataType(DataType.Text)]
         [Display(Name = "Authenticator code")]
-        public string TwoFactorCode { get; set; }
+        public string TwoFactorCode { get; set; } = default!;
 
         /// <summary>
         ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -66,16 +65,16 @@ public abstract class LoginWith2faModel : PageModel
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public virtual Task<IActionResult> OnGetAsync(bool rememberMe, string returnUrl = null) => throw new NotImplementedException();
+    public virtual Task<IActionResult> OnGetAsync(bool rememberMe, [StringSyntax(StringSyntaxAttribute.Uri)] string? returnUrl = null) => throw new NotImplementedException();
 
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
-    public virtual Task<IActionResult> OnPostAsync(bool rememberMe, string returnUrl = null) => throw new NotImplementedException();
+    public virtual Task<IActionResult> OnPostAsync(bool rememberMe, [StringSyntax(StringSyntaxAttribute.Uri)] string? returnUrl = null) => throw new NotImplementedException();
 }
 
-internal class LoginWith2faModel<TUser> : LoginWith2faModel where TUser : class
+internal sealed class LoginWith2faModel<TUser> : LoginWith2faModel where TUser : class
 {
     private readonly SignInManager<TUser> _signInManager;
     private readonly UserManager<TUser> _userManager;
@@ -91,7 +90,7 @@ internal class LoginWith2faModel<TUser> : LoginWith2faModel where TUser : class
         _logger = logger;
     }
 
-    public override async Task<IActionResult> OnGetAsync(bool rememberMe, string returnUrl = null)
+    public override async Task<IActionResult> OnGetAsync(bool rememberMe, string? returnUrl = null)
     {
         // Ensure the user has gone through the username & password screen first
         var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
@@ -107,7 +106,7 @@ internal class LoginWith2faModel<TUser> : LoginWith2faModel where TUser : class
         return Page();
     }
 
-    public override async Task<IActionResult> OnPostAsync(bool rememberMe, string returnUrl = null)
+    public override async Task<IActionResult> OnPostAsync(bool rememberMe, string? returnUrl = null)
     {
         if (!ModelState.IsValid)
         {
@@ -126,7 +125,7 @@ internal class LoginWith2faModel<TUser> : LoginWith2faModel where TUser : class
 
         var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(authenticatorCode, rememberMe, Input.RememberMachine);
 
-        var userId = await _userManager.GetUserIdAsync(user);
+        await _userManager.GetUserIdAsync(user);
 
         if (result.Succeeded)
         {

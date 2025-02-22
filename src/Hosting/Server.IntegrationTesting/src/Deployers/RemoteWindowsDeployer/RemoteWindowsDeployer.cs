@@ -1,15 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using System.Xml.Linq;
-using Microsoft.AspNetCore.Server.IntegrationTesting.Common;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 
@@ -24,7 +19,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
     private string _deployedFolderPathInFileShare;
     private readonly RemoteWindowsDeploymentParameters _deploymentParameters;
     private bool _isDisposed;
-    private static readonly Lazy<Scripts> _scripts = new Lazy<Scripts>(() => CopyEmbeddedScriptFilesToDisk());
+    private static readonly Lazy<Scripts> _scripts = new Lazy<Scripts>(CopyEmbeddedScriptFilesToDisk);
 
     public RemoteWindowsDeployer(RemoteWindowsDeploymentParameters deploymentParameters, ILoggerFactory loggerFactory)
         : base(deploymentParameters, loggerFactory)
@@ -81,7 +76,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
         {
             if (_isDisposed)
             {
-                throw new ObjectDisposedException("This instance of deployer has already been disposed.");
+                throw new ObjectDisposedException(GetType().Name, "This instance of deployer has already been disposed.");
             }
 
             // Publish the app to a local temp folder on the machine where the test is running
@@ -128,7 +123,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(0, "Failed to stop the server.", ex);
+                Logger.LogWarning(0, ex, "Failed to stop the server.");
             }
 
             try
@@ -138,7 +133,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(0, $"Failed to delete the deployed folder '{_deployedFolderPathInFileShare}'.", ex);
+                Logger.LogWarning(0, ex, $"Failed to delete the deployed folder '{_deployedFolderPathInFileShare}'.");
             }
 
             try
@@ -148,7 +143,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(0, $"Failed to delete the locally published folder '{DeploymentParameters.PublishedApplicationRootPath}'.", ex);
+                Logger.LogWarning(0, ex, $"Failed to delete the locally published folder '{DeploymentParameters.PublishedApplicationRootPath}'.");
             }
         }
     }
@@ -259,8 +254,8 @@ public class RemoteWindowsDeployer : ApplicationDeployer
 
                 runScriptsOnRemoteServerProcess.StartAndCaptureOutAndErrToLogger(serverAction, Logger);
 
-                // Wait a second for the script to run or fail. The StartServer script will only terminate when the Deployer is disposed,
-                // so we don't want to wait for it to terminate here because it would deadlock.
+                // Wait a minute for the script to run or fail. The StartServer script will only terminate when the
+                // Deployer is disposed, so we don't want to wait for it to terminate here because it would deadlock.
                 await Task.Delay(TimeSpan.FromMinutes(1));
 
                 if (runScriptsOnRemoteServerProcess.HasExited && runScriptsOnRemoteServerProcess.ExitCode != 0)
@@ -342,7 +337,7 @@ public class RemoteWindowsDeployer : ApplicationDeployer
         return scripts;
     }
 
-    private class Scripts
+    private sealed class Scripts
     {
         public Scripts(string remotePSSessionHelper, string startServer, string stopServer)
         {

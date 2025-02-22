@@ -2,9 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Authorization;
 
@@ -22,19 +22,12 @@ public static class AuthorizationServiceExtensions
     /// <param name="requirement">The requirement to evaluate the policy against.</param>
     /// <returns>
     /// A flag indicating whether requirement evaluation has succeeded or failed.
-    /// This value is <value>true</value> when the user fulfills the policy, otherwise <value>false</value>.
+    /// This value is <c>true</c> when the user fulfills the policy, otherwise <c>false</c>.
     /// </returns>
     public static Task<AuthorizationResult> AuthorizeAsync(this IAuthorizationService service, ClaimsPrincipal user, object? resource, IAuthorizationRequirement requirement)
     {
-        if (service == null)
-        {
-            throw new ArgumentNullException(nameof(service));
-        }
-
-        if (requirement == null)
-        {
-            throw new ArgumentNullException(nameof(requirement));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(service);
+        ArgumentNullThrowHelper.ThrowIfNull(requirement);
 
         return service.AuthorizeAsync(user, resource, new IAuthorizationRequirement[] { requirement });
     }
@@ -48,19 +41,12 @@ public static class AuthorizationServiceExtensions
     /// <param name="policy">The policy to evaluate.</param>
     /// <returns>
     /// A flag indicating whether policy evaluation has succeeded or failed.
-    /// This value is <value>true</value> when the user fulfills the policy, otherwise <value>false</value>.
+    /// This value is <c>true</c> when the user fulfills the policy, otherwise <c>false</c>.
     /// </returns>
     public static Task<AuthorizationResult> AuthorizeAsync(this IAuthorizationService service, ClaimsPrincipal user, object? resource, AuthorizationPolicy policy)
     {
-        if (service == null)
-        {
-            throw new ArgumentNullException(nameof(service));
-        }
-
-        if (policy == null)
-        {
-            throw new ArgumentNullException(nameof(policy));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(service);
+        ArgumentNullThrowHelper.ThrowIfNull(policy);
 
         return service.AuthorizeAsync(user, resource, policy.Requirements);
     }
@@ -73,19 +59,12 @@ public static class AuthorizationServiceExtensions
     /// <param name="policy">The policy to evaluate.</param>
     /// <returns>
     /// A flag indicating whether policy evaluation has succeeded or failed.
-    /// This value is <value>true</value> when the user fulfills the policy, otherwise <value>false</value>.
+    /// This value is <c>true</c> when the user fulfills the policy, otherwise <c>false</c>.
     /// </returns>
     public static Task<AuthorizationResult> AuthorizeAsync(this IAuthorizationService service, ClaimsPrincipal user, AuthorizationPolicy policy)
     {
-        if (service == null)
-        {
-            throw new ArgumentNullException(nameof(service));
-        }
-
-        if (policy == null)
-        {
-            throw new ArgumentNullException(nameof(policy));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(service);
+        ArgumentNullThrowHelper.ThrowIfNull(policy);
 
         return service.AuthorizeAsync(user, resource: null, policy: policy);
     }
@@ -98,19 +77,12 @@ public static class AuthorizationServiceExtensions
     /// <param name="policyName">The name of the policy to evaluate.</param>
     /// <returns>
     /// A flag indicating whether policy evaluation has succeeded or failed.
-    /// This value is <value>true</value> when the user fulfills the policy, otherwise <value>false</value>.
+    /// This value is <c>true</c> when the user fulfills the policy, otherwise <c>false</c>.
     /// </returns>
     public static Task<AuthorizationResult> AuthorizeAsync(this IAuthorizationService service, ClaimsPrincipal user, string policyName)
     {
-        if (service == null)
-        {
-            throw new ArgumentNullException(nameof(service));
-        }
-
-        if (policyName == null)
-        {
-            throw new ArgumentNullException(nameof(policyName));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(service);
+        ArgumentNullThrowHelper.ThrowIfNull(policyName);
 
         return service.AuthorizeAsync(user, resource: null, policyName: policyName);
     }

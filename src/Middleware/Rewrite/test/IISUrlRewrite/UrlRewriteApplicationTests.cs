@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.IO;
-using System.Linq;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Rewrite.IISUrlRewrite;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Rewrite.Tests.UrlRewrite;
 
@@ -25,7 +22,7 @@ public class UrlRewriteApplicationTests
                 </rewrite>");
         var rules = new UrlRewriteFileParser().Parse(xml, false);
 
-        Assert.Equal(1, rules.Count);
+        Assert.Single(rules);
         var context = new RewriteContext { HttpContext = new DefaultHttpContext() };
         rules.FirstOrDefault().ApplyRule(context);
         Assert.Equal(RuleResult.SkipRemainingRules, context.Result);
@@ -44,7 +41,7 @@ public class UrlRewriteApplicationTests
                 </rewrite>");
         var rules = new UrlRewriteFileParser().Parse(xml, false);
 
-        Assert.Equal(1, rules.Count);
+        Assert.Single(rules);
         var context = new RewriteContext { HttpContext = new DefaultHttpContext() };
         rules.FirstOrDefault().ApplyRule(context);
         Assert.Equal(RuleResult.ContinueRules, context.Result);
@@ -66,7 +63,7 @@ public class UrlRewriteApplicationTests
                 </rewrite>");
         var rules = new UrlRewriteFileParser().Parse(xml, false);
 
-        Assert.Equal(1, rules.Count);
+        Assert.Single(rules);
         Assert.True(rules[0].Conditions.TrackAllCaptures);
         var context = new RewriteContext { HttpContext = new DefaultHttpContext() };
         rules.FirstOrDefault().ApplyRule(context);

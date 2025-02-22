@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
@@ -118,10 +117,7 @@ public class ResponseCacheAttribute : Attribute, IFilterFactory, IOrderedFilter
     /// <inheritdoc />
     public IFilterMetadata CreateInstance(IServiceProvider serviceProvider)
     {
-        if (serviceProvider == null)
-        {
-            throw new ArgumentNullException(nameof(serviceProvider));
-        }
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         var optionsAccessor = serviceProvider.GetRequiredService<IOptions<MvcOptions>>();

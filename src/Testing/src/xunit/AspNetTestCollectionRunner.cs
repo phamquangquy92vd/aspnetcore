@@ -3,13 +3,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 public class AspNetTestCollectionRunner : XunitTestCollectionRunner
 {
@@ -33,7 +32,7 @@ public class AspNetTestCollectionRunner : XunitTestCollectionRunner
 
     protected override async Task AfterTestCollectionStartingAsync()
     {
-        await base.AfterTestCollectionStartingAsync();
+        await base.AfterTestCollectionStartingAsync().ConfigureAwait(false);
 
         // note: We pass the assembly fixtures into the runner as ICollectionFixture<> - this seems to work OK without any
         // drawbacks. It's reasonable that we could add IAssemblyFixture<> and related plumbing if it ever became required.

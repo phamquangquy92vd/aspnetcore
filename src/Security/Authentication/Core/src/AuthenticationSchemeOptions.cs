@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Authentication;
@@ -89,4 +88,8 @@ public class AuthenticationSchemeOptions
     /// </summary>
     public Func<HttpContext, string?>? ForwardDefaultSelector { get; set; }
 
+    /// <summary>
+    /// Used for testing.
+    /// </summary>
+    public TimeProvider? TimeProvider { get; set; }
 }

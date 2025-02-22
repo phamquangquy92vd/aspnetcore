@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -12,7 +10,7 @@ namespace Microsoft.AspNetCore.Mvc.ApplicationModels;
 /// <summary>
 /// A type which is used to represent a property in a <see cref="ControllerModel"/>.
 /// </summary>
-[DebuggerDisplay("PropertyModel: Name={PropertyName}")]
+[DebuggerDisplay("Type = {GetType().Name}, Name = {PropertyName}")]
 public class PropertyModel : ParameterModelBase, ICommonModel, IBindingModel
 {
     /// <summary>
@@ -35,10 +33,7 @@ public class PropertyModel : ParameterModelBase, ICommonModel, IBindingModel
     public PropertyModel(PropertyModel other)
         : base(other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         Controller = other.Controller;
         BindingInfo = other.BindingInfo == null ? null : new BindingInfo(other.BindingInfo);

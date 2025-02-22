@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -9,7 +8,7 @@ using Microsoft.Extensions.Localization;
 
 namespace Microsoft.AspNetCore.Mvc.DataAnnotations;
 
-internal class RangeAttributeAdapter : AttributeAdapterBase<RangeAttribute>
+internal sealed class RangeAttributeAdapter : AttributeAdapterBase<RangeAttribute>
 {
     private readonly string _max;
     private readonly string _min;
@@ -30,10 +29,7 @@ internal class RangeAttributeAdapter : AttributeAdapterBase<RangeAttribute>
 
     public override void AddValidation(ClientModelValidationContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         MergeAttribute(context.Attributes, "data-val", "true");
         MergeAttribute(context.Attributes, "data-val-range", GetErrorMessage(context));
@@ -44,10 +40,7 @@ internal class RangeAttributeAdapter : AttributeAdapterBase<RangeAttribute>
     /// <inheritdoc />
     public override string GetErrorMessage(ModelValidationContextBase validationContext)
     {
-        if (validationContext == null)
-        {
-            throw new ArgumentNullException(nameof(validationContext));
-        }
+        ArgumentNullException.ThrowIfNull(validationContext);
 
         return GetErrorMessage(
             validationContext.ModelMetadata,

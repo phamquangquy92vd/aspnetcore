@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -17,10 +16,7 @@ public class ConsumesConstraintForFormFileParameterConvention : IActionModelConv
     /// <inheritdoc />
     public void Apply(ActionModel action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ArgumentNullException.ThrowIfNull(action);
 
         if (!ShouldApply(action))
         {
@@ -41,7 +37,7 @@ public class ConsumesConstraintForFormFileParameterConvention : IActionModelConv
     protected virtual bool ShouldApply(ActionModel action) => true;
 
     // Internal for unit testing
-    internal void AddMultipartFormDataConsumesAttribute(ActionModel action)
+    internal static void AddMultipartFormDataConsumesAttribute(ActionModel action)
     {
         // Add a ConsumesAttribute if the request does not explicitly specify one.
         if (action.Filters.OfType<IConsumesActionConstraint>().Any())

@@ -1,22 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.TestObjects;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.WebEncoders.Testing;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing;
 
@@ -497,7 +493,7 @@ public class RouteTest
 
         // Assert
         Assert.NotNull(context.Handler);
-        Assert.Equal(1, context.RouteData.Routers.Count);
+        Assert.Single(context.RouteData.Routers);
         Assert.Same(target, context.RouteData.Routers[0]);
     }
 
@@ -1430,7 +1426,6 @@ public class RouteTest
         Assert.Empty(pathData.DataTokens);
     }
 
-
     [Fact]
     public void GetVirtualPath_OptionalParameterAfterDefault_OneValueFromAmbientValues()
     {
@@ -1663,7 +1658,7 @@ public class RouteTest
 
         // Assert
         var constraints = ((Route)routeBuilder.Routes[0]).Constraints;
-        Assert.Equal(1, constraints.Count);
+        Assert.Single(constraints);
         var constraint = (CompositeRouteConstraint)constraints["id"];
         Assert.IsType<CompositeRouteConstraint>(constraint);
         Assert.IsType<RegexRouteConstraint>(constraint.Constraints.ElementAt(0));
@@ -1684,7 +1679,7 @@ public class RouteTest
 
         // Assert
         var constraints = ((Route)routeBuilder.Routes[0]).Constraints;
-        Assert.Equal(1, constraints.Count);
+        Assert.Single(constraints);
         Assert.IsType<IntRouteConstraint>(constraints["id"]);
     }
 
@@ -1866,6 +1861,7 @@ public class RouteTest
     private static void ConfigureRouteOptions(RouteOptions options)
     {
         options.ConstraintMap["test-policy"] = typeof(TestPolicy);
+        options.SetParameterPolicy<RegexInlineRouteConstraint>("regex");
     }
 
     private class TestPolicy : IParameterPolicy

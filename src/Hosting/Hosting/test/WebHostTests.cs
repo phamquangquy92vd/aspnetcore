@@ -1,20 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Fakes;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -22,7 +16,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Hosting;
 
@@ -150,7 +143,7 @@ public partial class WebHostTests
         {
             var server = (FakeServer)host.Services.GetRequiredService<IServer>();
             Assert.NotNull(host);
-            Assert.Equal(1, server.StartInstances.Count);
+            Assert.Single(server.StartInstances);
             Assert.Equal(0, server.StartInstances[0].DisposeCalls);
 
             host.Dispose();
@@ -181,7 +174,7 @@ public partial class WebHostTests
             lifetime.ApplicationStarted.WaitHandle.WaitOne();
             Assert.True(lifetime2.ApplicationStarted.IsCancellationRequested);
 
-            Assert.Equal(1, server.StartInstances.Count);
+            Assert.Single(server.StartInstances);
             Assert.Equal(0, server.StartInstances[0].DisposeCalls);
 
             cts.Cancel();
@@ -334,27 +327,27 @@ public partial class WebHostTests
 
             lifetime.ApplicationStopping.Register(() =>
             {
-                    // Check whether the applicationStartedEvent has been set
-                    applicationStartedCompletedBeforeApplicationStopping = applicationStartedEvent.IsSet;
+                // Check whether the applicationStartedEvent has been set
+                applicationStartedCompletedBeforeApplicationStopping = applicationStartedEvent.IsSet;
 
-                    // Simulate work.
-                    Thread.Sleep(1000);
+                // Simulate work.
+                Thread.Sleep(1000);
 
                 applicationStoppingEvent.Set();
             });
 
             lifetime.ApplicationStopped.Register(() =>
             {
-                    // Check whether the applicationStoppingEvent has been set
-                    applicationStoppingCompletedBeforeApplicationStopped = applicationStoppingEvent.IsSet;
+                // Check whether the applicationStoppingEvent has been set
+                applicationStoppingCompletedBeforeApplicationStopped = applicationStoppingEvent.IsSet;
                 applicationStoppedEvent.Set();
             });
 
             var runHostAndVerifyApplicationStopped = Task.Run(async () =>
             {
                 await host.RunAsync();
-                    // Check whether the applicationStoppingEvent has been set
-                    applicationStoppedCompletedBeforeRunCompleted = applicationStoppedEvent.IsSet;
+                // Check whether the applicationStoppingEvent has been set
+                applicationStoppedCompletedBeforeRunCompleted = applicationStoppedEvent.IsSet;
             });
 
             // Wait until application has started to shut down the host
@@ -881,8 +874,8 @@ public partial class WebHostTests
         // Arrange
         var requestDelegate = new RequestDelegate(httpContext =>
         {
-                // Assert
-                Assert.NotNull(httpContext);
+            // Assert
+            Assert.NotNull(httpContext);
             var featuresTraceIdentifier = httpContext.Features.Get<IHttpRequestIdentifierFeature>().TraceIdentifier;
             Assert.False(string.IsNullOrWhiteSpace(httpContext.TraceIdentifier));
             Assert.Same(httpContext.TraceIdentifier, featuresTraceIdentifier);
@@ -904,8 +897,8 @@ public partial class WebHostTests
         var requestIdentifierFeature = new StubHttpRequestIdentifierFeature();
         var requestDelegate = new RequestDelegate(httpContext =>
         {
-                // Assert
-                Assert.NotNull(httpContext);
+            // Assert
+            Assert.NotNull(httpContext);
             Assert.Same(requestIdentifierFeature, httpContext.Features.Get<IHttpRequestIdentifierFeature>());
 
             return Task.CompletedTask;

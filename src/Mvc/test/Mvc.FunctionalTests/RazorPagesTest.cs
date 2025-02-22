@@ -1,37 +1,43 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Newtonsoft.Json.Linq;
-using Xunit;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Logging;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class RazorPagesTest : IClassFixture<MvcTestFixture<RazorPagesWebSite.StartupWithoutEndpointRouting>>
+public class RazorPagesTest : LoggedTest
 {
     private static readonly Assembly _resourcesAssembly = typeof(RazorPagesTest).GetTypeInfo().Assembly;
-
-    public RazorPagesTest(MvcTestFixture<RazorPagesWebSite.StartupWithoutEndpointRouting> fixture)
-    {
-        var factory = fixture.Factories.FirstOrDefault() ?? fixture.WithWebHostBuilder(ConfigureWebHostBuilder);
-        Client = factory.CreateDefaultClient();
-    }
 
     private static void ConfigureWebHostBuilder(IWebHostBuilder builder) =>
         builder.UseStartup<RazorPagesWebSite.StartupWithoutEndpointRouting>();
 
-    public HttpClient Client { get; }
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    {
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<RazorPagesWebSite.StartupWithoutEndpointRouting>(LoggerFactory).WithWebHostBuilder(ConfigureWebHostBuilder);
+        Client = Factory.CreateDefaultClient();
+    }
+
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<RazorPagesWebSite.StartupWithoutEndpointRouting> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task Page_SimpleForms_RenderAntiforgery()
@@ -406,7 +412,6 @@ public class RazorPagesTest : IClassFixture<MvcTestFixture<RazorPagesWebSite.Sta
         var getResponseBody = await getResponse.Content.ReadAsStringAsync();
         var formToken = AntiforgeryTestHelper.RetrieveAntiforgeryToken(getResponseBody, "/HelloWorlWithPageModelHandler");
         var cookie = AntiforgeryTestHelper.RetrieveAntiforgeryCookie(getResponse);
-
 
         var postRequest = new HttpRequestMessage(HttpMethod.Post, "http://localhost/HelloWorldWithPageModelHandler");
         postRequest.Headers.Add("Cookie", cookie.Key + "=" + cookie.Value);

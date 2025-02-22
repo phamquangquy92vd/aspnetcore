@@ -1,11 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Connections.Internal;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,7 +25,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
     /// <param name="pattern">The route pattern.</param>
     /// <param name="configure">A callback to configure the connection.</param>
     /// <returns>An <see cref="ConnectionEndpointRouteBuilder"/> for endpoints associated with the connections.</returns>
-    public static ConnectionEndpointRouteBuilder MapConnections(this IEndpointRouteBuilder endpoints, string pattern, Action<IConnectionBuilder> configure) =>
+    public static ConnectionEndpointRouteBuilder MapConnections(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern, Action<IConnectionBuilder> configure) =>
         endpoints.MapConnections(pattern, new HttpConnectionDispatcherOptions(), configure);
 
     /// <summary>
@@ -35,7 +35,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
     /// <param name="endpoints">The <see cref="IEndpointRouteBuilder"/> to add the route to.</param>
     /// <param name="pattern">The route pattern.</param>
     /// <returns>An <see cref="ConnectionEndpointRouteBuilder"/> for endpoints associated with the connections.</returns>
-    public static ConnectionEndpointRouteBuilder MapConnectionHandler<TConnectionHandler>(this IEndpointRouteBuilder endpoints, string pattern) where TConnectionHandler : ConnectionHandler
+    public static ConnectionEndpointRouteBuilder MapConnectionHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TConnectionHandler>(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern) where TConnectionHandler : ConnectionHandler
     {
         return endpoints.MapConnectionHandler<TConnectionHandler>(pattern, configureOptions: null);
     }
@@ -48,7 +48,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
     /// <param name="pattern">The route pattern.</param>
     /// <param name="configureOptions">A callback to configure dispatcher options.</param>
     /// <returns>An <see cref="ConnectionEndpointRouteBuilder"/> for endpoints associated with the connections.</returns>
-    public static ConnectionEndpointRouteBuilder MapConnectionHandler<TConnectionHandler>(this IEndpointRouteBuilder endpoints, string pattern, Action<HttpConnectionDispatcherOptions>? configureOptions) where TConnectionHandler : ConnectionHandler
+    public static ConnectionEndpointRouteBuilder MapConnectionHandler<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] TConnectionHandler>(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern, Action<HttpConnectionDispatcherOptions>? configureOptions) where TConnectionHandler : ConnectionHandler
     {
         var options = new HttpConnectionDispatcherOptions();
         configureOptions?.Invoke(options);
@@ -61,9 +61,9 @@ public static class ConnectionEndpointRouteBuilderExtensions
         var attributes = typeof(TConnectionHandler).GetCustomAttributes(inherit: true);
         conventionBuilder.Add(e =>
         {
-                // Add all attributes on the ConnectionHandler has metadata (this will allow for things like)
-                // auth attributes and cors attributes to work seamlessly
-                foreach (var item in attributes)
+            // Add all attributes on the ConnectionHandler has metadata (this will allow for things like)
+            // auth attributes and cors attributes to work seamlessly
+            foreach (var item in attributes)
             {
                 e.Metadata.Add(item);
             }
@@ -71,7 +71,6 @@ public static class ConnectionEndpointRouteBuilderExtensions
 
         return conventionBuilder;
     }
-
 
     /// <summary>
     /// Maps incoming requests with the specified path to the provided connection pipeline.
@@ -81,7 +80,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
     /// <param name="options">Options used to configure the connection.</param>
     /// <param name="configure">A callback to configure the connection.</param>
     /// <returns>An <see cref="ConnectionEndpointRouteBuilder"/> for endpoints associated with the connections.</returns>
-    public static ConnectionEndpointRouteBuilder MapConnections(this IEndpointRouteBuilder endpoints, string pattern, HttpConnectionDispatcherOptions options, Action<IConnectionBuilder> configure)
+    public static ConnectionEndpointRouteBuilder MapConnections(this IEndpointRouteBuilder endpoints, [StringSyntax("Route")] string pattern, HttpConnectionDispatcherOptions options, Action<IConnectionBuilder> configure)
     {
         var dispatcher = endpoints.ServiceProvider.GetRequiredService<HttpConnectionDispatcher>();
 
@@ -113,6 +112,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
         var executehandler = app.Build();
 
         var executeBuilder = endpoints.Map(pattern, executehandler);
+        executeBuilder.WithMetadata(new DisableRequestTimeoutAttribute());
         conventionBuilders.Add(executeBuilder);
 
         var compositeConventionBuilder = new CompositeEndpointConventionBuilder(conventionBuilders);
@@ -120,8 +120,8 @@ public static class ConnectionEndpointRouteBuilderExtensions
         // Add metadata to all of Endpoints
         compositeConventionBuilder.Add(e =>
         {
-                // Add the authorization data as metadata
-                foreach (var data in options.AuthorizationData)
+            // Add the authorization data as metadata
+            foreach (var data in options.AuthorizationData)
             {
                 e.Metadata.Add(data);
             }
@@ -130,7 +130,7 @@ public static class ConnectionEndpointRouteBuilderExtensions
         return new ConnectionEndpointRouteBuilder(compositeConventionBuilder);
     }
 
-    private class CompositeEndpointConventionBuilder : IEndpointConventionBuilder
+    private sealed class CompositeEndpointConventionBuilder : IEndpointConventionBuilder
     {
         private readonly List<IEndpointConventionBuilder> _endpointConventionBuilders;
 
@@ -144,6 +144,14 @@ public static class ConnectionEndpointRouteBuilderExtensions
             foreach (var endpointConventionBuilder in _endpointConventionBuilders)
             {
                 endpointConventionBuilder.Add(convention);
+            }
+        }
+
+        public void Finally(Action<EndpointBuilder> finalConvention)
+        {
+            foreach (var endpointConventionBuilder in _endpointConventionBuilders)
+            {
+                endpointConventionBuilder.Finally(finalConvention);
             }
         }
     }

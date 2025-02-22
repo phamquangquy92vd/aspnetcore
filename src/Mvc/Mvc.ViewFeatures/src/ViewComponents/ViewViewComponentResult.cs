@@ -3,11 +3,8 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -56,10 +53,7 @@ public class ViewViewComponentResult : IViewComponentResult
     /// </remarks>
     public void Execute(ViewComponentContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var task = ExecuteAsync(context);
         task.GetAwaiter().GetResult();
@@ -73,10 +67,7 @@ public class ViewViewComponentResult : IViewComponentResult
     /// <returns>A <see cref="Task"/> which will complete when view rendering is completed.</returns>
     public async Task ExecuteAsync(ViewComponentContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var viewEngine = ViewEngine ?? ResolveViewEngine(context);
         var viewContext = context.ViewContext;

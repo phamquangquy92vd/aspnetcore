@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Diagnostics;
-using Microsoft.AspNetCore.Routing.Matching;
 
 namespace Microsoft.AspNetCore.Routing.Patterns;
 
@@ -11,7 +10,11 @@ namespace Microsoft.AspNetCore.Routing.Patterns;
 /// of <see cref="RoutePatternParameterPolicyReference"/> are immutable.
 /// </summary>
 [DebuggerDisplay("{DebuggerToString()}")]
+#if !COMPONENTS
 public sealed class RoutePatternParameterPolicyReference
+#else
+internal sealed class RoutePatternParameterPolicyReference
+#endif
 {
     internal RoutePatternParameterPolicyReference(string content)
     {

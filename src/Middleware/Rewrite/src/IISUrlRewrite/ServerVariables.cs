@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Rewrite.PatternSegments;
 using Microsoft.Net.Http.Headers;
 
@@ -87,6 +86,9 @@ internal static class ServerVariables
                 break;
             case "REQUEST_URI":
                 managedVariableThunk = () => new UrlSegment(uriMatchPart);
+                break;
+            case "SERVER_NAME":
+                managedVariableThunk = () => new ServerNameSegment();
                 break;
             default:
                 throw new FormatException(Resources.FormatError_InputParserUnrecognizedParameter(serverVariable, context.Index));

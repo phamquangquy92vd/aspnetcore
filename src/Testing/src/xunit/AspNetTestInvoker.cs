@@ -10,9 +10,9 @@ using System.Threading.Tasks;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
-internal class AspNetTestInvoker : XunitTestInvoker
+internal sealed class AspNetTestInvoker : XunitTestInvoker
 {
     private readonly TestOutputHelper _testOutputHelper;
 
@@ -41,20 +41,20 @@ internal class AspNetTestInvoker : XunitTestInvoker
         {
             foreach (var lifecycleHook in lifecycleHooks)
             {
-                await lifecycleHook.OnTestStartAsync(context, CancellationTokenSource.Token);
+                await lifecycleHook.OnTestStartAsync(context, CancellationTokenSource.Token).ConfigureAwait(false);
             }
-        });
+        }).ConfigureAwait(false);
 
-        var time = await base.InvokeTestMethodAsync(testClassInstance);
+        var time = await base.InvokeTestMethodAsync(testClassInstance).ConfigureAwait(false);
 
         await Aggregator.RunAsync(async () =>
         {
             var exception = Aggregator.HasExceptions ? Aggregator.ToException() : null;
             foreach (var lifecycleHook in lifecycleHooks)
             {
-                await lifecycleHook.OnTestEndAsync(context, exception, CancellationTokenSource.Token);
+                await lifecycleHook.OnTestEndAsync(context, exception, CancellationTokenSource.Token).ConfigureAwait(false);
             }
-        });
+        }).ConfigureAwait(false);
 
         return time;
     }

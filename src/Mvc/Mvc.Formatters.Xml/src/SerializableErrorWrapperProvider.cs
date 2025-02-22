@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
 
 /// <summary>
@@ -16,10 +14,7 @@ public class SerializableErrorWrapperProvider : IWrapperProvider
     /// <inheritdoc />
     public object? Wrap(object? original)
     {
-        if (original == null)
-        {
-            throw new ArgumentNullException(nameof(original));
-        }
+        ArgumentNullException.ThrowIfNull(original);
 
         var error = original as SerializableError;
         if (error == null)

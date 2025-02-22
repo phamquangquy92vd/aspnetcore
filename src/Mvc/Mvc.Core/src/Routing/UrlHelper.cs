@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
@@ -52,10 +50,7 @@ public class UrlHelper : UrlHelperBase
     /// <inheritdoc />
     public override string? Action(UrlActionContext actionContext)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
 
         var valuesDictionary = GetValuesDictionary(actionContext.Values);
 
@@ -68,10 +63,7 @@ public class UrlHelper : UrlHelperBase
     /// <inheritdoc />
     public override string? RouteUrl(UrlRouteContext routeContext)
     {
-        if (routeContext == null)
-        {
-            throw new ArgumentNullException(nameof(routeContext));
-        }
+        ArgumentNullException.ThrowIfNull(routeContext);
 
         var valuesDictionary = routeContext.Values as RouteValueDictionary ?? GetValuesDictionary(routeContext.Values);
         var virtualPathData = GetVirtualPathData(routeContext.RouteName, valuesDictionary);

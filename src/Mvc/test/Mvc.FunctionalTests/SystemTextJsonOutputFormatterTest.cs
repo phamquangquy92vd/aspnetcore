@@ -3,20 +3,13 @@
 
 using System.Net;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using FormatterWebSite.Controllers;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
 public class SystemTextJsonOutputFormatterTest : JsonOutputFormatterTestBase<FormatterWebSite.StartupWithJsonFormatter>
 {
-    public SystemTextJsonOutputFormatterTest(MvcTestFixture<FormatterWebSite.StartupWithJsonFormatter> fixture)
-        : base(fixture)
-    {
-    }
-
     [Fact]
     public override Task SerializableErrorIsReturnedInExpectedFormat() => base.SerializableErrorIsReturnedInExpectedFormat();
 
@@ -58,4 +51,35 @@ public class SystemTextJsonOutputFormatterTest : JsonOutputFormatterTestBase<For
 
     [Fact]
     public override Task Formatting_PolymorphicModel() => base.Formatting_PolymorphicModel();
+
+    [Fact]
+    public async Task Formatting_PolymorphicModel_WithJsonPolymorphism()
+    {
+        // Arrange
+        var expected = "{\"$type\":\"DerivedModel\",\"address\":\"Some address\",\"id\":10,\"name\":\"test\",\"streetName\":null}";
+
+        // Act
+        var response = await Client.GetAsync($"/SystemTextJsonOutputFormatter/{nameof(SystemTextJsonOutputFormatterController.PolymorphicResult)}");
+
+        // Assert
+        await response.AssertStatusCodeAsync(HttpStatusCode.OK);
+        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
+    }
+
+    // Regression test: https://github.com/dotnet/aspnetcore/issues/57895
+    [Fact]
+    public async Task CanSetHeaderWithAsyncEnumerable()
+    {
+        // Arrange
+        var expected = "[1]";
+
+        // Act
+        var response = await Client.GetAsync($"/SystemTextJsonOutputFormatter/{nameof(SystemTextJsonOutputFormatterController.AsyncEnumerable)}");
+
+        // Assert
+        await response.AssertStatusCodeAsync(HttpStatusCode.OK);
+        Assert.Equal(expected, await response.Content.ReadAsStringAsync());
+        var headerValue = Assert.Single(response.Headers.GetValues("Test"));
+        Assert.Equal("t", headerValue);
+    }
 }

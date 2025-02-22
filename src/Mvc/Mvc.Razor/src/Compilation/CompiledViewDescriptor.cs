@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Razor.Hosting;
 using Microsoft.Extensions.Primitives;
 
@@ -18,7 +16,6 @@ public class CompiledViewDescriptor
     /// </summary>
     public CompiledViewDescriptor()
     {
-
     }
 
     /// <summary>
@@ -27,10 +24,7 @@ public class CompiledViewDescriptor
     /// <param name="item">The <see cref="RazorCompiledItem"/>.</param>
     public CompiledViewDescriptor(RazorCompiledItem item)
     {
-        if (item == null)
-        {
-            throw new ArgumentNullException(nameof(item));
-        }
+        ArgumentNullException.ThrowIfNull(item);
 
         Item = item;
         RelativePath = ViewPath.NormalizePath(item.Identifier);

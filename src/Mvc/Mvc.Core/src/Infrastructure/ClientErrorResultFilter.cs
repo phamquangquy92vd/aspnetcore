@@ -1,15 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#nullable enable
-
-using System;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
-internal class ClientErrorResultFilter : IAlwaysRunResultFilter, IOrderedFilter
+internal sealed partial class ClientErrorResultFilter : IAlwaysRunResultFilter, IOrderedFilter
 {
     internal const int FilterOrder = -2000;
     private readonly IClientErrorFactory _clientErrorFactory;
@@ -34,10 +31,7 @@ internal class ClientErrorResultFilter : IAlwaysRunResultFilter, IOrderedFilter
 
     public void OnResultExecuting(ResultExecutingContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (!(context.Result is IClientErrorActionResult clientError))
         {
@@ -57,7 +51,13 @@ internal class ClientErrorResultFilter : IAlwaysRunResultFilter, IOrderedFilter
             return;
         }
 
-        _logger.TransformingClientError(context.Result.GetType(), result.GetType(), clientError.StatusCode);
+        Log.TransformingClientError(_logger, context.Result.GetType(), result.GetType(), clientError.StatusCode);
         context.Result = result;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(49, LogLevel.Trace, "Replacing {InitialActionResultType} with status code {StatusCode} with {ReplacedActionResultType}.", EventName = "ClientErrorResultFilter")]
+        public static partial void TransformingClientError(ILogger logger, Type initialActionResultType, Type replacedActionResultType, int? statusCode);
     }
 }

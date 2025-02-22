@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
@@ -43,9 +41,9 @@ public class StatusCodePagesMiddleware
         var statusCodeFeature = new StatusCodePagesFeature();
         context.Features.Set<IStatusCodePagesFeature>(statusCodeFeature);
         var endpoint = context.GetEndpoint();
-        var skipStatusCodePageMetadata = endpoint?.Metadata.GetMetadata<ISkipStatusCodePagesMetadata>();
+        var shouldCheckEndpointAgain = endpoint is null;
 
-        if (skipStatusCodePageMetadata is not null)
+        if (HasSkipStatusCodePagesMetadata(endpoint))
         {
             statusCodeFeature.Enabled = false;
         }
@@ -56,6 +54,12 @@ public class StatusCodePagesMiddleware
         {
             // Check if the feature is still available because other middleware (such as a web API written in MVC) could
             // have disabled the feature to prevent HTML status code responses from showing up to an API client.
+            return;
+        }
+
+        if (shouldCheckEndpointAgain && HasSkipStatusCodePagesMetadata(context.GetEndpoint()))
+        {
+            // If the endpoint was null check the endpoint again since it could have been set by another middleware.
             return;
         }
 
@@ -71,5 +75,12 @@ public class StatusCodePagesMiddleware
 
         var statusCodeContext = new StatusCodeContext(context, _options, _next);
         await _options.HandleAsync(statusCodeContext);
+    }
+
+    private static bool HasSkipStatusCodePagesMetadata(Endpoint? endpoint)
+    {
+        var skipStatusCodePageMetadata = endpoint?.Metadata.GetMetadata<ISkipStatusCodePagesMetadata>();
+
+        return skipStatusCodePageMetadata is not null;
     }
 }

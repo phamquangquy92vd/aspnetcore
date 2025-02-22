@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#if IGNITOR
-namespace Ignitor;
-#else
 namespace Microsoft.AspNetCore.Components.RenderTree;
-#endif
 
 /// <summary>
 /// Types in the Microsoft.AspNetCore.Components.RenderTree are not recommended for use outside
@@ -37,16 +33,23 @@ public readonly struct RenderBatch
     /// </summary>
     public ArrayRange<ulong> DisposedEventHandlerIDs { get; }
 
+    /// <summary>
+    /// Gets the named events that were changed, or null.
+    /// </summary>
+    public ArrayRange<NamedEventChange>? NamedEventChanges { get; }
+
     internal RenderBatch(
         ArrayRange<RenderTreeDiff> updatedComponents,
         ArrayRange<RenderTreeFrame> referenceFrames,
         ArrayRange<int> disposedComponentIDs,
-        ArrayRange<ulong> disposedEventHandlerIDs)
+        ArrayRange<ulong> disposedEventHandlerIDs,
+        ArrayRange<NamedEventChange>? changedNamedEvents)
     {
         UpdatedComponents = updatedComponents;
         ReferenceFrames = referenceFrames;
         DisposedComponentIDs = disposedComponentIDs;
         DisposedEventHandlerIDs = disposedEventHandlerIDs;
+        NamedEventChanges = changedNamedEvents;
     }
 }
 

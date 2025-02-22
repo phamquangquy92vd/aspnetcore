@@ -1,7 +1,6 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,7 +9,7 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
-internal class RazorPagesRazorViewEngineOptionsSetup : IConfigureOptions<RazorViewEngineOptions>
+internal sealed class RazorPagesRazorViewEngineOptionsSetup : IConfigureOptions<RazorViewEngineOptions>
 {
     private readonly RazorPagesOptions _pagesOptions;
 
@@ -21,10 +20,7 @@ internal class RazorPagesRazorViewEngineOptionsSetup : IConfigureOptions<RazorVi
 
     public void Configure(RazorViewEngineOptions options)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         var rootDirectory = _pagesOptions.RootDirectory;
         Debug.Assert(!string.IsNullOrEmpty(rootDirectory));
@@ -66,11 +62,11 @@ internal class RazorPagesRazorViewEngineOptionsSetup : IConfigureOptions<RazorVi
 
     private static string CombinePath(string path1, string path2)
     {
-        if (path1.EndsWith("/", StringComparison.Ordinal) || path2.StartsWith("/", StringComparison.Ordinal))
+        if (path1.EndsWith('/') || path2.StartsWith('/'))
         {
             return path1 + path2;
         }
-        else if (path1.EndsWith("/", StringComparison.Ordinal) && path2.StartsWith("/", StringComparison.Ordinal))
+        else if (path1.EndsWith('/') && path2.StartsWith('/'))
         {
             return string.Concat(path1, path2.AsSpan(1));
         }

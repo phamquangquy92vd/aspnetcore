@@ -3,9 +3,7 @@
 
 #nullable enable
 
-using System;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -78,10 +76,7 @@ public abstract class Controller : ControllerBase, IActionFilter, IAsyncActionFi
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _tempData = value;
         }
@@ -349,15 +344,8 @@ public abstract class Controller : ControllerBase, IActionFilter, IAsyncActionFi
         ActionExecutingContext context,
         ActionExecutionDelegate next)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (next == null)
-        {
-            throw new ArgumentNullException(nameof(next));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(next);
 
         OnActionExecuting(context);
         if (context.Result == null)

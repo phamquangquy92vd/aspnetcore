@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.ServerExecutionTests;
@@ -50,7 +49,7 @@ public class HeadModificationPrerenderingTest : ServerTestBase<BasicTestAppServe
 
         // Check that head metadata can be changed after prerendering.
         Browser.Equal("Updated title 1", () => Browser.Title);
-        Browser.Equal("Updated description 1", () => Browser.FindElement(By.Id("meta-description")).GetAttribute("content"));
+        Browser.Equal("Updated description 1", () => Browser.FindElement(By.Id("meta-description")).GetDomAttribute("content"));
     }
 
     private void BeginInteractivity()

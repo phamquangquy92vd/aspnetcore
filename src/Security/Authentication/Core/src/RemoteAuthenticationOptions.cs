@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net.Http;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
@@ -27,7 +26,7 @@ public class RemoteAuthenticationOptions : AuthenticationSchemeOptions
             Name = CorrelationPrefix,
             HttpOnly = true,
             SameSite = SameSiteMode.None,
-            SecurePolicy = CookieSecurePolicy.SameAsRequest,
+            SecurePolicy = CookieSecurePolicy.Always,
             IsEssential = true,
         };
     }
@@ -106,7 +105,7 @@ public class RemoteAuthenticationOptions : AuthenticationSchemeOptions
 
     /// <summary>
     /// Gets or sets the authentication scheme corresponding to the middleware
-    /// responsible of persisting user's identity after a successful authentication.
+    /// responsible for persisting user's identity after a successful authentication.
     /// This value typically corresponds to a cookie middleware registered in the Startup class.
     /// When omitted, <see cref="AuthenticationOptions.DefaultSignInScheme"/> is used as a fallback value.
     /// </summary>
@@ -138,13 +137,25 @@ public class RemoteAuthenticationOptions : AuthenticationSchemeOptions
     /// Determines the settings used to create the correlation cookie before the
     /// cookie gets added to the response.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// If an explicit <see cref="CookieBuilder.Name"/> is not provided, the system will automatically generate a
+    /// unique name that begins with <c>.AspNetCore.Correlation.</c>.
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><see cref="CookieBuilder.SameSite"/> defaults to <see cref="SameSiteMode.None"/>.</description></item>
+    /// <item><description><see cref="CookieBuilder.HttpOnly"/> defaults to <c>true</c>.</description></item>
+    /// <item><description><see cref="CookieBuilder.IsEssential"/> defaults to <c>true</c>.</description></item>
+    /// <item><description><see cref="CookieBuilder.SecurePolicy"/> defaults to <see cref="CookieSecurePolicy.Always"/>.</description></item>
+    /// </list>
+    /// </remarks>
     public CookieBuilder CorrelationCookie
     {
         get => _correlationCookieBuilder;
         set => _correlationCookieBuilder = value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    private class CorrelationCookieBuilder : RequestPathBaseCookieBuilder
+    private sealed class CorrelationCookieBuilder : RequestPathBaseCookieBuilder
     {
         private readonly RemoteAuthenticationOptions _options;
 

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -66,10 +64,7 @@ public abstract class ValidationAttributeAdapter<TAttribute> : IClientModelValid
     /// <returns>Formatted error string.</returns>
     protected virtual string GetErrorMessage(ModelMetadata modelMetadata, params object[] arguments)
     {
-        if (modelMetadata == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadata));
-        }
+        ArgumentNullException.ThrowIfNull(modelMetadata);
 
         if (_stringLocalizer != null &&
             !string.IsNullOrEmpty(Attribute.ErrorMessage) &&

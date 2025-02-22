@@ -4,7 +4,6 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using Microsoft.AspNetCore.Cryptography.Cng;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.Infrastructure;
@@ -12,6 +11,7 @@ using Microsoft.AspNetCore.DataProtection.Internal;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.DataProtection.KeyManagement.Internal;
 using Microsoft.AspNetCore.DataProtection.XmlEncryption;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,10 +31,7 @@ public static class DataProtectionServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     public static IDataProtectionBuilder AddDataProtection(this IServiceCollection services)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(services);
 
         services.TryAddSingleton<IActivator, TypeForwardingActivator>();
         services.AddOptions();
@@ -51,15 +48,8 @@ public static class DataProtectionServiceCollectionExtensions
     /// <returns>A reference to this instance after the operation has completed.</returns>
     public static IDataProtectionBuilder AddDataProtection(this IServiceCollection services, Action<DataProtectionOptions> setupAction)
     {
-        if (services == null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
-
-        if (setupAction == null)
-        {
-            throw new ArgumentNullException(nameof(setupAction));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(services);
+        ArgumentNullThrowHelper.ThrowIfNull(setupAction);
 
         var builder = services.AddDataProtection();
         services.Configure(setupAction);
@@ -77,6 +67,8 @@ public static class DataProtectionServiceCollectionExtensions
 
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IConfigureOptions<KeyManagementOptions>, KeyManagementOptionsSetup>());
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IPostConfigureOptions<KeyManagementOptions>, KeyManagementOptionsPostSetup>());
         services.TryAddEnumerable(
             ServiceDescriptor.Transient<IConfigureOptions<DataProtectionOptions>, DataProtectionOptionsSetup>());
 
@@ -96,8 +88,8 @@ public static class DataProtectionServiceCollectionExtensions
 
             IDataProtectionProvider dataProtectionProvider = new KeyRingBasedDataProtectionProvider(keyRingProvider, loggerFactory);
 
-                // Link the provider to the supplied discriminator
-                if (!string.IsNullOrEmpty(dpOptions.Value.ApplicationDiscriminator))
+            // Link the provider to the supplied discriminator
+            if (!string.IsNullOrEmpty(dpOptions.Value.ApplicationDiscriminator))
             {
                 dataProtectionProvider = dataProtectionProvider.CreateProtector(dpOptions.Value.ApplicationDiscriminator);
             }

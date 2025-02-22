@@ -1,36 +1,28 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
-using System.IO;
 using System.Reflection;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Serialization;
 
 namespace FunctionalTests;
 
 public class Startup
 {
-    private readonly SymmetricSecurityKey SecurityKey = new SymmetricSecurityKey(Guid.NewGuid().ToByteArray());
+    private readonly SymmetricSecurityKey SecurityKey = new SymmetricSecurityKey(SHA256.HashData(Guid.NewGuid().ToByteArray()));
     private readonly JwtSecurityTokenHandler JwtTokenHandler = new JwtSecurityTokenHandler();
 
     private int _numRedirects;
@@ -44,9 +36,9 @@ public class Startup
         })
         .AddJsonProtocol(options =>
         {
-                // we are running the same tests with JSON and MsgPack protocols and having
-                // consistent casing makes it cleaner to verify results
-                options.PayloadSerializerOptions.PropertyNamingPolicy = null;
+            // we are running the same tests with JSON and MsgPack protocols and having
+            // consistent casing makes it cleaner to verify results
+            options.PayloadSerializerOptions.PropertyNamingPolicy = null;
         })
         .AddMessagePackProtocol();
 
@@ -103,6 +95,15 @@ public class Startup
                     }
                 };
             });
+
+        // Since tests run in parallel, it's possible multiple servers will startup,
+        // we use an ephemeral key provider and repository to avoid filesystem contention issues
+        services.AddSingleton<IDataProtectionProvider, EphemeralDataProtectionProvider>();
+
+        services.Configure<KeyManagementOptions>(options =>
+        {
+            options.XmlRepository = new EphemeralXmlRepository();
+        });
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
@@ -183,9 +184,11 @@ public class Startup
                 {
                     cookieOptions.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
                     cookieOptions.Secure = true;
+                    cookieOptions.Extensions.Add("partitioned"); // Required by Chromium
 
                     expiredCookieOptions.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
                     expiredCookieOptions.Secure = true;
+                    expiredCookieOptions.Extensions.Add("partitioned"); // Required by Chromium
                 }
                 context.Response.Cookies.Append("testCookie", "testValue", cookieOptions);
                 context.Response.Cookies.Append("testCookie2", "testValue2", cookieOptions);
@@ -214,7 +217,11 @@ public class Startup
         // This is for testing purposes only (karma hosts the client on its own server), never do this in production
         app.UseCors(policy =>
         {
-            policy.SetIsOriginAllowed(host => host.StartsWith("http://localhost:", StringComparison.Ordinal) || host.StartsWith("http://127.0.0.1:", StringComparison.Ordinal))
+            policy.SetIsOriginAllowed(host =>
+                host.StartsWith("http://localhost:", StringComparison.Ordinal)
+                || host.StartsWith("http://127.0.0.1:", StringComparison.Ordinal)
+                || host.StartsWith("https://localhost:", StringComparison.Ordinal)
+                || host.StartsWith("https://127.0.0.1:", StringComparison.Ordinal))
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -234,6 +241,19 @@ public class Startup
             endpoints.MapGet("/generateJwtToken", context =>
             {
                 return context.Response.WriteAsync(GenerateJwtToken());
+            });
+
+            endpoints.MapGet("/clientresult/{id}", async (IHubContext<TestHub> hubContext, string id) =>
+            {
+                try
+                {
+                    var result = await hubContext.Clients.Client(id).InvokeAsync<int>("Result", cancellationToken: default);
+                    return result.ToString(CultureInfo.InvariantCulture);
+                }
+                catch (Exception ex)
+                {
+                    return ex.Message;
+                }
             });
 
             endpoints.MapGet("/deployment", context =>

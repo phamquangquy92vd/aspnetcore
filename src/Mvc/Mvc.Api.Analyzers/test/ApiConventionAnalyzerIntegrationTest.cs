@@ -1,13 +1,10 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Analyzer.Testing;
 using Microsoft.CodeAnalysis;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Api.Analyzers;
 
@@ -41,6 +38,10 @@ public class ApiConventionAnalyzerIntegrationTest
 
     [Fact]
     public Task NoDiagnosticsAreReturned_ForReturnStatementsInLocalFunctions()
+        => RunNoDiagnosticsAreReturned();
+
+    [Fact]
+    public Task NoDiagnosticsAreReturned_ForApiController_WhenMethodNeverReturns()
         => RunNoDiagnosticsAreReturned();
 
     [Fact]
@@ -125,6 +126,72 @@ namespace Test
         public ActionResult<string> Test()
         {
             return NotFound(null);
+        }
+    }
+}";
+        var testSource = TestSource.Read(source);
+        var expectedLocation = testSource.DefaultMarkerLocation;
+
+        // Act
+        var result = await Executor.GetDiagnosticsAsync(testSource.Source);
+
+        // Assert
+        Assert.Contains(result, d => d.Id == ApiDiagnosticDescriptors.API1000_ActionReturnsUndocumentedStatusCode.Id);
+    }
+
+    [Fact]
+    public async Task DiagnosticsAreReturned_ForActionsReturnedFromSwitchExpression()
+    {
+        // Arrange
+        var source = @"
+using Microsoft.AspNetCore.Mvc;
+
+namespace Test
+{
+    [ApiController]
+    public class Foo : ControllerBase
+    {
+        public IActionResult Get(bool b)
+        {
+            return b switch
+            {
+                true => Ok(),
+                false => BadRequest()
+            };
+        }
+    }
+}";
+        var testSource = TestSource.Read(source);
+        var expectedLocation = testSource.DefaultMarkerLocation;
+
+        // Act
+        var result = await Executor.GetDiagnosticsAsync(testSource.Source);
+
+        // Assert
+        Assert.Contains(result, d => d.Id == ApiDiagnosticDescriptors.API1000_ActionReturnsUndocumentedStatusCode.Id);
+    }
+
+        [Fact]
+    public async Task DiagnosticsAreReturned_ForActionsReturnedFromSwitchStatement()
+    {
+        // Arrange
+        var source = @"
+using Microsoft.AspNetCore.Mvc;
+
+namespace Test
+{
+    [ApiController]
+    public class Foo : ControllerBase
+    {
+        public IActionResult Get(bool b)
+        {
+            switch (b)
+            {
+                case true:
+                    return Ok();
+                case false:
+                    return BadRequest();
+            }
         }
     }
 }";

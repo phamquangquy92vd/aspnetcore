@@ -1,14 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.WsFederation;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.IdentityModel.Tokens.Saml;
 using Microsoft.IdentityModel.Tokens.Saml2;
@@ -26,6 +25,7 @@ public class WsFederationOptions : RemoteAuthenticationOptions
             new SamlSecurityTokenHandler(),
             new JwtSecurityTokenHandler()
         };
+
     private TokenValidationParameters _tokenValidationParameters = new TokenValidationParameters();
 
     /// <summary>
@@ -39,6 +39,13 @@ public class WsFederationOptions : RemoteAuthenticationOptions
         //  If you manage to get it configured, then you can set RemoteSignOutPath accordingly.
         RemoteSignOutPath = "/signin-wsfed";
         Events = new WsFederationEvents();
+
+        TokenHandlers = new Collection<TokenHandler>()
+        {
+            new Saml2SecurityTokenHandler(),
+            new SamlSecurityTokenHandler(),
+            new JsonWebTokenHandler{ MapInboundClaims = JwtSecurityTokenHandler.DefaultMapInboundClaims }
+        };
     }
 
     /// <summary>
@@ -98,6 +105,7 @@ public class WsFederationOptions : RemoteAuthenticationOptions
     /// <summary>
     /// Gets or sets the collection of <see cref="ISecurityTokenValidator"/> used to read and validate the <see cref="SecurityToken"/>s.
     /// </summary>
+    [Obsolete("SecurityTokenHandlers is no longer used by default. Use TokenHandlers instead. To continue using SecurityTokenHandlers, set UseSecurityTokenHandlers to true. See https://aka.ms/aspnetcore8/security-token-changes")]
     public ICollection<ISecurityTokenValidator> SecurityTokenHandlers
     {
         get
@@ -108,6 +116,14 @@ public class WsFederationOptions : RemoteAuthenticationOptions
         {
             _securityTokenHandlers = value ?? throw new ArgumentNullException(nameof(SecurityTokenHandlers));
         }
+    }
+
+    /// <summary>
+    /// Gets the collection of <see cref="ISecurityTokenValidator"/> used to read and validate the <see cref="SecurityToken"/>s.
+    /// </summary>
+    public ICollection<TokenHandler> TokenHandlers
+    {
+        get; private set;
     }
 
     /// <summary>
@@ -183,4 +199,17 @@ public class WsFederationOptions : RemoteAuthenticationOptions
     /// </summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public new bool SaveTokens { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether <see cref="TokenHandlers"/> or <see cref="SecurityTokenHandlers"/> will be used to validate the inbound token.
+    /// </summary>
+    /// <remarks>
+    /// The advantages of using the TokenHandlers are:
+    /// <para>There is an Async model.</para>
+    /// <para>The default token handler for JsonWebTokens is a <see cref="JsonWebTokenHandler"/> which is faster than a <see cref="JwtSecurityTokenHandler"/>.</para>
+    /// <para>There is an ability to make use of a Last-Known-Good model for metadata that protects applications when metadata is published with errors.</para>
+    /// SecurityTokenHandlers can be used when <see cref="SecurityTokenValidatedContext.SecurityToken"/> needs a <see cref="JwtSecurityToken"/> when the security token is a JWT.
+    /// When using TokenHandlers, <see cref="SecurityTokenValidatedContext.SecurityToken"/> will be a <see cref="JsonWebToken"/> when the security token is a JWT.
+    /// </remarks>
+    public bool UseSecurityTokenHandlers { get; set; }
 }

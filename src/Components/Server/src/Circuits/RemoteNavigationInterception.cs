@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using Interop = Microsoft.AspNetCore.Components.Web.BrowserNavigationManagerInterop;
@@ -37,6 +35,6 @@ internal sealed class RemoteNavigationInterception : INavigationInterception
                 "attempted during prerendering or while the client is disconnected.");
         }
 
-        await _jsRuntime.InvokeAsync<object>(Interop.EnableNavigationInterception);
+        await _jsRuntime.InvokeAsync<object>(Interop.EnableNavigationInterception, WebRendererId.Server);
     }
 }

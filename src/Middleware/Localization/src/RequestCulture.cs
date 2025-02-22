@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 
 namespace Microsoft.AspNetCore.Localization;
@@ -50,15 +49,8 @@ public class RequestCulture
     /// <param name="uiCulture">The <see cref="CultureInfo"/> for the request to be used for text, i.e. language.</param>
     public RequestCulture(CultureInfo culture, CultureInfo uiCulture)
     {
-        if (culture == null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
-
-        if (uiCulture == null)
-        {
-            throw new ArgumentNullException(nameof(uiCulture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
+        ArgumentNullException.ThrowIfNull(uiCulture);
 
         Culture = culture;
         UICulture = uiCulture;

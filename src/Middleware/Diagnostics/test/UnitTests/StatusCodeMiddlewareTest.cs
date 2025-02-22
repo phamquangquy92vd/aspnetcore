@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
 using System.Net;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -12,8 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Diagnostics;
 
@@ -317,5 +312,81 @@ public class StatusCodeMiddlewareTest
         var response = await client.GetAsync("/");
         var content = await response.Content.ReadAsStringAsync();
         Assert.Empty(content);
+    }
+
+    [Fact]
+    public async Task SkipStatusCodePages_SupportsSkipIfUsedBeforeRouting()
+    {
+        using var host = new HostBuilder()
+            .ConfigureWebHost(builder =>
+            {
+                builder.UseTestServer()
+                .ConfigureServices(services => services.AddRouting())
+                .Configure(app =>
+                {
+                    app.UseStatusCodePagesWithReExecute("/status");
+                    app.UseRouting();
+
+                    app.UseEndpoints(endpoints =>
+                    {
+                        endpoints.MapGet("/skip", [SkipStatusCodePages](c) =>
+                        {
+                            c.Response.StatusCode = 400;
+                            return Task.CompletedTask;
+                        });
+
+                        endpoints.MapGet("/status", (HttpResponse response) => $"Status: {response.StatusCode}");
+                    });
+
+                    app.Run(_ => throw new InvalidOperationException("Invalid input provided."));
+                });
+            }).Build();
+
+        await host.StartAsync();
+
+        using var server = host.GetTestServer();
+        var client = server.CreateClient();
+        var response = await client.GetAsync("/skip");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Empty(content);
+    }
+
+    [Fact]
+    public async Task SkipStatusCodePages_WorksIfUsedBeforeRouting()
+    {
+        using var host = new HostBuilder()
+            .ConfigureWebHost(builder =>
+            {
+                builder.UseTestServer()
+                .ConfigureServices(services => services.AddRouting())
+                .Configure(app =>
+                {
+                    app.UseStatusCodePagesWithReExecute("/status");
+                    app.UseRouting();
+
+                    app.UseEndpoints(endpoints =>
+                    {
+                        endpoints.MapGet("/", (c) =>
+                        {
+                            c.Response.StatusCode = 400;
+                            return Task.CompletedTask;
+                        });
+
+                        endpoints.MapGet("/status", (HttpResponse response) => $"Status: {response.StatusCode}");
+                    });
+
+                    app.Run(_ => throw new InvalidOperationException("Invalid input provided."));
+                });
+            }).Build();
+
+        await host.StartAsync();
+
+        using var server = host.GetTestServer();
+        var client = server.CreateClient();
+        var response = await client.GetAsync("/");
+        var content = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal("Status: 400", content);
     }
 }

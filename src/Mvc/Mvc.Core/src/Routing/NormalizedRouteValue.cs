@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using System.Globalization;
 
 namespace Microsoft.AspNetCore.Mvc.Routing;
@@ -23,15 +21,8 @@ internal static class NormalizedRouteValue
     /// </remarks>
     public static string? GetNormalizedRouteValue(ActionContext context, string key)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(key);
 
         if (!context.RouteData.Values.TryGetValue(key, out var routeValue))
         {

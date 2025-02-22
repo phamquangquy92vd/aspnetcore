@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http.Features.Authentication;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -18,6 +18,7 @@ using Xunit;
 
 namespace Microsoft.AspNetCore.Server.IISIntegration;
 
+[SkipOnHelix("Unsupported queue", Queues = "Windows.Amd64.VS2022.Pre.Open;")]
 public class IISMiddlewareTests
 {
     [Fact]
@@ -101,8 +102,8 @@ public class IISMiddlewareTests
     [InlineData("/pathBase", "/pathBase/iisintegration", "Shutdown")]
     public async Task MiddlewareShutsdownGivenANCMShutdown(string pathBase, string requestPath, string shutdownEvent)
     {
-        var requestExecuted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var applicationStoppingFired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestExecuted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var applicationStoppingFired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
             {
@@ -114,12 +115,12 @@ public class IISMiddlewareTests
                     .Configure(app =>
                     {
                         var appLifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult(0));
+                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult());
 
                         app.Run(context =>
                         {
-                            requestExecuted.SetResult(0);
-                            return Task.FromResult(0);
+                            requestExecuted.SetResult();
+                            return Task.CompletedTask;
                         });
                     })
                     .UseTestServer();
@@ -135,7 +136,7 @@ public class IISMiddlewareTests
         request.Headers.TryAddWithoutValidation("MS-ASPNETCORE-EVENT", shutdownEvent);
         var response = await server.CreateClient().SendAsync(request);
 
-        await applicationStoppingFired.Task.TimeoutAfter(TimeSpan.FromSeconds(5));
+        await applicationStoppingFired.Task.TimeoutAfter(TimeSpan.FromSeconds(10));
         Assert.False(requestExecuted.Task.IsCompleted);
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
     }
@@ -160,8 +161,8 @@ public class IISMiddlewareTests
     [MemberData(nameof(InvalidShutdownMethods))]
     public async Task MiddlewareIgnoresShutdownGivenWrongMethod(HttpMethod method)
     {
-        var requestExecuted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var applicationStoppingFired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestExecuted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var applicationStoppingFired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
             {
@@ -173,12 +174,12 @@ public class IISMiddlewareTests
                     .Configure(app =>
                     {
                         var appLifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult(0));
+                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult());
 
                         app.Run(context =>
                         {
-                            requestExecuted.SetResult(0);
-                            return Task.FromResult(0);
+                            requestExecuted.SetResult();
+                            return Task.CompletedTask;
                         });
                     })
                     .UseTestServer();
@@ -195,7 +196,7 @@ public class IISMiddlewareTests
         var response = await server.CreateClient().SendAsync(request);
 
         Assert.False(applicationStoppingFired.Task.IsCompleted);
-        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(1));
+        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -205,8 +206,8 @@ public class IISMiddlewareTests
     [InlineData("/path/iisintegration")]
     public async Task MiddlewareIgnoresShutdownGivenWrongPath(string path)
     {
-        var requestExecuted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var applicationStoppingFired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestExecuted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var applicationStoppingFired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
             {
@@ -218,12 +219,12 @@ public class IISMiddlewareTests
                     .Configure(app =>
                     {
                         var appLifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult(0));
+                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult());
 
                         app.Run(context =>
                         {
-                            requestExecuted.SetResult(0);
-                            return Task.FromResult(0);
+                            requestExecuted.SetResult();
+                            return Task.CompletedTask;
                         });
                     })
                     .UseTestServer();
@@ -240,7 +241,7 @@ public class IISMiddlewareTests
         var response = await server.CreateClient().SendAsync(request);
 
         Assert.False(applicationStoppingFired.Task.IsCompleted);
-        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(1));
+        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
@@ -250,8 +251,8 @@ public class IISMiddlewareTests
     [InlineData(null)]
     public async Task MiddlewareIgnoresShutdownGivenWrongEvent(string shutdownEvent)
     {
-        var requestExecuted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var applicationStoppingFired = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var requestExecuted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var applicationStoppingFired = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
             {
@@ -263,12 +264,12 @@ public class IISMiddlewareTests
                     .Configure(app =>
                     {
                         var appLifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
-                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult(0));
+                        appLifetime.ApplicationStopping.Register(() => applicationStoppingFired.SetResult());
 
                         app.Run(context =>
                         {
-                            requestExecuted.SetResult(0);
-                            return Task.FromResult(0);
+                            requestExecuted.SetResult();
+                            return Task.CompletedTask;
                         });
                     })
                     .UseTestServer();
@@ -285,7 +286,7 @@ public class IISMiddlewareTests
         var response = await server.CreateClient().SendAsync(request);
 
         Assert.False(applicationStoppingFired.Task.IsCompleted);
-        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(1));
+        await requestExecuted.Task.TimeoutAfter(TimeSpan.FromSeconds(2));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 

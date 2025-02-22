@@ -1,13 +1,12 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using System.Text;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
 
-internal class LinearSearchJumpTable : JumpTable
+internal sealed class LinearSearchJumpTable : JumpTable
 {
     private readonly int _defaultDestination;
     private readonly int _exitDestination;
@@ -31,17 +30,11 @@ internal class LinearSearchJumpTable : JumpTable
         }
 
         var entries = _entries;
+        var pathSpan = path.AsSpan(segment.Start, segment.Length);
         for (var i = 0; i < entries.Length; i++)
         {
             var text = entries[i].text;
-            if (segment.Length == text.Length &&
-                string.Compare(
-                    path,
-                    segment.Start,
-                    text,
-                    0,
-                    segment.Length,
-                    StringComparison.OrdinalIgnoreCase) == 0)
+            if (pathSpan.Equals(text, StringComparison.OrdinalIgnoreCase))
             {
                 return entries[i].destination;
             }

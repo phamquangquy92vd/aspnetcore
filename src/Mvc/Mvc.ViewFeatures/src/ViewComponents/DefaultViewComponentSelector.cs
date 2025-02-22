@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
@@ -29,10 +27,7 @@ public class DefaultViewComponentSelector : IViewComponentSelector
     /// <inheritdoc />
     public ViewComponentDescriptor SelectComponent(string componentName)
     {
-        if (componentName == null)
-        {
-            throw new ArgumentNullException(nameof(componentName));
-        }
+        ArgumentNullException.ThrowIfNull(componentName);
 
         var collection = _descriptorProvider.ViewComponents;
         if (_cache == null || _cache.Version != collection.Version)
@@ -42,7 +37,7 @@ public class DefaultViewComponentSelector : IViewComponentSelector
 
         // ViewComponent names can either be fully-qualified, or refer to the 'short-name'. If the provided
         // name contains a '.' - then it's a fully-qualified name.
-        if (componentName.Contains("."))
+        if (componentName.Contains('.'))
         {
             return _cache.SelectByFullName(componentName);
         }
@@ -52,7 +47,7 @@ public class DefaultViewComponentSelector : IViewComponentSelector
         }
     }
 
-    private class ViewComponentDescriptorCache
+    private sealed class ViewComponentDescriptorCache
     {
         private readonly ILookup<string, ViewComponentDescriptor> _lookupByShortName;
         private readonly ILookup<string, ViewComponentDescriptor> _lookupByFullName;

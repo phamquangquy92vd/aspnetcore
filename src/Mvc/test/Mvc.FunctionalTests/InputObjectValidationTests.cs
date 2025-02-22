@@ -1,29 +1,38 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using FormatterWebSite;
-using FormatterWebSite.Models;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class InputObjectValidationTests : IClassFixture<MvcTestFixture<FormatterWebSite.Startup>>
+public class InputObjectValidationTests : LoggedTest
 {
-    public InputObjectValidationTests(MvcTestFixture<FormatterWebSite.Startup> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Client = fixture.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<FormatterWebSite.Startup>(LoggerFactory);
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<FormatterWebSite.Startup> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     // Parameters: Request Content, Expected status code, Expected model state error message
     public static IEnumerable<object[]> SimpleTypePropertiesModelRequestData

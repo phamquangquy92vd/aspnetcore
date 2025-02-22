@@ -3,16 +3,12 @@
 
 #nullable enable
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 
-internal class TransportConnectionManager
+internal sealed class TransportConnectionManager
 {
     private readonly ConnectionManager _connectionManager;
     private readonly ConcurrentDictionary<long, ConnectionReference> _connectionReferences = new ConcurrentDictionary<long, ConnectionReference>();
@@ -81,6 +77,11 @@ internal class TransportConnectionManager
         {
             if (kvp.Value.TryGetConnection(out var connection))
             {
+                // Connection didn't shutdown in allowed time. Force close the connection and set the end reason.
+                KestrelMetrics.AddConnectionEndReason(
+                    connection.TransportConnection.Features.Get<IConnectionMetricsContextFeature>()?.MetricsContext,
+                    ConnectionEndReason.AppShutdownTimeout, overwrite: true);
+
                 connection.TransportConnection.Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedDuringServerShutdown));
                 abortTasks.Add(connection.ExecutionTask);
             }
@@ -98,7 +99,7 @@ internal class TransportConnectionManager
         }
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        token.Register(() => tcs.SetResult());
+        token.Register(tcs.SetResult);
         return tcs.Task;
     }
 }

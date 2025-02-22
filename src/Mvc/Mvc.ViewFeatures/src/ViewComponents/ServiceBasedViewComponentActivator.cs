@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.AspNetCore.Mvc.ViewComponents;
@@ -15,10 +14,7 @@ public class ServiceBasedViewComponentActivator : IViewComponentActivator
     /// <inheritdoc />
     public object Create(ViewComponentContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var viewComponentType = context.ViewComponentDescriptor.TypeInfo.AsType();
 

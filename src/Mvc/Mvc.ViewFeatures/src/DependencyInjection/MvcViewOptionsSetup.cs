@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.Extensions.Localization;
@@ -12,7 +11,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 /// <summary>
 /// Sets up default options for <see cref="MvcViewOptions"/>.
 /// </summary>
-internal class MvcViewOptionsSetup : IConfigureOptions<MvcViewOptions>
+internal sealed class MvcViewOptionsSetup : IConfigureOptions<MvcViewOptions>
 {
     private readonly IOptions<MvcDataAnnotationsLocalizationOptions> _dataAnnotationsLocalizationOptions;
     private readonly IValidationAttributeAdapterProvider _validationAttributeAdapterProvider;
@@ -22,15 +21,8 @@ internal class MvcViewOptionsSetup : IConfigureOptions<MvcViewOptions>
         IOptions<MvcDataAnnotationsLocalizationOptions> dataAnnotationLocalizationOptions,
         IValidationAttributeAdapterProvider validationAttributeAdapterProvider)
     {
-        if (dataAnnotationLocalizationOptions == null)
-        {
-            throw new ArgumentNullException(nameof(dataAnnotationLocalizationOptions));
-        }
-
-        if (validationAttributeAdapterProvider == null)
-        {
-            throw new ArgumentNullException(nameof(validationAttributeAdapterProvider));
-        }
+        ArgumentNullException.ThrowIfNull(dataAnnotationLocalizationOptions);
+        ArgumentNullException.ThrowIfNull(validationAttributeAdapterProvider);
 
         _dataAnnotationsLocalizationOptions = dataAnnotationLocalizationOptions;
         _validationAttributeAdapterProvider = validationAttributeAdapterProvider;
@@ -42,10 +34,7 @@ internal class MvcViewOptionsSetup : IConfigureOptions<MvcViewOptions>
         IStringLocalizerFactory stringLocalizerFactory)
         : this(dataAnnotationOptions, validationAttributeAdapterProvider)
     {
-        if (stringLocalizerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(stringLocalizerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(stringLocalizerFactory);
 
         _stringLocalizerFactory = stringLocalizerFactory;
     }

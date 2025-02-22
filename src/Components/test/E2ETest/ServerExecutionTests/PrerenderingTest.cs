@@ -3,13 +3,11 @@
 
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Json;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure.ServerFixtures;
 using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using TestServer;
-using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Components.E2ETest.ServerExecutionTests;
@@ -58,13 +56,13 @@ public class PrerenderingTest : ServerTestBase<BasicTestAppServerSiteFixture<Pre
 
         // Prerendered output can't use JSInterop
         Browser.Equal("No value yet", () => Browser.Exists(By.Id("val-get-by-interop")).Text);
-        Browser.Equal(string.Empty, () => Browser.Exists(By.Id("val-set-by-interop")).GetAttribute("value"));
+        Browser.Equal(string.Empty, () => Browser.Exists(By.Id("val-set-by-interop")).GetDomProperty("value"));
 
         BeginInteractivity();
 
         // Once connected, we can
         Browser.Equal("Hello from interop call", () => Browser.Exists(By.Id("val-get-by-interop")).Text);
-        Browser.Equal("Hello from interop call", () => Browser.Exists(By.Id("val-set-by-interop")).GetAttribute("value"));
+        Browser.Equal("Hello from interop call", () => Browser.Exists(By.Id("val-set-by-interop")).GetDomProperty("value"));
     }
 
     [Fact]

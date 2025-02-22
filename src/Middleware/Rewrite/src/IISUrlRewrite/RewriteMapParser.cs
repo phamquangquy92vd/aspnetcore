@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq;
 using System.Xml.Linq;
 
@@ -11,10 +10,7 @@ internal static class RewriteMapParser
 {
     public static IISRewriteMapCollection? Parse(XElement xmlRoot)
     {
-        if (xmlRoot == null)
-        {
-            throw new ArgumentNullException(nameof(xmlRoot));
-        }
+        ArgumentNullException.ThrowIfNull(xmlRoot);
 
         var mapsElement = xmlRoot.Descendants(RewriteTags.RewriteMaps).SingleOrDefault();
         if (mapsElement == null)

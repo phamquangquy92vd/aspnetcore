@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using static Microsoft.AspNetCore.Internal.LinkerFlags;
 
@@ -20,10 +19,7 @@ public readonly struct RootComponentMapping
     /// <param name="selector">The DOM element selector or component registration id for the component.</param>
     public RootComponentMapping([DynamicallyAccessedMembers(Component)] Type componentType, string selector)
     {
-        if (componentType is null)
-        {
-            throw new ArgumentNullException(nameof(componentType));
-        }
+        ArgumentNullException.ThrowIfNull(componentType);
 
         if (!typeof(IComponent).IsAssignableFrom(componentType))
         {
@@ -32,10 +28,7 @@ public readonly struct RootComponentMapping
                 nameof(componentType));
         }
 
-        if (selector is null)
-        {
-            throw new ArgumentNullException(nameof(selector));
-        }
+        ArgumentNullException.ThrowIfNull(selector);
 
         ComponentType = componentType;
         Selector = selector;

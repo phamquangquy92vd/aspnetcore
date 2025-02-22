@@ -1,19 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Logging.Testing;
-using Microsoft.Extensions.ObjectPool;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing;
 
@@ -186,7 +179,7 @@ public class RouteCollectionTest
         route2.Verify(e => e.RouteAsync(It.IsAny<RouteContext>()), Times.Exactly(0));
         Assert.NotNull(context.Handler);
 
-        Assert.Equal(1, context.RouteData.Routers.Count);
+        Assert.Single(context.RouteData.Routers);
         Assert.Same(route1.Object, context.RouteData.Routers[0]);
     }
 
@@ -212,7 +205,7 @@ public class RouteCollectionTest
         route2.Verify(e => e.RouteAsync(It.IsAny<RouteContext>()), Times.Exactly(1));
         Assert.NotNull(context.Handler);
 
-        Assert.Equal(1, context.RouteData.Routers.Count);
+        Assert.Single(context.RouteData.Routers);
         Assert.Same(route2.Object, context.RouteData.Routers[0]);
     }
 

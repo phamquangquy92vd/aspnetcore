@@ -13,12 +13,12 @@ public class UserLoginInfo
     /// </summary>
     /// <param name="loginProvider">The provider associated with this login information.</param>
     /// <param name="providerKey">The unique identifier for this user provided by the login provider.</param>
-    /// <param name="displayName">The display name for this user provided by the login provider.</param>
-    public UserLoginInfo(string loginProvider, string providerKey, string displayName)
+    /// <param name="providerDisplayName">The display name for the login provider.</param>
+    public UserLoginInfo(string loginProvider, string providerKey, string? providerDisplayName)
     {
         LoginProvider = loginProvider;
         ProviderKey = providerKey;
-        ProviderDisplayName = displayName;
+        ProviderDisplayName = providerDisplayName;
     }
 
     /// <summary>
@@ -50,5 +50,5 @@ public class UserLoginInfo
     /// <remarks>
     /// Examples of the display name may be local, FACEBOOK, Google, etc.
     /// </remarks>
-    public string ProviderDisplayName { get; set; }
+    public string? ProviderDisplayName { get; set; }
 }

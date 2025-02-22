@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Internal;
@@ -56,7 +54,7 @@ public class PolicyEvaluator : IPolicyEvaluator
             if (newPrincipal != null)
             {
                 context.User = newPrincipal;
-                var ticket = new AuthenticationTicket(newPrincipal, string.Join(";", policy.AuthenticationSchemes));
+                var ticket = new AuthenticationTicket(newPrincipal, string.Join(';', policy.AuthenticationSchemes));
                 // ExpiresUtc is the easiest property to reason about when dealing with multiple schemes
                 // SignalR will use this property to evaluate auth expiration for long running connections
                 ticket.Properties.ExpiresUtc = minExpiresUtc;
@@ -95,10 +93,7 @@ public class PolicyEvaluator : IPolicyEvaluator
     /// returns  <see cref="PolicyAuthorizationResult.Challenge"/></returns>
     public virtual async Task<PolicyAuthorizationResult> AuthorizeAsync(AuthorizationPolicy policy, AuthenticateResult authenticationResult, HttpContext context, object? resource)
     {
-        if (policy == null)
-        {
-            throw new ArgumentNullException(nameof(policy));
-        }
+        ArgumentNullException.ThrowIfNull(policy);
 
         var result = await _authorization.AuthorizeAsync(context.User, resource, policy);
         if (result.Succeeded)

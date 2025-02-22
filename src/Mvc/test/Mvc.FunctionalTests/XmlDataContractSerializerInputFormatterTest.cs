@@ -1,29 +1,36 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.InternalTesting;
 using XmlFormattersWebSite;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class XmlDataContractSerializerInputFormatterTest : IClassFixture<MvcTestFixture<Startup>>
+public class XmlDataContractSerializerInputFormatterTest : LoggedTest
 {
-    public XmlDataContractSerializerInputFormatterTest(MvcTestFixture<Startup> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Client = fixture.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<Startup>(LoggerFactory);
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public HttpClient Client { get; private set; }
+
+    public MvcTestFixture<Startup> Factory { get; private set; }
 
     [Fact]
     public async Task ThrowsOnInvalidInput_AndAddsToModelState()

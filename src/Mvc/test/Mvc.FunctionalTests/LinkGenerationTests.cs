@@ -1,18 +1,19 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Logging;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class LinkGenerationTests : IClassFixture<MvcTestFixture<BasicWebSite.StartupWithoutEndpointRouting>>
+public class LinkGenerationTests : LoggedTest
 {
     // Some tests require comparing the actual response body against an expected response baseline
     // so they require a reference to the assembly on which the resources are located, in order to
@@ -20,12 +21,21 @@ public class LinkGenerationTests : IClassFixture<MvcTestFixture<BasicWebSite.Sta
     // use it on all the rest of the tests.
     private static readonly Assembly _resourcesAssembly = typeof(LinkGenerationTests).GetTypeInfo().Assembly;
 
-    public LinkGenerationTests(MvcTestFixture<BasicWebSite.StartupWithoutEndpointRouting> fixture)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
-        Client = fixture.CreateDefaultClient();
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<BasicWebSite.StartupWithoutEndpointRouting>(LoggerFactory);
+        Client = Factory.CreateDefaultClient();
     }
 
-    public HttpClient Client { get; }
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<BasicWebSite.StartupWithoutEndpointRouting> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     public static TheoryData<string, string> RelativeLinksData
     {

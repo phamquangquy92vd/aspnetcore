@@ -1,18 +1,20 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.AspNetCore.Internal;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Http;
 
-internal class RequestCookieCollection : IRequestCookieCollection
+[DebuggerDisplay("Count = {Count}")]
+[DebuggerTypeProxy(typeof(RequestCookieCollectionDebugView))]
+internal sealed class RequestCookieCollection : IRequestCookieCollection
 {
     public static readonly RequestCookieCollection Empty = new RequestCookieCollection();
     private static readonly string[] EmptyKeys = Array.Empty<string>();
@@ -43,10 +45,7 @@ internal class RequestCookieCollection : IRequestCookieCollection
     {
         get
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             if (Store == null)
             {
@@ -62,9 +61,6 @@ internal class RequestCookieCollection : IRequestCookieCollection
     }
 
     public static RequestCookieCollection Parse(StringValues values)
-       => ParseInternal(values, AppContext.TryGetSwitch(ResponseCookies.EnableCookieNameEncoding, out var enabled) && enabled);
-
-    internal static RequestCookieCollection ParseInternal(StringValues values, bool enableCookieNameEncoding)
     {
         if (values.Count == 0)
         {
@@ -75,7 +71,7 @@ internal class RequestCookieCollection : IRequestCookieCollection
         var collection = new RequestCookieCollection();
         var store = collection.Store!;
 
-        if (CookieHeaderParserShared.TryParseValues(values, store, enableCookieNameEncoding, supportsMultipleValues: true))
+        if (CookieHeaderParserShared.TryParseValues(values, store, supportsMultipleValues: true))
         {
             if (store.Count == 0)
             {
@@ -120,7 +116,7 @@ internal class RequestCookieCollection : IRequestCookieCollection
         return Store.ContainsKey(key);
     }
 
-    public bool TryGetValue(string key, [MaybeNullWhen(false)] out string? value)
+    public bool TryGetValue(string key, [NotNullWhen(true)] out string? value)
     {
         if (Store == null)
         {
@@ -229,5 +225,13 @@ internal class RequestCookieCollection : IRequestCookieCollection
                 ((IEnumerator)_dictionaryEnumerator).Reset();
             }
         }
+    }
+
+    private sealed class RequestCookieCollectionDebugView(RequestCookieCollection collection)
+    {
+        private readonly RequestCookieCollection _collection = collection;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public DictionaryItemDebugView<string, string>[] Items => _collection.Select(pair => new DictionaryItemDebugView<string, string>(pair)).ToArray();
     }
 }

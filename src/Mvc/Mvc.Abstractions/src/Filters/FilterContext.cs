@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Microsoft.AspNetCore.Mvc.Filters;
@@ -22,10 +20,7 @@ public abstract class FilterContext : ActionContext
         IList<IFilterMetadata> filters)
         : base(actionContext)
     {
-        if (filters == null)
-        {
-            throw new ArgumentNullException(nameof(filters));
-        }
+        ArgumentNullException.ThrowIfNull(filters);
 
         Filters = filters;
     }

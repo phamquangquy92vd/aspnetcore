@@ -29,7 +29,7 @@ public:
         PCSTR
         GetTrailer(
             _In_  PCSTR    pszHeaderName,
-            _Out_ USHORT* pcchHeaderValue = NULL
+            _Out_ USHORT* pcchHeaderValue = nullptr
         ) const = 0;
 
     virtual
@@ -57,7 +57,7 @@ public:
 //
 // Initialization export
 //
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 register_callbacks(
     _In_ IN_PROCESS_APPLICATION* pInProcessApplication,
@@ -70,7 +70,7 @@ register_callbacks(
     _In_ VOID* pvShutdownHandlerContext
 )
 {
-    if (pInProcessApplication == NULL)
+    if (pInProcessApplication == nullptr)
     {
         return E_INVALIDARG;
     }
@@ -88,7 +88,7 @@ register_callbacks(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HTTP_REQUEST*
 http_get_raw_request(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -97,7 +97,7 @@ http_get_raw_request(
     return pInProcessHandler->QueryHttpContext()->GetRequest()->GetRawHttpRequest();
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HTTP_RESPONSE*
 http_get_raw_response(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -106,7 +106,7 @@ http_get_raw_response(
     return pInProcessHandler->QueryHttpContext()->GetResponse()->GetRawHttpResponse();
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_get_server_variable(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -114,8 +114,10 @@ http_get_server_variable(
     _Out_ BSTR* pwszReturn
 )
 {
-    PCWSTR pszVariableValue;
-    DWORD cbLength;
+    PCWSTR pszVariableValue = nullptr;
+    DWORD cbLength = 0;
+
+    *pwszReturn = nullptr;
 
     HRESULT hr = pInProcessHandler
         ->QueryHttpContext()
@@ -128,7 +130,7 @@ http_get_server_variable(
 
     *pwszReturn = SysAllocString(pszVariableValue);
 
-    if (*pwszReturn == NULL)
+    if (*pwszReturn == nullptr)
     {
         hr = E_OUTOFMEMORY;
         goto Finished;
@@ -137,7 +139,7 @@ Finished:
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_set_server_variable(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -150,7 +152,7 @@ http_set_server_variable(
         ->SetServerVariable(pszVariableName, pszVariableValue);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_set_response_status_code(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -162,7 +164,7 @@ http_set_response_status_code(
         true); // fTrySkipCustomErrors
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_post_completion(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -172,7 +174,7 @@ http_post_completion(
     return pInProcessHandler->QueryHttpContext()->PostCompletion(cbBytes);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_set_completion_status(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -186,7 +188,7 @@ http_set_completion_status(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_set_managed_context(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -200,7 +202,7 @@ http_set_managed_context(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 VOID
 http_indicate_completion(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -210,7 +212,7 @@ http_indicate_completion(
     pInProcessHandler->QueryHttpContext()->IndicateCompletion(notificationStatus);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 VOID
 http_get_completion_info(
     _In_ IHttpCompletionInfo2* info,
@@ -238,14 +240,14 @@ struct IISConfigurationData
     DWORD maxRequestBodySize;
 };
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_get_application_properties(
     _In_ IISConfigurationData* pIISConfigurationData
 )
 {
     auto pInProcessApplication = IN_PROCESS_APPLICATION::GetInstance();
-    if (pInProcessApplication == NULL)
+    if (pInProcessApplication == nullptr)
     {
         return E_FAIL;
     }
@@ -265,7 +267,7 @@ http_get_application_properties(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_read_request_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -276,8 +278,9 @@ http_read_request_bytes(
 )
 {
     HRESULT hr = S_OK;
+    *pvBuffer = 0;
 
-    if (pInProcessHandler == NULL)
+    if (pInProcessHandler == nullptr)
     {
         return E_FAIL;
     }
@@ -307,7 +310,7 @@ http_read_request_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_write_response_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -332,7 +335,7 @@ http_write_response_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_flush_response_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -353,7 +356,7 @@ http_flush_response_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_websockets_read_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -381,7 +384,7 @@ http_websockets_read_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_websockets_write_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -411,7 +414,7 @@ http_websockets_write_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_websockets_flush_bytes(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -436,7 +439,7 @@ http_websockets_flush_bytes(
     return hr;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_enable_websockets(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -448,7 +451,7 @@ http_enable_websockets(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_cancel_io(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -457,7 +460,7 @@ http_cancel_io(
     return pInProcessHandler->QueryHttpContext()->CancelIo();
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_disable_buffering(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -468,7 +471,7 @@ http_disable_buffering(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_close_connection(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -478,7 +481,7 @@ http_close_connection(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_response_set_unknown_header(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -491,7 +494,7 @@ http_response_set_unknown_header(
     return pInProcessHandler->QueryHttpContext()->GetResponse()->SetHeader(pszHeaderName, pszHeaderValue, usHeaderValueLength, fReplace);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_response_set_known_header(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -504,7 +507,7 @@ http_response_set_known_header(
     return pInProcessHandler->QueryHttpContext()->GetResponse()->SetHeader(dwHeaderId, pszHeaderValue, usHeaderValueLength, fReplace);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_get_authentication_information(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -518,11 +521,11 @@ http_get_authentication_information(
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_stop_calls_into_managed(_In_ IN_PROCESS_APPLICATION* pInProcessApplication)
 {
-    if (pInProcessApplication == NULL)
+    if (pInProcessApplication == nullptr)
     {
         return E_INVALIDARG;
     }
@@ -531,11 +534,11 @@ http_stop_calls_into_managed(_In_ IN_PROCESS_APPLICATION* pInProcessApplication)
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_stop_incoming_requests(_In_ IN_PROCESS_APPLICATION* pInProcessApplication)
 {
-    if (pInProcessApplication == NULL)
+    if (pInProcessApplication == nullptr)
     {
         return E_INVALIDARG;
     }
@@ -544,7 +547,7 @@ http_stop_incoming_requests(_In_ IN_PROCESS_APPLICATION* pInProcessApplication)
     return S_OK;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 VOID
 set_main_handler(_In_ hostfxr_main_fn main)
 {
@@ -553,7 +556,7 @@ set_main_handler(_In_ hostfxr_main_fn main)
     IN_PROCESS_APPLICATION::SetMainCallback(main);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 VOID
 http_set_startup_error_page_content(_In_ byte* errorPageContent, int length)
 {
@@ -561,7 +564,7 @@ http_set_startup_error_page_content(_In_ byte* errorPageContent, int length)
     memcpy(&g_errorPageContent[0], errorPageContent, length);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_has_response4(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -576,7 +579,7 @@ http_has_response4(
     return 0;
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_response_set_trailer(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -590,7 +593,7 @@ http_response_set_trailer(
     return pHttpResponse->SetTrailer(pszHeaderName, pszHeaderValue, usHeaderValueLength, fReplace);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 VOID
 http_reset_stream(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler,
@@ -601,7 +604,7 @@ http_reset_stream(
     pHttpResponse->ResetStream(errorCode);
 }
 
-EXTERN_C __MIDL_DECLSPEC_DLLEXPORT
+EXTERN_C __declspec(dllexport)
 HRESULT
 http_response_set_need_goaway(
     _In_ IN_PROCESS_HANDLER* pInProcessHandler
@@ -610,5 +613,36 @@ http_response_set_need_goaway(
     IHttpResponse4* pHttpResponse = (IHttpResponse4*)pInProcessHandler->QueryHttpContext()->GetResponse();
     pHttpResponse->SetNeedGoAway();
     return 0;
+}
+
+EXTERN_C __declspec(dllexport)
+HRESULT
+http_query_request_property(
+    _In_ HTTP_OPAQUE_ID requestId,
+    _In_ HTTP_REQUEST_PROPERTY propertyId,
+    _In_reads_bytes_opt_(qualifierSize) PVOID pQualifier,
+    _In_ ULONG qualifierSize,
+    _Out_writes_bytes_to_opt_(outputBufferSize, *pcbBytesReturned) PVOID pOutput,
+    _In_ ULONG outputBufferSize,
+    _Out_opt_ PULONG pcbBytesReturned,
+    _In_ LPOVERLAPPED pOverlapped
+)
+{
+    IHttpServer3* httpServer3;
+    HRESULT hr = HttpGetExtendedInterface<IHttpServer, IHttpServer3>(g_pHttpServer, g_pHttpServer, &httpServer3);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    return httpServer3->QueryRequestProperty(
+        requestId,
+        propertyId,
+        pQualifier,
+        qualifierSize,
+        pOutput,
+        outputBufferSize,
+        pcbBytesReturned,
+        pOverlapped);
 }
 // End of export

@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
 using Microsoft.AspNetCore.Server.IntegrationTesting.IIS;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Net.Http.Headers;
@@ -125,9 +125,9 @@ public class ResponseCompressionTests : LoggedTest
                             .Elements()
                             .SkipLast(1)
                             .Remove();
-                            // last element in both dynamicTypes and staticTypes disables compression
-                            // <add mimeType="*/*" enabled="false" />
-                        });
+                        // last element in both dynamicTypes and staticTypes disables compression
+                        // <add mimeType="*/*" enabled="false" />
+                    });
                 deploymentParameters = iisDeploymentParameters;
             }
 
@@ -172,7 +172,7 @@ public class ResponseCompressionTests : LoggedTest
         {
             Assert.Equal(HelloWorldBody, responseText);
             Assert.Equal(HelloWorldBody.Length.ToString(CultureInfo.InvariantCulture), GetContentLength(response));
-            Assert.Equal(0, response.Content.Headers.ContentEncoding.Count);
+            Assert.Empty(response.Content.Headers.ContentEncoding);
         }
         catch (XunitException)
         {
@@ -204,7 +204,7 @@ public class ResponseCompressionTests : LoggedTest
         {
             responseText = await ReadCompressedAsStringAsync(response.Content);
             Assert.Equal(HelloWorldBody, responseText);
-            Assert.Equal(1, response.Content.Headers.ContentEncoding.Count);
+            Assert.Single(response.Content.Headers.ContentEncoding);
             Assert.Equal("gzip", response.Content.Headers.ContentEncoding.First());
         }
         catch (XunitException)

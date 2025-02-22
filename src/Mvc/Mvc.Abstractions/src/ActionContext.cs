@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -65,25 +64,10 @@ public class ActionContext
         ActionDescriptor actionDescriptor,
         ModelStateDictionary modelState)
     {
-        if (httpContext == null)
-        {
-            throw new ArgumentNullException(nameof(httpContext));
-        }
-
-        if (routeData == null)
-        {
-            throw new ArgumentNullException(nameof(routeData));
-        }
-
-        if (actionDescriptor == null)
-        {
-            throw new ArgumentNullException(nameof(actionDescriptor));
-        }
-
-        if (modelState == null)
-        {
-            throw new ArgumentNullException(nameof(modelState));
-        }
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(routeData);
+        ArgumentNullException.ThrowIfNull(actionDescriptor);
+        ArgumentNullException.ThrowIfNull(modelState);
 
         HttpContext = httpContext;
         RouteData = routeData;

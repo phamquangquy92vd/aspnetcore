@@ -11,7 +11,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.IntegrationTesting;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Xunit;
 
 #if !IIS_FUNCTIONALS
@@ -29,7 +29,8 @@ namespace Microsoft.AspNetCore.Server.IIS.NewShim.FunctionalTests;
 namespace Microsoft.AspNetCore.Server.IIS.FunctionalTests;
 #endif
 
-[Collection(IISTestSiteCollection.Name)]
+[Collection(IISTestSiteCollectionInProc.Name)]
+[SkipOnHelix("Unsupported queue", Queues = "Windows.Amd64.VS2022.Pre.Open;")]
 public class RequestResponseTests
 {
     private readonly IISTestSiteFixture _fixture;
@@ -47,7 +48,10 @@ public class RequestResponseTests
         var stringBuilder = new StringBuilder("/RequestPath/");
         for (var i = 32; i < 127; i++)
         {
-            if (i == 43) continue; // %2B "+" gives a 404.11 (URL_DOUBLE_ESCAPED)
+            if (i == 43)
+            {
+                continue; // %2B "+" gives a 404.11 (URL_DOUBLE_ESCAPED)
+            }
             stringBuilder.Append("%");
             stringBuilder.Append(i.ToString("X2", CultureInfo.InvariantCulture));
         }
@@ -96,7 +100,10 @@ public class RequestResponseTests
     {
         for (var i = 0; i < 32; i++)
         {
-            if (i == 9 || i == 10) continue; // \t and \r are allowed by Http.Sys.
+            if (i == 9 || i == 10)
+            {
+                continue; // \t and \r are allowed by Http.Sys.
+            }
             var response = await SendSocketRequestAsync("/" + (char)i);
             Assert.True(string.Equals(400, response.Status), i.ToString("X2", CultureInfo.InvariantCulture) + ";" + response);
         }
@@ -126,7 +133,7 @@ public class RequestResponseTests
         Assert.Equal(
             new byte[] {
                 0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x04, 0x0A, 0x63, 0x60, 0xA0, 0x3D, 0x00, 0x00,
+                0x04, 0x0A, 0x63, 0xA0, 0x03, 0x00, 0x00,
                 0xCA, 0xC6, 0x88, 0x99, 0x64, 0x00, 0x00, 0x00 },
             await response.Content.ReadAsByteArrayAsync());
     }
@@ -144,18 +151,16 @@ public class RequestResponseTests
         Assert.Equal(
             new byte[] {
                 0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
-                0x04, 0x0A, 0x63, 0x60, 0xA0, 0x3D, 0x00, 0x00,
+                0x04, 0x0A, 0x63, 0xA0, 0x03, 0x00, 0x00,
                 0xCA, 0xC6, 0x88, 0x99, 0x64, 0x00, 0x00, 0x00 },
             await response.Content.ReadAsByteArrayAsync());
     }
 
     [ConditionalFact]
-    [QuarantinedTest("https://github.com/dotnet/aspnetcore/issues/26294")]
-    [SkipNonHelix("This test takes 5 minutes to run")]
     public async Task ReadAndWriteSynchronously()
     {
         var content = new StringContent(new string('a', 100000));
-        for (int i = 0; i < 500; i++)
+        for (int i = 0; i < 50; i++)
         {
             var response = await _fixture.Client.PostAsync("ReadAndWriteSynchronously", content);
             var responseText = await response.Content.ReadAsStringAsync();
@@ -427,13 +432,20 @@ public class RequestResponseTests
     [ConditionalFact]
     public async Task GetServerVariableDoesNotCrash()
     {
-        await Helpers.StressLoad(_fixture.Client, "/GetServerVariableStress", response => {
-                var text = response.Content.ReadAsStringAsync().Result;
-                Assert.StartsWith("Response Begin", text);
-                Assert.EndsWith("Response End", text);
-            });
+        await Helpers.StressLoad(_fixture.Client, "/GetServerVariableStress", response =>
+        {
+            var text = response.Content.ReadAsStringAsync().Result;
+            Assert.StartsWith("Response Begin", text);
+            Assert.EndsWith("Response End", text);
+        });
     }
 
+    [ConditionalFact]
+    public async Task TestStringValuesEmptyForMissingHeaders()
+    {
+        var result = await _fixture.Client.GetStringAsync($"/TestRequestHeaders");
+        Assert.Equal("Success", result);
+    }
 
     [ConditionalFact]
     public async Task TestReadOffsetWorks()
@@ -498,7 +510,6 @@ public class RequestResponseTests
         Assert.Equal("Success", await result.Content.ReadAsStringAsync());
     }
 
-
     [ConditionalFact]
     public async Task AddEmptyHeaderSkipped()
     {
@@ -540,7 +551,6 @@ public class RequestResponseTests
     [InlineData(200, "custom", "custom", null)]
     [InlineData(200, "custom", "custom", "Custom body")]
     [InlineData(200, "custom", "custom", "")]
-
 
     [InlineData(500, "", "Internal Server Error", null)]
     [InlineData(500, "", "Internal Server Error", "Custom body")]
@@ -599,6 +609,28 @@ public class RequestResponseTests
         Assert.Equal(_fixture.DeploymentResult.ContentRoot, await _fixture.DeploymentResult.HttpClient.GetStringAsync("/CurrentDirectory"));
         Assert.Equal(_fixture.DeploymentResult.ContentRoot + "\\", await _fixture.Client.GetStringAsync("/BaseDirectory"));
         Assert.Equal(_fixture.DeploymentResult.ContentRoot + "\\", await _fixture.Client.GetStringAsync("/ASPNETCORE_IIS_PHYSICAL_PATH"));
+    }
+
+    [ConditionalTheory]
+    [InlineData("IIISEnvironmentFeature")]
+    [InlineData("IIISEnvironmentFeatureConfig")]
+    public async Task IISEnvironmentFeatureIsAvailable(string endpoint)
+    {
+        var siteName = _fixture.DeploymentResult.DeploymentParameters.SiteName.ToUpperInvariant();
+    
+        var expected = $"""
+            IIS Version: 10.0
+            ApplicationId: /LM/W3SVC/1/ROOT
+            Application Path: {_fixture.DeploymentResult.ContentRoot}\
+            Application Virtual Path: /
+            Application Config Path: MACHINE/WEBROOT/APPHOST/{siteName}
+            AppPool ID: {_fixture.DeploymentResult.AppPoolName}
+            AppPool Config File: {_fixture.DeploymentResult.DeploymentParameters.ServerConfigLocation}
+            Site ID: 1
+            Site Name: {siteName}
+            """;
+
+        Assert.Equal(expected, await _fixture.Client.GetStringAsync($"/{endpoint}"));
     }
 
     [ConditionalTheory]
@@ -714,6 +746,47 @@ public class RequestResponseTests
         }
 
         await Task.WhenAll(tasks);
+    }
+
+    [ConditionalFact]
+    [RequiresNewHandler]
+    public async Task SendTransferEncodingHeadersWithMultipleValues()
+    {
+        using (var connection = _fixture.CreateTestConnection())
+        {
+            await connection.Send(
+                "POST /TransferEncodingHeadersWithMultipleValues HTTP/1.1",
+                "Transfer-Encoding: gzip, chunked",
+                "Host: localhost",
+                "Connection: close",
+                "",
+                "");
+
+            await connection.Receive(
+                "HTTP/1.1 200 OK",
+                "");
+        }
+    }
+
+    [ConditionalFact]
+    [RequiresNewHandler]
+    public async Task SendTransferEncodingAndContentLength_ContentLengthShouldBeRemoved()
+    {
+        using (var connection = _fixture.CreateTestConnection())
+        {
+            await connection.Send(
+                "POST /TransferEncodingAndContentLengthShouldBeRemove HTTP/1.1",
+                "Transfer-Encoding: gzip, chunked",
+                "Content-Length: 5",
+                "Host: localhost",
+                "Connection: close",
+                "",
+                "");
+
+            await connection.Receive(
+                "HTTP/1.1 200 OK",
+                "");
+        }
     }
 
     private async Task<(int Status, string Body)> SendSocketRequestAsync(string path)

@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
 
 /// <summary>
@@ -100,7 +97,7 @@ public class TemplateInfo
             return partialFieldName;
         }
 
-        if (partialFieldName.StartsWith("[", StringComparison.Ordinal))
+        if (partialFieldName.StartsWith('['))
         {
             // The partialFieldName might represent an indexer access, in which case combining
             // with a 'dot' would be invalid.

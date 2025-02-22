@@ -9,7 +9,7 @@ using Microsoft.Extensions.Tools.Internal;
 
 namespace Microsoft.DotNet.OpenApi.Commands;
 
-internal class AddProjectCommand : BaseCommand
+internal sealed class AddProjectCommand : BaseCommand
 {
     private const string CommandName = "project";
 
@@ -50,7 +50,8 @@ internal class AddProjectCommand : BaseCommand
             }
         }
 
-        Ensure.NotNullOrEmpty(_sourceProjectArg.Value, SourceProjectArgName);
+        ArgumentException.ThrowIfNullOrEmpty(_sourceProjectArg.Value);
+
         return true;
     }
 }

@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Identity.Test;
 
@@ -20,7 +15,7 @@ public class UserClaimsPrincipalFactoryTest
         var userManager = MockHelpers.MockUserManager<PocoUser>().Object;
         var roleManager = MockHelpers.MockRoleManager<PocoRole>().Object;
         var options = new Mock<IOptions<IdentityOptions>>();
-        Assert.Throws<ArgumentNullException>("optionsAccessor",
+        Assert.Throws<ArgumentException>("optionsAccessor",
             () => new UserClaimsPrincipalFactory<PocoUser, PocoRole>(userManager, roleManager, options.Object));
         var identityOptions = new IdentityOptions();
         options.Setup(a => a.Value).Returns(identityOptions);

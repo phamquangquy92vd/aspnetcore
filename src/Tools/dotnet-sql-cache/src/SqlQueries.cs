@@ -6,7 +6,7 @@ using System.Globalization;
 
 namespace Microsoft.Extensions.Caching.SqlConfig.Tools;
 
-internal class SqlQueries
+internal sealed class SqlQueries
 {
     private const string CreateTableFormat = "CREATE TABLE {0}(" +
         // Maximum size of primary key column is 900 bytes (898 bytes from key + 2 additional bytes used by the
@@ -30,14 +30,8 @@ internal class SqlQueries
 
     public SqlQueries(string schemaName, string tableName)
     {
-        if (string.IsNullOrEmpty(schemaName))
-        {
-            throw new ArgumentException("Schema name cannot be empty or null");
-        }
-        if (string.IsNullOrEmpty(tableName))
-        {
-            throw new ArgumentException("Table name cannot be empty or null");
-        }
+        ArgumentException.ThrowIfNullOrEmpty(schemaName);
+        ArgumentException.ThrowIfNullOrEmpty(tableName);
 
         var tableNameWithSchema = string.Format(
             CultureInfo.InvariantCulture, "{0}.{1}", DelimitIdentifier(schemaName), DelimitIdentifier(tableName));
@@ -56,12 +50,12 @@ internal class SqlQueries
     public string TableInfo { get; }
 
     // From EF's SqlServerQuerySqlGenerator
-    private string DelimitIdentifier(string identifier)
+    private static string DelimitIdentifier(string identifier)
     {
         return "[" + identifier.Replace("]", "]]") + "]";
     }
 
-    private string EscapeLiteral(string literal)
+    private static string EscapeLiteral(string literal)
     {
         return literal.Replace("'", "''");
     }

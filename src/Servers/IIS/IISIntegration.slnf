@@ -2,6 +2,7 @@
   "solution": {
     "path": "..\\..\\..\\AspNetCore.sln",
     "projects": [
+      "src\\Extensions\\Features\\src\\Microsoft.Extensions.Features.csproj",
       "src\\FileProviders\\Embedded\\src\\Microsoft.Extensions.FileProviders.Embedded.csproj",
       "src\\Hosting\\Abstractions\\src\\Microsoft.AspNetCore.Hosting.Abstractions.csproj",
       "src\\Hosting\\Hosting\\src\\Microsoft.AspNetCore.Hosting.csproj",
@@ -13,15 +14,16 @@
       "src\\Http\\Headers\\src\\Microsoft.Net.Http.Headers.csproj",
       "src\\Http\\Http.Abstractions\\src\\Microsoft.AspNetCore.Http.Abstractions.csproj",
       "src\\Http\\Http.Extensions\\src\\Microsoft.AspNetCore.Http.Extensions.csproj",
-      "src\\Extensions\\Features\\src\\Microsoft.Extensions.Features.csproj",
       "src\\Http\\Http.Features\\src\\Microsoft.AspNetCore.Http.Features.csproj",
       "src\\Http\\Http\\src\\Microsoft.AspNetCore.Http.csproj",
       "src\\Http\\WebUtilities\\src\\Microsoft.AspNetCore.WebUtilities.csproj",
       "src\\Middleware\\HttpOverrides\\src\\Microsoft.AspNetCore.HttpOverrides.csproj",
       "src\\Middleware\\HttpsPolicy\\src\\Microsoft.AspNetCore.HttpsPolicy.csproj",
       "src\\Middleware\\ResponseCompression\\src\\Microsoft.AspNetCore.ResponseCompression.csproj",
+      "src\\Middleware\\WebSockets\\src\\Microsoft.AspNetCore.WebSockets.csproj",
       "src\\ObjectPool\\src\\Microsoft.Extensions.ObjectPool.csproj",
       "src\\Servers\\Connections.Abstractions\\src\\Microsoft.AspNetCore.Connections.Abstractions.csproj",
+      "src\\Servers\\HttpSys\\src\\Microsoft.AspNetCore.Server.HttpSys.csproj",
       "src\\Servers\\IIS\\AspNetCoreModuleV2\\AspNetCore\\AspNetCore.vcxproj",
       "src\\Servers\\IIS\\AspNetCoreModuleV2\\CommonLibTests\\CommonLibTests.vcxproj",
       "src\\Servers\\IIS\\AspNetCoreModuleV2\\CommonLib\\CommonLib.vcxproj",
@@ -37,10 +39,11 @@
       "src\\Servers\\IIS\\IIS\\perf\\Microbenchmarks\\IIS.Microbenchmarks.csproj",
       "src\\Servers\\IIS\\IIS\\samples\\NativeIISSample\\NativeIISSample.csproj",
       "src\\Servers\\IIS\\IIS\\src\\Microsoft.AspNetCore.Server.IIS.csproj",
-      "src\\Servers\\IIS\\IIS\\samples\\NativeIISSample\\NativeIISSample.csproj",
       "src\\Servers\\IIS\\IIS\\test\\IIS.FunctionalTests\\IIS.FunctionalTests.csproj",
+      "src\\Servers\\IIS\\IIS\\test\\IIS.LongTests\\IIS.LongTests.csproj",
       "src\\Servers\\IIS\\IIS\\test\\IIS.NewHandler.FunctionalTests\\IIS.NewHandler.FunctionalTests.csproj",
       "src\\Servers\\IIS\\IIS\\test\\IIS.NewShim.FunctionalTests\\IIS.NewShim.FunctionalTests.csproj",
+      "src\\Servers\\IIS\\IIS\\test\\IIS.ShadowCopy.Tests\\IIS.ShadowCopy.Tests.csproj",
       "src\\Servers\\IIS\\IIS\\test\\IIS.Tests\\IIS.Tests.csproj",
       "src\\Servers\\IIS\\IIS\\test\\IISExpress.FunctionalTests\\IISExpress.FunctionalTests.csproj",
       "src\\Servers\\IIS\\IIS\\test\\testassets\\IIS.Common.TestLib\\IIS.Common.TestLib.csproj",
@@ -50,8 +53,10 @@
       "src\\Servers\\IIS\\IntegrationTesting.IIS\\src\\Microsoft.AspNetCore.Server.IntegrationTesting.IIS.csproj",
       "src\\Servers\\Kestrel\\Core\\src\\Microsoft.AspNetCore.Server.Kestrel.Core.csproj",
       "src\\Servers\\Kestrel\\Kestrel\\src\\Microsoft.AspNetCore.Server.Kestrel.csproj",
+      "src\\Servers\\Kestrel\\Transport.NamedPipes\\src\\Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes.csproj",
+      "src\\Servers\\Kestrel\\Transport.Quic\\src\\Microsoft.AspNetCore.Server.Kestrel.Transport.Quic.csproj",
       "src\\Servers\\Kestrel\\Transport.Sockets\\src\\Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.csproj",
-      "src\\Testing\\src\\Microsoft.AspNetCore.Testing.csproj"
+      "src\\Testing\\src\\Microsoft.AspNetCore.InternalTesting.csproj"
     ]
   }
 }

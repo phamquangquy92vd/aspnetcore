@@ -1,10 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Razor.Compilation;
@@ -16,7 +12,6 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 using static Microsoft.AspNetCore.Razor.Hosting.TestRazorCompiledItem;
 
 namespace Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
@@ -598,14 +593,14 @@ public class RuntimeViewCompilerTest
             {
                 compilingOne = true;
 
-                    // Event 2
-                    Assert.True(resetEvent1.WaitOne(waitDuration));
+                // Event 2
+                Assert.True(resetEvent1.WaitOne(waitDuration));
 
-                    // Event 3
-                    Assert.True(resetEvent2.Set());
+                // Event 3
+                Assert.True(resetEvent2.Set());
 
-                    // Event 6
-                    Assert.True(resetEvent1.WaitOne(waitDuration));
+                // Event 6
+                Assert.True(resetEvent1.WaitOne(waitDuration));
 
                 Assert.True(compilingTwo);
 
@@ -615,11 +610,11 @@ public class RuntimeViewCompilerTest
             {
                 compilingTwo = true;
 
-                    // Event 4
-                    Assert.True(resetEvent2.WaitOne(waitDuration));
+                // Event 4
+                Assert.True(resetEvent2.WaitOne(waitDuration));
 
-                    // Event 5
-                    Assert.True(resetEvent1.Set());
+                // Event 5
+                Assert.True(resetEvent1.Set());
 
                 Assert.True(compilingOne);
 
@@ -643,8 +638,10 @@ public class RuntimeViewCompilerTest
         // Assert
         Assert.True(compilingOne);
         Assert.True(compilingTwo);
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
         Assert.Same(result1, task1.Result);
         Assert.Same(result2, task2.Result);
+#pragma warning restore xUnit1031 // Do not use blocking task operations in test method
     }
 
     [Fact]
@@ -661,11 +658,11 @@ public class RuntimeViewCompilerTest
 
         compiler.Compile = _ =>
         {
-                // Event 2
-                resetEvent1.WaitOne(waitDuration);
+            // Event 2
+            resetEvent1.WaitOne(waitDuration);
 
-                // Event 3
-                resetEvent2.Set();
+            // Event 3
+            resetEvent2.Set();
             return new CompiledViewDescriptor();
         };
 
@@ -673,8 +670,8 @@ public class RuntimeViewCompilerTest
         var task1 = Task.Run(() => compiler.CompileAsync(path));
         var task2 = Task.Run(() =>
         {
-                // Event 4
-                Assert.True(resetEvent2.WaitOne(waitDuration));
+            // Event 4
+            Assert.True(resetEvent2.WaitOne(waitDuration));
             return compiler.CompileAsync(path);
         });
 
@@ -683,9 +680,11 @@ public class RuntimeViewCompilerTest
         await Task.WhenAll(task1, task2);
 
         // Assert
+#pragma warning disable xUnit1031 // Do not use blocking task operations in test method
         var result1 = task1.Result;
         var result2 = task2.Result;
         Assert.Same(result1, result2);
+#pragma warning restore xUnit1031 // Do not use blocking task operations in test method
     }
 
     [Fact]
@@ -830,7 +829,6 @@ this should fail";
             FileProviders = { fileProvider }
         });
         var compilationFileProvider = new RuntimeCompilationFileProvider(options);
-
 
         referenceManager = referenceManager ?? CreateReferenceManager();
         precompiledViews = precompiledViews ?? Array.Empty<CompiledViewDescriptor>();

@@ -1,13 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Rewrite.Logging;
 
 namespace Microsoft.AspNetCore.Rewrite;
 
-internal class RedirectToWwwRule : IRule
+internal sealed class RedirectToWwwRule : IRule
 {
     private const string WwwDot = "www.";
 
@@ -21,10 +20,7 @@ internal class RedirectToWwwRule : IRule
 
     public RedirectToWwwRule(int statusCode, params string[] domains)
     {
-        if (domains == null)
-        {
-            throw new ArgumentNullException(nameof(domains));
-        }
+        ArgumentNullException.ThrowIfNull(domains);
 
         if (domains.Length < 1)
         {
@@ -47,7 +43,7 @@ internal class RedirectToWwwRule : IRule
             return;
         }
 
-        if (req.Host.Value.StartsWith(WwwDot, StringComparison.OrdinalIgnoreCase))
+        if (req.Host.HasValue && req.Host.Value.StartsWith(WwwDot, StringComparison.OrdinalIgnoreCase))
         {
             context.Result = RuleResult.ContinueRules;
             return;

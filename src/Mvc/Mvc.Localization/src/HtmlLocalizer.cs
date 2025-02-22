@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.Localization;
 
 namespace Microsoft.AspNetCore.Mvc.Localization;
@@ -21,10 +19,7 @@ public class HtmlLocalizer : IHtmlLocalizer
     /// <param name="localizer">The <see cref="IStringLocalizer"/> to read strings from.</param>
     public HtmlLocalizer(IStringLocalizer localizer)
     {
-        if (localizer == null)
-        {
-            throw new ArgumentNullException(nameof(localizer));
-        }
+        ArgumentNullException.ThrowIfNull(localizer);
 
         _localizer = localizer;
     }
@@ -34,10 +29,7 @@ public class HtmlLocalizer : IHtmlLocalizer
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullException.ThrowIfNull(name);
 
             return ToHtmlString(_localizer[name]);
         }
@@ -48,10 +40,7 @@ public class HtmlLocalizer : IHtmlLocalizer
     {
         get
         {
-            if (name == null)
-            {
-                throw new ArgumentNullException(nameof(name));
-            }
+            ArgumentNullException.ThrowIfNull(name);
 
             return ToHtmlString(_localizer[name], arguments);
         }
@@ -60,10 +49,7 @@ public class HtmlLocalizer : IHtmlLocalizer
     /// <inheritdoc />
     public virtual LocalizedString GetString(string name)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         return _localizer[name];
     }
@@ -71,10 +57,7 @@ public class HtmlLocalizer : IHtmlLocalizer
     /// <inheritdoc />
     public virtual LocalizedString GetString(string name, params object[] arguments)
     {
-        if (name == null)
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+        ArgumentNullException.ThrowIfNull(name);
 
         return _localizer[name, arguments];
     }

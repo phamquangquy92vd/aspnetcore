@@ -1,15 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Razor.TagHelpers.Testing;
 using Microsoft.Extensions.WebEncoders.Testing;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Razor.TagHelpers;
 
@@ -169,9 +164,8 @@ public class TagHelperOutputTest
             var data = new TheoryData<bool, HtmlEncoder>();
             foreach (var useCachedResult in new[] { false, true })
             {
-                foreach (var encoderEntry in HtmlEncoderData)
+                foreach (var encoder in HtmlEncoderData)
                 {
-                    var encoder = (HtmlEncoder)(encoderEntry[0]);
                     data.Add(useCachedResult, encoder);
                 }
             }

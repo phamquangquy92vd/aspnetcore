@@ -3,21 +3,21 @@
 
 #nullable enable
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 
-[assembly: MetadataUpdateHandler(typeof(Microsoft.Extensions.Internal.PropertyHelper))]
+[assembly: MetadataUpdateHandler(typeof(Microsoft.Extensions.Internal.PropertyHelper.MetadataUpdateHandler))]
 
 namespace Microsoft.Extensions.Internal;
 
-internal class PropertyHelper
+internal sealed class PropertyHelper
 {
     private const BindingFlags DeclaredOnlyLookup = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
+    private const BindingFlags Everything = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance;
 
     // Delegate type for a by-ref property getter
     private delegate TValue ByRefFunc<TDeclaringType, TValue>(ref TDeclaringType arg);
@@ -42,12 +42,6 @@ internal class PropertyHelper
 
     private static readonly ConcurrentDictionary<Type, PropertyHelper[]> VisiblePropertiesCache = new();
 
-    // We need to be able to check if a type is a 'ref struct' - but we need to be able to compile
-    // for platforms where the attribute is not defined, like net46. So we can fetch the attribute
-    // by late binding. If the attribute isn't defined, then we assume we won't encounter any
-    // 'ref struct' types.
-    private static readonly Type? IsByRefLikeAttribute = Type.GetType("System.Runtime.CompilerServices.IsByRefLikeAttribute", throwOnError: false);
-
     private Action<object, object?>? _valueSetter;
     private Func<object, object?>? _valueGetter;
 
@@ -69,27 +63,17 @@ internal class PropertyHelper
     /// <summary>
     /// Gets (or sets in derived types) the property name.
     /// </summary>
-    public virtual string Name { get; protected set; }
-
-    public static void ClearCache(Type[]? _)
-    {
-        PropertiesCache.Clear();
-        VisiblePropertiesCache.Clear();
-    }
+    public string Name { get; }
 
     /// <summary>
     /// Gets the property value getter.
     /// </summary>
     public Func<object, object?> ValueGetter
     {
+        [RequiresUnreferencedCode("This API is not trim safe.")]
         get
         {
-            if (_valueGetter == null)
-            {
-                _valueGetter = MakeFastPropertyGetter(Property);
-            }
-
-            return _valueGetter;
+            return _valueGetter ??= MakeFastPropertyGetter(Property);
         }
     }
 
@@ -98,14 +82,10 @@ internal class PropertyHelper
     /// </summary>
     public Action<object, object?> ValueSetter
     {
+        [RequiresUnreferencedCode("This API is not trim safe.")]
         get
         {
-            if (_valueSetter == null)
-            {
-                _valueSetter = MakeFastPropertySetter(Property);
-            }
-
-            return _valueSetter;
+            return _valueSetter ??= MakeFastPropertySetter(Property);
         }
     }
 
@@ -114,6 +94,7 @@ internal class PropertyHelper
     /// </summary>
     /// <param name="instance">The object whose property value will be returned.</param>
     /// <returns>The property value.</returns>
+    [RequiresUnreferencedCode("This API is not trim safe.")]
     public object? GetValue(object instance)
     {
         return ValueGetter(instance);
@@ -124,21 +105,10 @@ internal class PropertyHelper
     /// </summary>
     /// <param name="instance">The object whose property value will be set.</param>
     /// <param name="value">The property value.</param>
+    [RequiresUnreferencedCode("This API is not trim safe.")]
     public void SetValue(object instance, object? value)
     {
         ValueSetter(instance, value);
-    }
-
-    /// <summary>
-    /// Creates and caches fast property helpers that expose getters for every public get property on the
-    /// underlying type.
-    /// </summary>
-    /// <param name="typeInfo">The type info to extract property accessors for.</param>
-    /// <returns>A cached array of all public properties of the specified type.
-    /// </returns>
-    public static PropertyHelper[] GetProperties(TypeInfo typeInfo)
-    {
-        return GetProperties(typeInfo.AsType());
     }
 
     /// <summary>
@@ -148,28 +118,11 @@ internal class PropertyHelper
     /// <param name="type">The type to extract property accessors for.</param>
     /// <returns>A cached array of all public properties of the specified type.
     /// </returns>
-    public static PropertyHelper[] GetProperties(Type type)
+    [RequiresUnreferencedCode("This API is not trim safe.")]
+    public static PropertyHelper[] GetProperties(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type type)
     {
-        return GetProperties(type, p => CreateInstance(p), PropertiesCache);
-    }
-
-    /// <summary>
-    /// <para>
-    /// Creates and caches fast property helpers that expose getters for every non-hidden get property
-    /// on the specified type.
-    /// </para>
-    /// <para>
-    /// <see cref="M:GetVisibleProperties"/> excludes properties defined on base types that have been
-    /// hidden by definitions using the <c>new</c> keyword.
-    /// </para>
-    /// </summary>
-    /// <param name="typeInfo">The type info to extract property accessors for.</param>
-    /// <returns>
-    /// A cached array of all public properties of the specified type.
-    /// </returns>
-    public static PropertyHelper[] GetVisibleProperties(TypeInfo typeInfo)
-    {
-        return GetVisibleProperties(typeInfo.AsType(), p => CreateInstance(p), PropertiesCache, VisiblePropertiesCache);
+        return GetProperties(type, PropertiesCache);
     }
 
     /// <summary>
@@ -186,9 +139,11 @@ internal class PropertyHelper
     /// <returns>
     /// A cached array of all public properties of the specified type.
     /// </returns>
-    public static PropertyHelper[] GetVisibleProperties(Type type)
+    [RequiresUnreferencedCode("This API is not trim safe.")]
+    public static PropertyHelper[] GetVisibleProperties(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type type)
     {
-        return GetVisibleProperties(type, p => CreateInstance(p), PropertiesCache, VisiblePropertiesCache);
+        return GetVisibleProperties(type, PropertiesCache, VisiblePropertiesCache);
     }
 
     /// <summary>
@@ -200,6 +155,7 @@ internal class PropertyHelper
     /// This method is more memory efficient than a dynamically compiled lambda, and about the
     /// same speed.
     /// </remarks>
+    [RequiresUnreferencedCode("This API is not trimmer safe.")]
     public static Func<object, object?> MakeFastPropertyGetter(PropertyInfo propertyInfo)
     {
         Debug.Assert(propertyInfo != null);
@@ -219,6 +175,7 @@ internal class PropertyHelper
     /// This method is more memory efficient than a dynamically compiled lambda, and about the
     /// same speed.
     /// </remarks>
+    [RequiresUnreferencedCode("This API is not trimmer safe.")]
     public static Func<object, object?> MakeNullSafeFastPropertyGetter(PropertyInfo propertyInfo)
     {
         Debug.Assert(propertyInfo != null);
@@ -229,6 +186,7 @@ internal class PropertyHelper
             CallNullSafePropertyGetterByReferenceOpenGenericMethod);
     }
 
+    [RequiresUnreferencedCode("This API is not trimmer safe.")]
     private static Func<object, object?> MakeFastPropertyGetter(
         PropertyInfo propertyInfo,
         MethodInfo propertyGetterWrapperMethod,
@@ -251,27 +209,37 @@ internal class PropertyHelper
         Debug.Assert(!getMethod.IsStatic);
         Debug.Assert(getMethod.GetParameters().Length == 0);
 
-        // Instance methods in the CLR can be turned into static methods where the first parameter
-        // is open over "target". This parameter is always passed by reference, so we have a code
-        // path for value types and a code path for reference types.
-        if (getMethod.DeclaringType!.IsValueType)
+        // MakeGenericMethod + value type requires IsDynamicCodeSupported to be true.
+        if (RuntimeFeature.IsDynamicCodeSupported)
         {
-            // Create a delegate (ref TDeclaringType) -> TValue
-            return MakeFastPropertyGetter(
-                typeof(ByRefFunc<,>),
-                getMethod,
-                propertyGetterByRefWrapperMethod);
+            // Instance methods in the CLR can be turned into static methods where the first parameter
+            // is open over "target". This parameter is always passed by reference, so we have a code
+            // path for value types and a code path for reference types.
+            if (getMethod.DeclaringType!.IsValueType)
+            {
+                // Create a delegate (ref TDeclaringType) -> TValue
+                return MakeFastPropertyGetter(
+                    typeof(ByRefFunc<,>),
+                    getMethod,
+                    propertyGetterByRefWrapperMethod);
+            }
+            else
+            {
+                // Create a delegate TDeclaringType -> TValue
+                return MakeFastPropertyGetter(
+                    typeof(Func<,>),
+                    getMethod,
+                    propertyGetterWrapperMethod);
+            }
         }
         else
         {
-            // Create a delegate TDeclaringType -> TValue
-            return MakeFastPropertyGetter(
-                typeof(Func<,>),
-                getMethod,
-                propertyGetterWrapperMethod);
+            return propertyInfo.GetValue;
         }
     }
 
+    [RequiresUnreferencedCode("This API is not trimmer safe.")]
+    [RequiresDynamicCode("This API requires dynamic code because it makes generic types which may be filled with ValueTypes.")]
     private static Func<object, object?> MakeFastPropertyGetter(
         Type openGenericDelegateType,
         MethodInfo propertyGetMethod,
@@ -300,6 +268,7 @@ internal class PropertyHelper
     /// This method is more memory efficient than a dynamically compiled lambda, and about the
     /// same speed. This only works for reference types.
     /// </remarks>
+    [RequiresUnreferencedCode("This API is not trimmer safe.")]
     public static Action<object, object?> MakeFastPropertySetter(PropertyInfo propertyInfo)
     {
         Debug.Assert(propertyInfo != null);
@@ -312,22 +281,30 @@ internal class PropertyHelper
         var parameters = setMethod.GetParameters();
         Debug.Assert(parameters.Length == 1);
 
-        // Instance methods in the CLR can be turned into static methods where the first parameter
-        // is open over "target". This parameter is always passed by reference, so we have a code
-        // path for value types and a code path for reference types.
-        var typeInput = setMethod.DeclaringType!;
-        var parameterType = parameters[0].ParameterType;
+        // MakeGenericMethod + value type requires IsDynamicCodeSupported to be true.
+        if (RuntimeFeature.IsDynamicCodeSupported)
+        {
+            // Instance methods in the CLR can be turned into static methods where the first parameter
+            // is open over "target". This parameter is always passed by reference, so we have a code
+            // path for value types and a code path for reference types.
+            var typeInput = setMethod.DeclaringType!;
+            var parameterType = parameters[0].ParameterType;
 
-        // Create a delegate TDeclaringType -> { TDeclaringType.Property = TValue; }
-        var propertySetterAsAction =
-            setMethod.CreateDelegate(typeof(Action<,>).MakeGenericType(typeInput, parameterType));
-        var callPropertySetterClosedGenericMethod =
-            CallPropertySetterOpenGenericMethod.MakeGenericMethod(typeInput, parameterType);
-        var callPropertySetterDelegate =
-            callPropertySetterClosedGenericMethod.CreateDelegate(
-                typeof(Action<object, object?>), propertySetterAsAction);
+            // Create a delegate TDeclaringType -> { TDeclaringType.Property = TValue; }
+            var propertySetterAsAction =
+                setMethod.CreateDelegate(typeof(Action<,>).MakeGenericType(typeInput, parameterType));
+            var callPropertySetterClosedGenericMethod =
+                CallPropertySetterOpenGenericMethod.MakeGenericMethod(typeInput, parameterType);
+            var callPropertySetterDelegate =
+                callPropertySetterClosedGenericMethod.CreateDelegate(
+                    typeof(Action<object, object?>), propertySetterAsAction);
 
-        return (Action<object, object?>)callPropertySetterDelegate;
+            return (Action<object, object?>)callPropertySetterDelegate;
+        }
+        else
+        {
+            return propertyInfo.SetValue;
+        }
     }
 
     /// <summary>
@@ -341,6 +318,7 @@ internal class PropertyHelper
     /// The implementation of PropertyHelper will cache the property accessors per-type. This is
     /// faster when the same type is used multiple times with ObjectToDictionary.
     /// </remarks>
+    [RequiresUnreferencedCode("Method uses reflection to generate the dictionary.")]
     public static IDictionary<string, object?> ObjectToDictionary(object? value)
     {
         if (value is IDictionary<string, object?> dictionary)
@@ -352,18 +330,13 @@ internal class PropertyHelper
 
         if (value is not null)
         {
-            foreach (var helper in GetProperties(value.GetType()))
+            foreach (var helper in GetProperties(value.GetType(), PropertiesCache))
             {
                 dictionary[helper.Name] = helper.GetValue(value);
             }
         }
 
         return dictionary;
-    }
-
-    private static PropertyHelper CreateInstance(PropertyInfo property)
-    {
-        return new PropertyHelper(property);
     }
 
     // Called via reflection
@@ -418,20 +391,36 @@ internal class PropertyHelper
         setter((TDeclaringType)target, (TValue)value);
     }
 
-    protected static PropertyHelper[] GetVisibleProperties(
+    /// <summary>
+    /// <para>
+    /// Creates and caches fast property helpers that expose getters for every non-hidden get property
+    /// on the specified type.
+    /// </para>
+    /// <para>
+    /// <see cref="M:GetVisibleProperties"/> excludes properties defined on base types that have been
+    /// hidden by definitions using the <c>new</c> keyword.
+    /// </para>
+    /// </summary>
+    /// <param name="type">The type to extract property accessors for.</param>
+    /// <param name="allPropertiesCache">The cache to store results in. Use <see cref="PropertiesCache"/> to use the default cache. Use <see langword="null"/> to avoid caching.</param>
+    /// <param name="visiblePropertiesCache">The cache to store results in. Use <see cref="VisiblePropertiesCache"/> if the calling type does not have its own independent cache. Use <see langword="null"/> to avoid caching.</param>
+    /// <returns>
+    /// A cached array of all public properties of the specified type.
+    /// </returns>
+    [RequiresUnreferencedCode("This API is not trim safe.")]
+    public static PropertyHelper[] GetVisibleProperties(
         Type type,
-        Func<PropertyInfo, PropertyHelper> createPropertyHelper,
-        ConcurrentDictionary<Type, PropertyHelper[]> allPropertiesCache,
-        ConcurrentDictionary<Type, PropertyHelper[]> visiblePropertiesCache)
+        ConcurrentDictionary<Type, PropertyHelper[]>? allPropertiesCache,
+        ConcurrentDictionary<Type, PropertyHelper[]>? visiblePropertiesCache)
     {
-        if (visiblePropertiesCache.TryGetValue(type, out var result))
+        if (visiblePropertiesCache is not null && visiblePropertiesCache.TryGetValue(type, out var result))
         {
             return result;
         }
 
         // The simple and common case, this is normal POCO object - no need to allocate.
         var allPropertiesDefinedOnType = true;
-        var allProperties = GetProperties(type, createPropertyHelper, allPropertiesCache);
+        var allProperties = GetProperties(type, allPropertiesCache);
         foreach (var propertyHelper in allProperties)
         {
             if (propertyHelper.Property.DeclaringType != type)
@@ -444,7 +433,7 @@ internal class PropertyHelper
         if (allPropertiesDefinedOnType)
         {
             result = allProperties;
-            visiblePropertiesCache.TryAdd(type, result);
+            visiblePropertiesCache?.TryAdd(type, result);
             return result;
         }
 
@@ -486,36 +475,63 @@ internal class PropertyHelper
         }
 
         result = filteredProperties.ToArray();
-        visiblePropertiesCache.TryAdd(type, result);
+        visiblePropertiesCache?.TryAdd(type, result);
         return result;
     }
 
-    protected static PropertyHelper[] GetProperties(
+    /// <summary>
+    /// Creates and caches fast property helpers that expose getters for every public get property on the
+    /// specified type.
+    /// </summary>
+    /// <param name="type">The type to extract property accessors for.</param>
+    /// <param name="cache">The cache to store results in. Use <see cref="PropertiesCache"/> to use the default cache. Use <see langword="null"/> to avoid caching.</param>
+    /// <returns>A cached array of all public properties of the specified type.
+    /// </returns>
+    // There isn't a way to represent trimmability requirements since for type since we unwrap nullable types.
+    [RequiresUnreferencedCode("This API is not trim safe.")]
+    public static PropertyHelper[] GetProperties(
         Type type,
-        Func<PropertyInfo, PropertyHelper> createPropertyHelper,
-        ConcurrentDictionary<Type, PropertyHelper[]> cache)
+        ConcurrentDictionary<Type, PropertyHelper[]>? cache)
     {
         // Unwrap nullable types. This means Nullable<T>.Value and Nullable<T>.HasValue will not be
         // part of the sequence of properties returned by this method.
         type = Nullable.GetUnderlyingType(type) ?? type;
 
-        if (!cache.TryGetValue(type, out var helpers))
+        if (cache is null || !cache.TryGetValue(type, out var result))
         {
+            var propertyHelpers = new List<PropertyHelper>();
             // We avoid loading indexed properties using the Where statement.
-            var properties = type.GetRuntimeProperties().Where(p => IsInterestingProperty(p));
+            AddInterestingProperties(propertyHelpers, type);
 
             if (type.IsInterface)
             {
                 // Reflection does not return information about inherited properties on the interface itself.
-                properties = properties.Concat(type.GetInterfaces().SelectMany(
-                    interfaceType => interfaceType.GetRuntimeProperties().Where(p => IsInterestingProperty(p))));
+                foreach (var @interface in type.GetInterfaces())
+                {
+                    AddInterestingProperties(propertyHelpers, @interface);
+                }
             }
 
-            helpers = properties.Select(p => createPropertyHelper(p)).ToArray();
-            cache.TryAdd(type, helpers);
+            result = propertyHelpers.ToArray();
+            cache?.TryAdd(type, result);
         }
 
-        return helpers;
+        return result;
+
+        static void AddInterestingProperties(
+            List<PropertyHelper> propertyHelpers,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.NonPublicProperties)] Type type)
+        {
+            foreach (var property in type.GetProperties(Everything))
+            {
+                if (!IsInterestingProperty(property))
+                {
+                    continue;
+                }
+
+                propertyHelpers.Add(new PropertyHelper(property));
+            }
+        }
     }
 
     private static bool IsInterestingProperty(PropertyInfo property)
@@ -528,22 +544,25 @@ internal class PropertyHelper
             property.GetMethod.IsPublic &&
             !property.GetMethod.IsStatic &&
 
-            // PropertyHelper can't work with ref structs.
-            !IsRefStructProperty(property) &&
+            // PropertyHelper can't really interact with ref-struct properties since they can't be
+            // boxed and can't be used as generic types. We just ignore them.
+            //
+            // see: https://github.com/aspnet/Mvc/issues/8545
+            !property.PropertyType.IsByRefLike &&
 
             // Indexed properties are not useful (or valid) for grabbing properties off an object.
             property.GetMethod.GetParameters().Length == 0;
     }
 
-    // PropertyHelper can't really interact with ref-struct properties since they can't be
-    // boxed and can't be used as generic types. We just ignore them.
-    //
-    // see: https://github.com/aspnet/Mvc/issues/8545
-    private static bool IsRefStructProperty(PropertyInfo property)
+    internal static class MetadataUpdateHandler
     {
-        return
-            IsByRefLikeAttribute != null &&
-            property.PropertyType.IsValueType &&
-            property.PropertyType.IsDefined(IsByRefLikeAttribute);
+        /// <summary>
+        /// Invoked as part of <see cref="MetadataUpdateHandlerAttribute" /> contract for hot reload.
+        /// </summary>
+        public static void ClearCache(Type[]? _)
+        {
+            PropertiesCache.Clear();
+            VisiblePropertiesCache.Clear();
+        }
     }
 }

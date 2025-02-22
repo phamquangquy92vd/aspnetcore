@@ -1,14 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Rewrite;
 using Microsoft.AspNetCore.Rewrite.IISUrlRewrite;
-using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Rewrite.Tests.IISUrlRewrite;
 
@@ -30,6 +26,7 @@ public class ServerVariableTests
     [InlineData("REQUEST_URI", "/foo", (int)UriMatchPart.Path)]
     [InlineData("REQUEST_URI", "http://example.com/foo?bar=1", (int)UriMatchPart.Full)]
     [InlineData("REQUEST_METHOD", "GET", (int)UriMatchPart.Full)]
+    [InlineData("SERVER_NAME", "example.com", (int)UriMatchPart.Full)]
     public void CheckServerVariableParsingAndApplication(string variable, string expected, int uriMatchPart)
     {
         // Arrange and Act
@@ -56,6 +53,7 @@ public class ServerVariableTests
     [InlineData("REQUEST_URI", "/other-foo", (int)UriMatchPart.Path)]
     [InlineData("REQUEST_URI", "/other-foo", (int)UriMatchPart.Full)]
     [InlineData("REQUEST_METHOD", "POST", (int)UriMatchPart.Full)]
+    [InlineData("SERVER_NAME", "otherexample.com", (int)UriMatchPart.Full)]
     public void CheckServerVariableFeatureHasPrecedenceWhenEnabled(string variable, string expected, int uriMatchPart)
     {
         // Arrange and Act
@@ -76,7 +74,8 @@ public class ServerVariableTests
             ["QUERY_STRING"] = "bar=2",
             ["REQUEST_FILENAME"] = "/other-foo",
             ["REQUEST_URI"] = "/other-foo",
-            ["REQUEST_METHOD"] = "POST"
+            ["REQUEST_METHOD"] = "POST",
+            ["SERVER_NAME"] = "otherexample.com",
         }));
 
         var rewriteContext = CreateTestRewriteContext(httpContext);
@@ -102,6 +101,7 @@ public class ServerVariableTests
     [InlineData("REQUEST_URI", "/foo", (int)UriMatchPart.Path)]
     [InlineData("REQUEST_URI", "http://example.com/foo?bar=1", (int)UriMatchPart.Full)]
     [InlineData("REQUEST_METHOD", "GET", (int)UriMatchPart.Full)]
+    [InlineData("SERVER_NAME", "example.com", (int)UriMatchPart.Full)]
     public void CheckServerVariableFeatureIsntUsedWhenDisabled(string variable, string expected, int uriMatchPart)
     {
         // Arrange and Act
@@ -132,7 +132,7 @@ public class ServerVariableTests
         Assert.Equal(expected, lookup);
     }
 
-    private HttpContext CreateTestHttpContext()
+    private static HttpContext CreateTestHttpContext()
     {
         var context = new DefaultHttpContext();
         context.Request.Method = HttpMethods.Get;
@@ -156,13 +156,13 @@ public class ServerVariableTests
         return new RewriteContext { HttpContext = context ?? CreateTestHttpContext() };
     }
 
-    private MatchResults CreateTestRuleMatch()
+    private static MatchResults CreateTestRuleMatch()
     {
         var match = Regex.Match("foo/bar/baz", "(.*)/(.*)/(.*)");
         return new MatchResults(match.Success, new BackReferenceCollection(match.Groups));
     }
 
-    private MatchResults CreateTestCondMatch()
+    private static MatchResults CreateTestCondMatch()
     {
         var match = Regex.Match("foo/bar/baz", "(.*)/(.*)/(.*)");
         return new MatchResults(match.Success, new BackReferenceCollection(match.Groups));

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal;
 
-internal class HttpMultiplexedConnectionContext : BaseHttpConnectionContext
+internal sealed class HttpMultiplexedConnectionContext : BaseHttpConnectionContext
 {
     public HttpMultiplexedConnectionContext(
         string connectionId,
@@ -20,7 +20,8 @@ internal class HttpMultiplexedConnectionContext : BaseHttpConnectionContext
         IFeatureCollection connectionFeatures,
         MemoryPool<byte> memoryPool,
         IPEndPoint? localEndPoint,
-        IPEndPoint? remoteEndPoint) : base(connectionId, protocols, altSvcHeader, connectionContext, serviceContext, connectionFeatures, memoryPool, localEndPoint, remoteEndPoint)
+        IPEndPoint? remoteEndPoint,
+        ConnectionMetricsContext metricsContext) : base(connectionId, protocols, altSvcHeader, connectionContext, serviceContext, connectionFeatures, memoryPool, localEndPoint, remoteEndPoint, metricsContext)
     {
     }
 }

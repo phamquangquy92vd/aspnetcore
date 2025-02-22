@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.Extensions.Internal;
 
@@ -28,10 +26,7 @@ public class EnumerableWrapperProvider : IWrapperProvider
         Type sourceEnumerableOfT,
         IWrapperProvider? elementWrapperProvider)
     {
-        if (sourceEnumerableOfT == null)
-        {
-            throw new ArgumentNullException(nameof(sourceEnumerableOfT));
-        }
+        ArgumentNullException.ThrowIfNull(sourceEnumerableOfT);
 
         var enumerableOfT = ClosedGenericMatcher.ExtractGenericInterface(
             sourceEnumerableOfT,

@@ -1,8 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.HttpsPolicy;
 
@@ -20,10 +18,7 @@ public static class HttpsPolicyBuilderExtensions
     /// <returns>The <see cref="IApplicationBuilder"/> for HttpsRedirection.</returns>
     public static IApplicationBuilder UseHttpsRedirection(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         var serverAddressFeature = app.ServerFeatures.Get<IServerAddressesFeature>();
         if (serverAddressFeature != null)

@@ -1,9 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
 /// <summary>
@@ -17,10 +14,7 @@ public class ValueProviderFactoryContext
     /// <param name="context">The <see cref="ActionContext"/>.</param>
     public ValueProviderFactoryContext(ActionContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         ActionContext = context;
     }

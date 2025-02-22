@@ -1,17 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Test.Helpers;
 using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Virtualization;
 
@@ -118,9 +113,9 @@ public class VirtualizeTest
         => builder =>
     {
         builder.OpenComponent<Virtualize<TItem>>(0);
-        builder.AddAttribute(1, "ItemSize", itemSize);
-        builder.AddAttribute(2, "ItemsProvider", itemsProvider);
-        builder.AddAttribute(3, "Items", items);
+        builder.AddComponentParameter(1, "ItemSize", itemSize);
+        builder.AddComponentParameter(2, "ItemsProvider", itemsProvider);
+        builder.AddComponentParameter(3, "Items", items);
 
         if (captureRenderedVirtualize != null)
         {

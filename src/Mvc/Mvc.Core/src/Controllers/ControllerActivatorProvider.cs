@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,10 +25,7 @@ public class ControllerActivatorProvider : IControllerActivatorProvider
     /// <param name="controllerActivator">A <see cref="IControllerActivator"/> which is delegated to when not the default implementation.</param>
     public ControllerActivatorProvider(IControllerActivator controllerActivator)
     {
-        if (controllerActivator == null)
-        {
-            throw new ArgumentNullException(nameof(controllerActivator));
-        }
+        ArgumentNullException.ThrowIfNull(controllerActivator);
 
         // Compat: Delegate to controllerActivator if it's not the default implementation.
         if (controllerActivator.GetType() != typeof(DefaultControllerActivator))
@@ -44,10 +39,7 @@ public class ControllerActivatorProvider : IControllerActivatorProvider
     /// <inheritdoc/>
     public Func<ControllerContext, object> CreateActivator(ControllerActionDescriptor descriptor)
     {
-        if (descriptor == null)
-        {
-            throw new ArgumentNullException(nameof(descriptor));
-        }
+        ArgumentNullException.ThrowIfNull(descriptor);
 
         var controllerType = descriptor.ControllerTypeInfo?.AsType();
         if (controllerType == null)
@@ -70,10 +62,7 @@ public class ControllerActivatorProvider : IControllerActivatorProvider
     /// <inheritdoc/>
     public Action<ControllerContext, object>? CreateReleaser(ControllerActionDescriptor descriptor)
     {
-        if (descriptor == null)
-        {
-            throw new ArgumentNullException(nameof(descriptor));
-        }
+        ArgumentNullException.ThrowIfNull(descriptor);
 
         if (_controllerActivatorRelease != null)
         {
@@ -91,10 +80,7 @@ public class ControllerActivatorProvider : IControllerActivatorProvider
     /// <inheritdoc/>
     public Func<ControllerContext, object, ValueTask>? CreateAsyncReleaser(ControllerActionDescriptor descriptor)
     {
-        if (descriptor == null)
-        {
-            throw new ArgumentNullException(nameof(descriptor));
-        }
+        ArgumentNullException.ThrowIfNull(descriptor);
 
         if (_controllerActivatorReleaseAsync != null)
         {
@@ -116,20 +102,14 @@ public class ControllerActivatorProvider : IControllerActivatorProvider
 
     private static void Dispose(ControllerContext context, object controller)
     {
-        if (controller == null)
-        {
-            throw new ArgumentNullException(nameof(controller));
-        }
+        ArgumentNullException.ThrowIfNull(controller);
 
         ((IDisposable)controller).Dispose();
     }
 
     private static ValueTask DisposeAsync(ControllerContext context, object controller)
     {
-        if (controller == null)
-        {
-            throw new ArgumentNullException(nameof(controller));
-        }
+        ArgumentNullException.ThrowIfNull(controller);
 
         return ((IAsyncDisposable)controller).DisposeAsync();
     }

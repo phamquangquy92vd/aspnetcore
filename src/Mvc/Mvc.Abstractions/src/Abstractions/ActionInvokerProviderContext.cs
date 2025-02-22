@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.Abstractions;
 
 /// <summary>
@@ -16,10 +14,7 @@ public class ActionInvokerProviderContext
     /// <param name="actionContext">The <see cref="Mvc.ActionContext"/> to invoke.</param>
     public ActionInvokerProviderContext(ActionContext actionContext)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
 
         ActionContext = actionContext;
     }

@@ -1,15 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.ObjectPool;
 
 namespace Microsoft.AspNetCore.Antiforgery;
 
-internal class DefaultAntiforgeryTokenSerializer : IAntiforgeryTokenSerializer
+internal sealed class DefaultAntiforgeryTokenSerializer : IAntiforgeryTokenSerializer
 {
     private const string Purpose = "Microsoft.AspNetCore.Antiforgery.AntiforgeryToken.v1";
     private const byte TokenVersion = 0x01;
@@ -21,15 +19,8 @@ internal class DefaultAntiforgeryTokenSerializer : IAntiforgeryTokenSerializer
         IDataProtectionProvider provider,
         ObjectPool<AntiforgerySerializationContext> pool)
     {
-        if (provider == null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
-
-        if (pool == null)
-        {
-            throw new ArgumentNullException(nameof(pool));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(pool);
 
         _cryptoSystem = provider.CreateProtector(Purpose);
         _pool = pool;
@@ -133,10 +124,7 @@ internal class DefaultAntiforgeryTokenSerializer : IAntiforgeryTokenSerializer
 
     public string Serialize(AntiforgeryToken token)
     {
-        if (token == null)
-        {
-            throw new ArgumentNullException(nameof(token));
-        }
+        ArgumentNullException.ThrowIfNull(token);
 
         var serializationContext = _pool.Get();
 

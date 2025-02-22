@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -28,15 +26,8 @@ public class ActionModel : ICommonModel, IFilterModel, IApiExplorerModel
         MethodInfo actionMethod,
         IReadOnlyList<object> attributes)
     {
-        if (actionMethod == null)
-        {
-            throw new ArgumentNullException(nameof(actionMethod));
-        }
-
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(actionMethod);
+        ArgumentNullException.ThrowIfNull(attributes);
 
         ActionMethod = actionMethod;
 
@@ -55,10 +46,7 @@ public class ActionModel : ICommonModel, IFilterModel, IApiExplorerModel
     /// <param name="other">The <see cref="ActionModel"/> to copy.</param>
     public ActionModel(ActionModel other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         ActionMethod = other.ActionMethod;
         ActionName = other.ActionName;

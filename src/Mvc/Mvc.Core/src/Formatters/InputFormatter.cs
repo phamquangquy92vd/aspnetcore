@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Core;
 
@@ -28,10 +25,7 @@ public abstract class InputFormatter : IInputFormatter, IApiRequestFormatMetadat
     /// <returns>The default value for the <paramref name="modelType"/> type.</returns>
     protected virtual object? GetDefaultValueForType(Type modelType)
     {
-        if (modelType == null)
-        {
-            throw new ArgumentNullException(nameof(modelType));
-        }
+        ArgumentNullException.ThrowIfNull(modelType);
 
         if (modelType.IsValueType)
         {
@@ -97,13 +91,13 @@ public abstract class InputFormatter : IInputFormatter, IApiRequestFormatMetadat
     /// <inheritdoc />
     public virtual Task<InputFormatterResult> ReadAsync(InputFormatterContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
-        var request = context.HttpContext.Request;
-        if (request.ContentLength == 0)
+        var canHaveBody = context.HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody;
+        // In case the feature is not registered
+        canHaveBody ??= context.HttpContext.Request.ContentLength != 0;
+
+        if (canHaveBody is false)
         {
             if (context.TreatEmptyInputAsDefaultValue)
             {

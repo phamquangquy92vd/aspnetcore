@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
@@ -24,16 +20,16 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.TagHelpers;
 using Microsoft.AspNetCore.Mvc.ViewComponents;
-using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc;
 
@@ -167,6 +163,8 @@ public class MvcServiceCollectionExtensionsTest
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        services.AddLogging();
         services.AddSingleton<IWebHostEnvironment>(GetHostingEnvironment());
 
         // Act
@@ -182,6 +180,8 @@ public class MvcServiceCollectionExtensionsTest
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        services.AddLogging();
         services.AddSingleton<IWebHostEnvironment>(GetHostingEnvironment());
 
         // Act
@@ -199,6 +199,8 @@ public class MvcServiceCollectionExtensionsTest
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        services.AddLogging();
         services.AddSingleton<IWebHostEnvironment>(GetHostingEnvironment());
 
         // Act
@@ -214,6 +216,8 @@ public class MvcServiceCollectionExtensionsTest
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection().Build());
+        services.AddLogging();
         services.AddSingleton<IWebHostEnvironment>(GetHostingEnvironment());
 
         // Act
@@ -250,12 +254,13 @@ public class MvcServiceCollectionExtensionsTest
         Assert.Contains(services, s => s.ServiceType == typeof(CacheTagHelperMemoryCacheFactory));
 
         // No Razor Pages
-        Assert.Empty(services.Where(s => s.ServiceType == typeof(IActionInvokerProvider) && s.ImplementationType == typeof(PageActionInvokerProvider)));
+        Assert.DoesNotContain(services, s => s.ServiceType == typeof(IActionInvokerProvider) && s.ImplementationType == typeof(PageActionInvokerProvider));
     }
 
     private void VerifyAllServices(IServiceCollection services)
     {
         var singleRegistrationServiceTypes = SingleRegistrationServiceTypes;
+        var serviceProvider = services.BuildServiceProvider();
         foreach (var service in services)
         {
             if (singleRegistrationServiceTypes.Contains(service.ServiceType))
@@ -263,14 +268,24 @@ public class MvcServiceCollectionExtensionsTest
                 // 'single-registration' services should only have one implementation registered.
                 AssertServiceCountEquals(services, service.ServiceType, 1);
             }
-            else if (service.ImplementationType != null && !service.ImplementationType.Assembly.FullName.Contains("Mvc"))
-            {
-                // Ignore types that don't come from MVC
-            }
             else
             {
-                // 'multi-registration' services should only have one *instance* of each implementation registered.
-                AssertContainsSingle(services, service.ServiceType, service.ImplementationType);
+                var implementationType = service switch
+                {
+                    { ImplementationType: { } type } => type,
+                    { ImplementationInstance: { } instance } => instance.GetType(),
+                    { ImplementationFactory: { } factory } => factory(serviceProvider).GetType(),
+                };
+
+                if (implementationType != null && !implementationType.Assembly.FullName.Contains("Mvc"))
+                {
+                    // Ignore types that don't come from MVC
+                }
+                else
+                {
+                    // 'multi-registration' services should only have one *instance* of each implementation registered.
+                    AssertContainsSingle(services, service.ServiceType, service.ImplementationType);
+                }
             }
         }
     }
@@ -388,6 +403,7 @@ public class MvcServiceCollectionExtensionsTest
         services.AddSingleton<DiagnosticSource>(diagnosticListener);
         services.AddSingleton<DiagnosticListener>(diagnosticListener);
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddMetrics();
         services.AddLogging();
         services.AddOptions();
         services.AddMvc();
@@ -473,6 +489,7 @@ public class MvcServiceCollectionExtensionsTest
                         {
                             typeof(MvcCoreRouteOptionsSetup),
                             typeof(MvcCoreRouteOptionsSetup),
+                            typeof(RegexInlineRouteConstraintSetup),
                         }
                     },
                     {
@@ -561,6 +578,7 @@ public class MvcServiceCollectionExtensionsTest
                             typeof(TempDataApplicationModelProvider),
                             typeof(ViewDataAttributeApplicationModelProvider),
                             typeof(ApiBehaviorApplicationModelProvider),
+                            typeof(AntiforgeryApplicationModelProvider)
                         }
                     },
                     {
@@ -621,15 +639,30 @@ public class MvcServiceCollectionExtensionsTest
 
         if (matches.Length == 0)
         {
-            Assert.True(
-                false,
-                $"Could not find an instance of {implementationType} registered as {serviceType}");
+            Assert.Fail($"Could not find an instance of {implementationType} registered as {serviceType}");
         }
         else if (matches.Length > 1)
         {
-            Assert.True(
-                false,
-                $"Found multiple instances of {implementationType} registered as {serviceType}");
+            var implementations = new List<Type>();
+            var sp = services.BuildServiceProvider();
+            foreach ( var service in matches )
+            {
+                if (service.ImplementationType is not null)
+                {
+                    implementations.Add(service.ImplementationType);
+                }
+                else if (service.ImplementationInstance is not null)
+                {
+                    implementations.Add(service.ImplementationInstance.GetType());
+                }
+                else if (service.ImplementationFactory is not null)
+                {
+                    var instance = service.ImplementationFactory(sp);
+                    implementations.Add(instance.GetType());
+                }
+            }
+
+            Assert.Fail($"Found multiple instances of {implementationType} registered as {serviceType}");
         }
     }
 
@@ -639,6 +672,9 @@ public class MvcServiceCollectionExtensionsTest
         environment
             .Setup(e => e.ApplicationName)
             .Returns(typeof(MvcServiceCollectionExtensionsTest).Assembly.GetName().Name);
+
+        environment.Setup(e => e.WebRootFileProvider)
+            .Returns(new NullFileProvider());
 
         return environment.Object;
     }

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;
 
@@ -30,7 +29,7 @@ public class SharedOptions
         get { return _requestPath; }
         set
         {
-            if (value.HasValue && value.Value!.EndsWith("/", StringComparison.Ordinal))
+            if (value.HasValue && value.Value!.EndsWith('/'))
             {
                 throw new ArgumentException("Request path must not end in a slash");
             }

@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -90,14 +90,14 @@ public class GenerateEmbeddedResourcesManifest : Microsoft.Build.Utilities.Task
         return manifest;
     }
 
-    private string GetManifestPath(ITaskItem taskItem) => string.Equals(taskItem.GetMetadata(LogicalName), taskItem.GetMetadata(ManifestResourceName)) ?
+    private static string GetManifestPath(ITaskItem taskItem) => string.IsNullOrEmpty(taskItem.GetMetadata(LogicalName)) || string.Equals(taskItem.GetMetadata(LogicalName), taskItem.GetMetadata(ManifestResourceName)) ?
         taskItem.GetMetadata(TargetPath) :
         NormalizePath(taskItem.GetMetadata(LogicalName));
 
-    private string GetAssemblyResourceName(ITaskItem taskItem) => string.Equals(taskItem.GetMetadata(LogicalName), taskItem.GetMetadata(ManifestResourceName)) ?
+    private static string GetAssemblyResourceName(ITaskItem taskItem) => string.IsNullOrEmpty(taskItem.GetMetadata(LogicalName)) || string.Equals(taskItem.GetMetadata(LogicalName), taskItem.GetMetadata(ManifestResourceName)) ?
         taskItem.GetMetadata(ManifestResourceName) :
         taskItem.GetMetadata(LogicalName);
 
-    private string NormalizePath(string path) => Path.DirectorySeparatorChar == '\\' ?
+    private static string NormalizePath(string path) => Path.DirectorySeparatorChar == '\\' ?
         path.Replace("/", "\\") : path.Replace("\\", "/");
 }

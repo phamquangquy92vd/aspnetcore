@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -25,7 +23,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor;
 /// by default. For the controllers in an area, views should exist in
 /// <see cref="RazorViewEngineOptions.AreaViewLocationFormats"/>.
 /// </remarks>
-public class RazorViewEngine : IRazorViewEngine
+public partial class RazorViewEngine : IRazorViewEngine
 {
     /// <summary>
     /// The view extension
@@ -78,7 +76,6 @@ public class RazorViewEngine : IRazorViewEngine
         _logger = loggerFactory.CreateLogger<RazorViewEngine>();
         _diagnosticListener = diagnosticListener;
         ViewLookupCache = new MemoryCache(new MemoryCacheOptions());
-
     }
 
     internal void ClearCache()
@@ -109,15 +106,8 @@ public class RazorViewEngine : IRazorViewEngine
     /// <inheritdoc />
     public RazorPageResult FindPage(ActionContext context, string pageName)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (string.IsNullOrEmpty(pageName))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(pageName));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentException.ThrowIfNullOrEmpty(pageName);
 
         if (IsApplicationRelativePath(pageName) || IsRelativePath(pageName))
         {
@@ -140,10 +130,7 @@ public class RazorViewEngine : IRazorViewEngine
     /// <inheritdoc />
     public RazorPageResult GetPage(string executingFilePath, string pagePath)
     {
-        if (string.IsNullOrEmpty(pagePath))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(pagePath));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(pagePath);
 
         if (!(IsApplicationRelativePath(pagePath) || IsRelativePath(pagePath)))
         {
@@ -166,15 +153,9 @@ public class RazorViewEngine : IRazorViewEngine
     /// <inheritdoc />
     public ViewEngineResult FindView(ActionContext context, string viewName, bool isMainPage)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
-        if (string.IsNullOrEmpty(viewName))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(viewName));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(viewName);
 
         if (IsApplicationRelativePath(viewName) || IsRelativePath(viewName))
         {
@@ -189,10 +170,7 @@ public class RazorViewEngine : IRazorViewEngine
     /// <inheritdoc />
     public ViewEngineResult GetView(string? executingFilePath, string viewPath, bool isMainPage)
     {
-        if (string.IsNullOrEmpty(viewPath))
-        {
-            throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(viewPath));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(viewPath);
 
         if (!(IsApplicationRelativePath(viewPath) || IsRelativePath(viewPath)))
         {
@@ -281,14 +259,14 @@ public class RazorViewEngine : IRazorViewEngine
             expanderContext.IsMainPage,
             expanderValues);
 
-        if (!ViewLookupCache.TryGetValue(cacheKey, out ViewLocationCacheResult cacheResult))
+        if (!ViewLookupCache.TryGetValue<ViewLocationCacheResult>(cacheKey, out var cacheResult) || cacheResult is null)
         {
-            _logger.ViewLookupCacheMiss(cacheKey.ViewName, cacheKey.ControllerName);
+            Log.ViewLookupCacheMiss(_logger, cacheKey.ViewName, cacheKey.ControllerName);
             cacheResult = OnCacheMiss(expanderContext, cacheKey);
         }
         else
         {
-            _logger.ViewLookupCacheHit(cacheKey.ViewName, cacheKey.ControllerName);
+            Log.ViewLookupCacheHit(_logger, cacheKey.ViewName, cacheKey.ControllerName);
         }
 
         return cacheResult;
@@ -406,7 +384,8 @@ public class RazorViewEngine : IRazorViewEngine
             cacheEntryOptions.AddExpirationToken(expirationToken);
         }
 
-        return ViewLookupCache.Set(cacheKey, cacheResult, cacheEntryOptions);
+        ViewLookupCache.Set(cacheKey, cacheResult, cacheEntryOptions);
+        return cacheResult;
     }
 
     // Internal for unit testing
@@ -510,5 +489,14 @@ public class RazorViewEngine : IRazorViewEngine
 
         // Though ./ViewName looks like a relative path, framework searches for that view using view locations.
         return name.EndsWith(ViewExtension, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Debug, "View lookup cache miss for view '{ViewName}' in controller '{ControllerName}'.", EventName = "ViewLookupCacheMiss")]
+        public static partial void ViewLookupCacheMiss(ILogger logger, string viewName, string? controllerName);
+
+        [LoggerMessage(2, LogLevel.Debug, "View lookup cache hit for view '{ViewName}' in controller '{ControllerName}'.", EventName = "ViewLookupCacheHit")]
+        public static partial void ViewLookupCacheHit(ILogger logger, string viewName, string? controllerName);
     }
 }

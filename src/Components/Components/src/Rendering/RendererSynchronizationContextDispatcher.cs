@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Components.Rendering;
 
-internal class RendererSynchronizationContextDispatcher : Dispatcher
+internal sealed class RendererSynchronizationContextDispatcher : Dispatcher
 {
     private readonly RendererSynchronizationContext _context;
 
@@ -24,6 +20,7 @@ internal class RendererSynchronizationContextDispatcher : Dispatcher
 
     public override Task InvokeAsync(Action workItem)
     {
+        ArgumentNullException.ThrowIfNull(workItem);
         if (CheckAccess())
         {
             workItem();
@@ -35,6 +32,7 @@ internal class RendererSynchronizationContextDispatcher : Dispatcher
 
     public override Task InvokeAsync(Func<Task> workItem)
     {
+        ArgumentNullException.ThrowIfNull(workItem);
         if (CheckAccess())
         {
             return workItem();
@@ -45,6 +43,7 @@ internal class RendererSynchronizationContextDispatcher : Dispatcher
 
     public override Task<TResult> InvokeAsync<TResult>(Func<TResult> workItem)
     {
+        ArgumentNullException.ThrowIfNull(workItem);
         if (CheckAccess())
         {
             return Task.FromResult(workItem());
@@ -55,6 +54,7 @@ internal class RendererSynchronizationContextDispatcher : Dispatcher
 
     public override Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> workItem)
     {
+        ArgumentNullException.ThrowIfNull(workItem);
         if (CheckAccess())
         {
             return workItem();

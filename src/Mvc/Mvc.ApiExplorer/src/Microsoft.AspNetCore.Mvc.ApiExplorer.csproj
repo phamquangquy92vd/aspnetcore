@@ -7,15 +7,20 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageTags>aspnetcore;aspnetcoremvc</PackageTags>
     <IsPackable>false</IsPackable>
+    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="$(SharedSourceRoot)ParameterBindingMethodCache.cs" />
     <Compile Include="$(SharedSourceRoot)RoslynUtils\TypeHelper.cs" />
+    <Compile Include="$(SharedSourceRoot)PropertyAsParameterInfo.cs" LinkBase="Shared" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="Microsoft.AspNetCore.Mvc.Core" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.AspNetCore.Mvc.ApiExplorer.Test" />
+    <InternalsVisibleTo Include="Microsoft.AspNetCore.OpenApi.Tests" />
+  </ItemGroup>
 </Project>

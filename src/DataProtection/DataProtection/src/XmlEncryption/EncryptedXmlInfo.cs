@@ -2,8 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
-using System.Reflection;
 using System.Xml.Linq;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.DataProtection.XmlEncryption;
 
@@ -21,15 +21,8 @@ public sealed class EncryptedXmlInfo
     /// method can be used to decrypt <paramref name="encryptedElement"/>.</param>
     public EncryptedXmlInfo(XElement encryptedElement, Type decryptorType)
     {
-        if (encryptedElement == null)
-        {
-            throw new ArgumentNullException(nameof(encryptedElement));
-        }
-
-        if (decryptorType == null)
-        {
-            throw new ArgumentNullException(nameof(decryptorType));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(encryptedElement);
+        ArgumentNullThrowHelper.ThrowIfNull(decryptorType);
 
         if (!typeof(IXmlDecryptor).IsAssignableFrom(decryptorType))
         {

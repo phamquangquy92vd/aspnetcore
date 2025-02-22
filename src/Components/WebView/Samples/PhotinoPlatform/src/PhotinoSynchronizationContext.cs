@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using PhotinoNET;
 
 #nullable disable warnings
@@ -38,7 +35,6 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
 
     private readonly PhotinoWindow _window;
     private readonly int _uiThreadId;
-    private readonly MethodInfo _invokeMethodInfo;
 
     public PhotinoSynchronizationContext(PhotinoWindow window)
         : this(window, new State())
@@ -54,9 +50,6 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
         _uiThreadId = (int)_window.GetType()
             .GetField("_managedThreadId", BindingFlags.NonPublic | BindingFlags.Instance)!
             .GetValue(_window)!;
-
-        _invokeMethodInfo = _window.GetType()
-            .GetMethod("Invoke", BindingFlags.NonPublic | BindingFlags.Instance)!;
     }
 
     private readonly State _state;
@@ -174,7 +167,7 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
     public override void Send(SendOrPostCallback d, object state)
     {
         Task antecedent;
-        var completion = new TaskCompletionSource<object>();
+        var completion = new TaskCompletionSource();
 
         lock (_state.Lock)
         {
@@ -203,7 +196,7 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
     // if necessary.
     private void ExecuteSynchronouslyIfPossible(SendOrPostCallback d, object state)
     {
-        TaskCompletionSource<object> completion;
+        TaskCompletionSource completion;
         lock (_state.Lock)
         {
             if (!_state.Task.IsCompleted)
@@ -214,7 +207,7 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
 
             // We can execute this synchronously because nothing is currently running
             // or queued.
-            completion = new TaskCompletionSource<object>();
+            completion = new TaskCompletionSource();
             _state.Task = completion.Task;
         }
 
@@ -248,29 +241,29 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
     }
 
     private void ExecuteSynchronously(
-        TaskCompletionSource<object> completion,
+        TaskCompletionSource completion,
         SendOrPostCallback d,
         object state)
     {
         // Anything run on the sync context should actually be dispatched as far as Photino
         // is concerned, so that it's safe to interact with the native window/WebView.
-        _invokeMethodInfo.Invoke(_window, new Action[] { () =>
+        _window.Invoke(() =>
+        {
+            var original = Current;
+            try
             {
-                var original = Current;
-                try
-                {
-                    _state.IsBusy = true;
-                    SetSynchronizationContext(this);
-                    d(state);
-                }
-                finally
-                {
-                    _state.IsBusy = false;
-                    SetSynchronizationContext(original);
+                _state.IsBusy = true;
+                SetSynchronizationContext(this);
+                d(state);
+            }
+            finally
+            {
+                _state.IsBusy = false;
+                SetSynchronizationContext(original);
 
-                    completion?.SetResult(null);
-                }
-            }});
+                completion?.SetResult();
+            }
+        });
     }
 
     private void ExecuteBackground(WorkItem item)

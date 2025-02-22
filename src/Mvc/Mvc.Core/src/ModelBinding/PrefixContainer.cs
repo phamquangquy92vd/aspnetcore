@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -16,8 +14,6 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 /// </summary>
 public class PrefixContainer
 {
-    private static readonly char[] Delimiters = new char[] { '[', '.' };
-
     private readonly ICollection<string> _originalValues;
     private readonly string[] _sortedValues;
 
@@ -27,10 +23,7 @@ public class PrefixContainer
     /// <param name="values">The values for the container.</param>
     public PrefixContainer(ICollection<string> values)
     {
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
+        ArgumentNullException.ThrowIfNull(values);
 
         _originalValues = values;
 
@@ -53,10 +46,7 @@ public class PrefixContainer
     /// <returns>True if the prefix is present.</returns>
     public bool ContainsPrefix(string prefix)
     {
-        if (prefix == null)
-        {
-            throw new ArgumentNullException(nameof(prefix));
-        }
+        ArgumentNullException.ThrowIfNull(prefix);
 
         if (_sortedValues.Length == 0)
         {
@@ -114,7 +104,7 @@ public class PrefixContainer
     {
         string key;
         string fullName;
-        var delimiterPosition = entry.IndexOfAny(Delimiters, 0);
+        var delimiterPosition = entry.AsSpan().IndexOfAny('[', '.');
 
         if (delimiterPosition == 0 && entry[0] == '[')
         {
@@ -152,8 +142,8 @@ public class PrefixContainer
         {
             case '.':
                 // Handle an entry such as "prefix.key", "prefix.key.property" and "prefix.key[index]".
-                var delimiterPosition = entry.IndexOfAny(Delimiters, keyPosition);
-                if (delimiterPosition == -1)
+                var delimiterPosition = entry.AsSpan(keyPosition).IndexOfAny('[', '.');
+                if (delimiterPosition < 0)
                 {
                     // Neither '.' nor '[' found later in the name. Use rest of the string.
                     key = entry.Substring(keyPosition);
@@ -161,8 +151,8 @@ public class PrefixContainer
                 }
                 else
                 {
-                    key = entry.Substring(keyPosition, delimiterPosition - keyPosition);
-                    fullName = entry.Substring(0, delimiterPosition);
+                    key = entry.Substring(keyPosition, delimiterPosition);
+                    fullName = entry.Substring(0, delimiterPosition + keyPosition);
                 }
                 break;
 

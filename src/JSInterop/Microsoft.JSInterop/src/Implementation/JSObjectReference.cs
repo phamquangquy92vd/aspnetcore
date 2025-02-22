@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Threading;
-using System.Threading.Tasks;
 using static Microsoft.AspNetCore.Internal.LinkerFlags;
 
 namespace Microsoft.JSInterop.Implementation;
@@ -24,7 +21,7 @@ public class JSObjectReference : IJSObjectReference
     protected internal long Id { get; }
 
     /// <summary>
-    /// Inititializes a new <see cref="JSObjectReference"/> instance.
+    /// Initializes a new <see cref="JSObjectReference"/> instance.
     /// </summary>
     /// <param name="jsRuntime">The <see cref="JSRuntime"/> used for invoking JS interop calls.</param>
     /// <param name="id">The unique identifier.</param>
@@ -58,16 +55,13 @@ public class JSObjectReference : IJSObjectReference
         {
             Disposed = true;
 
-            await _jsRuntime.InvokeVoidAsync("DotNet.jsCallDispatcher.disposeJSObjectReferenceById", Id);
+            await _jsRuntime.InvokeVoidAsync("DotNet.disposeJSObjectReferenceById", Id);
         }
     }
 
     /// <inheritdoc />
     protected void ThrowIfDisposed()
     {
-        if (Disposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedException.ThrowIf(Disposed, this);
     }
 }

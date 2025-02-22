@@ -1,14 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.Localization;
 
 namespace Microsoft.AspNetCore.Mvc.DataAnnotations;
 
-internal class RegularExpressionAttributeAdapter : AttributeAdapterBase<RegularExpressionAttribute>
+internal sealed class RegularExpressionAttributeAdapter : AttributeAdapterBase<RegularExpressionAttribute>
 {
     public RegularExpressionAttributeAdapter(RegularExpressionAttribute attribute, IStringLocalizer? stringLocalizer)
         : base(attribute, stringLocalizer)
@@ -17,10 +16,7 @@ internal class RegularExpressionAttributeAdapter : AttributeAdapterBase<RegularE
 
     public override void AddValidation(ClientModelValidationContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         MergeAttribute(context.Attributes, "data-val", "true");
         MergeAttribute(context.Attributes, "data-val-regex", GetErrorMessage(context));
@@ -30,10 +26,7 @@ internal class RegularExpressionAttributeAdapter : AttributeAdapterBase<RegularE
     /// <inheritdoc />
     public override string GetErrorMessage(ModelValidationContextBase validationContext)
     {
-        if (validationContext == null)
-        {
-            throw new ArgumentNullException(nameof(validationContext));
-        }
+        ArgumentNullException.ThrowIfNull(validationContext);
 
         return GetErrorMessage(
             validationContext.ModelMetadata,

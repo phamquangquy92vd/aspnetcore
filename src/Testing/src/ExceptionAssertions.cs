@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 // TODO: eventually want: public partial class Assert : Xunit.Assert
 public static class ExceptionAssert
@@ -53,7 +53,7 @@ public static class ExceptionAssert
         // The 'testCode' Task might execute asynchronously in a different thread making it hard to enforce the thread culture.
         // The correct way to verify exception messages in such a scenario would be to run the task synchronously inside of a
         // culture enforced block.
-        var ex = await Assert.ThrowsAsync<TException>(testCode);
+        var ex = await Assert.ThrowsAsync<TException>(testCode).ConfigureAwait(false);
         VerifyExceptionMessage(ex, exceptionMessage);
         return ex;
     }
@@ -117,7 +117,7 @@ public static class ExceptionAssert
         string exceptionMessage)
         where TException : ArgumentException
     {
-        var ex = await Assert.ThrowsAsync<TException>(testCode);
+        var ex = await Assert.ThrowsAsync<TException>(testCode).ConfigureAwait(false);
         if (paramName != null)
         {
             Assert.Equal(paramName, ex.ParamName);
@@ -238,14 +238,12 @@ public static class ExceptionAssert
 
     private static Exception UnwrapException(Exception exception)
     {
-        var aggEx = exception as AggregateException;
-        return aggEx != null ? aggEx.GetBaseException() : exception;
+        return exception is AggregateException aggEx ? aggEx.GetBaseException() : exception;
     }
 
     private static TException VerifyException<TException>(Exception exception)
     {
-        var tie = exception as TargetInvocationException;
-        if (tie != null)
+        if (exception is TargetInvocationException tie)
         {
             exception = tie.InnerException;
         }

@@ -1,13 +1,11 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace Microsoft.AspNetCore.Mvc.Filters;
 
-internal class PageHandlerResultFilter : IAsyncResultFilter, IOrderedFilter
+internal sealed class PageHandlerResultFilter : IAsyncResultFilter, IOrderedFilter
 {
     /// <remarks>
     /// Filters on handlers run furthest from the action.
@@ -16,15 +14,8 @@ internal class PageHandlerResultFilter : IAsyncResultFilter, IOrderedFilter
 
     public Task OnResultExecutionAsync(ResultExecutingContext context, ResultExecutionDelegate next)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (next == null)
-        {
-            throw new ArgumentNullException(nameof(next));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(next);
 
         var handler = context.Controller;
         if (handler == null)

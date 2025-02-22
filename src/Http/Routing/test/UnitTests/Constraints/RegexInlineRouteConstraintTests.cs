@@ -3,9 +3,8 @@
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Constraints;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing.Tests;
 

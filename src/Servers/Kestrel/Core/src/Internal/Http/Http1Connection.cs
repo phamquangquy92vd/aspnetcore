@@ -1,20 +1,24 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO.Pipelines;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Connections.Features;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 
 internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpOutputAborter
 {
+    internal static ReadOnlySpan<byte> Http2GoAwayHttp11RequiredBytes => [0, 0, 8, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13];
+
+    private const byte ByteCR = (byte)'\r';
+    private const byte ByteLF = (byte)'\n';
     private const byte ByteAsterisk = (byte)'*';
     private const byte ByteForwardSlash = (byte)'/';
     private const string Asterisk = "*";
@@ -23,8 +27,6 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
     private readonly HttpConnectionContext _context;
     private readonly IHttpParser<Http1ParsingHandler> _parser;
     private readonly Http1OutputProducer _http1Output;
-    protected readonly long _keepAliveTicks;
-    private readonly long _requestHeadersTimeoutTicks;
 
     private volatile bool _requestTimedOut;
     private uint _requestCount;
@@ -41,14 +43,15 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
 
     private long _remainingRequestHeadersBytesAllowed;
 
+    // Tracks whether a HTTP/2 preface was detected during the first request.
+    private bool _http2PrefaceDetected;
+
     public Http1Connection(HttpConnectionContext context)
     {
         Initialize(context);
 
         _context = context;
         _parser = ServiceContext.HttpParser;
-        _keepAliveTicks = ServerOptions.Limits.KeepAliveTimeout.Ticks;
-        _requestHeadersTimeoutTicks = ServerOptions.Limits.RequestHeadersTimeout.Ticks;
 
         _http1Output = new Http1OutputProducer(
             _context.Transport.Output,
@@ -58,12 +61,15 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
             _context.ServiceContext.Log,
             _context.TimeoutControl,
             minResponseDataRateFeature: this,
+            MetricsContext,
             outputAborter: this);
 
         Input = _context.Transport.Input;
         Output = _http1Output;
         MemoryPool = _context.MemoryPool;
     }
+
+    public ConnectionMetricsContext MetricsContext => _context.MetricsContext;
 
     public PipeReader Input { get; }
 
@@ -78,6 +84,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         if (IsUpgraded)
         {
             KestrelEventSource.Log.RequestUpgradedStop(this);
+            ServiceContext.Metrics.RequestUpgradedStop(MetricsContext);
 
             ServiceContext.ConnectionManager.UpgradedConnectionCount.ReleaseOne();
         }
@@ -90,18 +97,25 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         _http1Output.Dispose();
     }
 
-    public void OnInputOrOutputCompleted()
+    void IRequestProcessor.OnInputOrOutputCompleted()
     {
-        _http1Output.Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedByClient));
+        // Closed gracefully.
+        _http1Output.Abort(ServerOptions.FinOnError ? new ConnectionAbortedException(CoreStrings.ConnectionAbortedByClient) : null!, ConnectionEndReason.TransportCompleted);
+        CancelRequestAbortedToken();
+    }
+
+    void IHttpOutputAborter.OnInputOrOutputCompleted()
+    {
+        _http1Output.Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedByClient), ConnectionEndReason.TransportCompleted);
         CancelRequestAbortedToken();
     }
 
     /// <summary>
     /// Immediately kill the connection and poison the request body stream with an error.
     /// </summary>
-    public void Abort(ConnectionAbortedException abortReason)
+    public void Abort(ConnectionAbortedException abortReason, ConnectionEndReason reason)
     {
-        _http1Output.Abort(abortReason);
+        _http1Output.Abort(abortReason, reason);
         CancelRequestAbortedToken();
         PoisonBody(abortReason);
     }
@@ -109,7 +123,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
     protected override void ApplicationAbort()
     {
         Log.ApplicationAbortedConnection(ConnectionId, TraceIdentifier);
-        Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedByApplication));
+        Abort(new ConnectionAbortedException(CoreStrings.ConnectionAbortedByApplication), ConnectionEndReason.AbortedByApp);
     }
 
     /// <summary>
@@ -117,10 +131,16 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
     /// Called on all active connections when the server wants to initiate a shutdown
     /// and after a keep-alive timeout.
     /// </summary>
-    public void StopProcessingNextRequest()
+    public void StopProcessingNextRequest(ConnectionEndReason reason)
     {
-        _keepAlive = false;
+        DisableKeepAlive(reason);
         Input.CancelPendingRead();
+    }
+
+    internal override void DisableKeepAlive(ConnectionEndReason reason)
+    {
+        KestrelMetrics.AddConnectionEndReason(MetricsContext, reason);
+        _keepAlive = false;
     }
 
     public void SendTimeoutResponse()
@@ -130,12 +150,16 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
     }
 
     public void HandleRequestHeadersTimeout()
-        => SendTimeoutResponse();
+    {
+        KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.RequestHeadersTimeout);
+        SendTimeoutResponse();
+    }
 
     public void HandleReadDataRateTimeout()
     {
         Debug.Assert(MinRequestBodyDataRate != null);
 
+        KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.MinRequestBodyDataRate);
         Log.RequestBodyMinimumDataRateNotSatisfied(ConnectionId, TraceIdentifier, MinRequestBodyDataRate.BytesPerSecond);
         SendTimeoutResponse();
     }
@@ -145,12 +169,19 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         switch (_requestProcessingStatus)
         {
             case RequestProcessingStatus.RequestPending:
+                // Skip any empty lines (\r or \n) between requests.
+                // Peek first as a minor performance optimization; it's a quick inlined check.
+                if (reader.TryPeek(out byte b) && (b == ByteCR || b == ByteLF))
+                {
+                    reader.AdvancePastAny(ByteCR, ByteLF);
+                }
+
                 if (reader.End)
                 {
                     break;
                 }
 
-                TimeoutControl.ResetTimeout(_requestHeadersTimeoutTicks, TimeoutReason.RequestHeaders);
+                TimeoutControl.ResetTimeout(ServerOptions.Limits.RequestHeadersTimeout, TimeoutReason.RequestHeaders);
 
                 _requestProcessingStatus = RequestProcessingStatus.ParsingRequestLine;
                 goto case RequestProcessingStatus.ParsingRequestLine;
@@ -258,6 +289,9 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
 
     public void OnStartLine(HttpVersionAndMethod versionAndMethod, TargetOffsetPathLength targetPath, Span<byte> startLine)
     {
+        // Null characters are not allowed and should have been checked by HttpParser before calling this method
+        Debug.Assert(startLine.IndexOf((byte)0) == -1);
+
         var targetStart = targetPath.Offset;
         // Slice out target
         var target = startLine[targetStart..];
@@ -290,7 +324,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         Method = method;
         if (method == HttpMethod.Custom)
         {
-            _methodText = startLine[..versionAndMethod.MethodEnd].GetAsciiStringNonNullCharacters();
+            _methodText = startLine[..versionAndMethod.MethodEnd].GetAsciiString();
         }
 
         _httpVersion = versionAndMethod.Version;
@@ -354,7 +388,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         {
             // The previous string does not match what the bytes would convert to,
             // so we will need to generate a new string.
-            RawTarget = _parsedRawTarget = target.GetAsciiStringNonNullCharacters();
+            RawTarget = _parsedRawTarget = target.GetAsciiString();
 
             var queryLength = 0;
             if (target.Length == targetPath.Length)
@@ -384,7 +418,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
             else
             {
                 var path = target[..pathLength];
-                Path = _parsedPath = PathNormalizer.DecodePath(path, targetPath.IsEncoded, RawTarget, queryLength);
+                Path = _parsedPath = PathDecoder.DecodePath(path, targetPath.IsEncoded, RawTarget, queryLength);
             }
         }
         catch (InvalidOperationException)
@@ -404,7 +438,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         {
             // The previous string does not match what the bytes would convert to,
             // so we will need to generate a new string.
-            QueryString = _parsedQueryString = query.GetAsciiStringNonNullCharacters();
+            QueryString = _parsedQueryString = query.GetAsciiString();
         }
         else
         {
@@ -427,7 +461,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         }
 
         // The authority-form of request-target is only used for CONNECT
-        // requests (https://tools.ietf.org/html/rfc7231#section-4.3.6).
+        // requests (https://tools.ietf.org/html/rfc9110#section-9.3.6).
         if (method != HttpMethod.Connect)
         {
             KestrelBadHttpRequestException.Throw(RequestRejectionReason.ConnectMethodRequired);
@@ -450,7 +484,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         {
             // The previous string does not match what the bytes would convert to,
             // so we will need to generate a new string.
-            RawTarget = _parsedRawTarget = target.GetAsciiStringNonNullCharacters();
+            RawTarget = _parsedRawTarget = target.GetAsciiString();
         }
         else
         {
@@ -471,7 +505,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         _requestTargetForm = HttpRequestTarget.AsteriskForm;
 
         // The asterisk-form of request-target is only used for a server-wide
-        // OPTIONS request (https://tools.ietf.org/html/rfc7231#section-4.3.7).
+        // OPTIONS request (https://tools.ietf.org/html/rfc9110#section-9.3.7).
         if (method != HttpMethod.Options)
         {
             KestrelBadHttpRequestException.Throw(RequestRejectionReason.OptionsMethodRequired);
@@ -506,9 +540,20 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
             previousValue == null || previousValue.Length != target.Length ||
             !StringUtilities.BytesOrdinalEqualsStringAndAscii(previousValue, target))
         {
-            // The previous string does not match what the bytes would convert to,
-            // so we will need to generate a new string.
-            RawTarget = _parsedRawTarget = target.GetAsciiStringNonNullCharacters();
+            try
+            {
+                // The previous string does not match what the bytes would convert to,
+                // so we will need to generate a new string.
+                RawTarget = _parsedRawTarget = target.GetAsciiString();
+            }
+            catch (InvalidOperationException)
+            {
+                // GetAsciiStringNonNullCharacters throws an InvalidOperationException if there are
+                // invalid characters in the string. This is hard to understand/diagnose, so let's
+                // catch it and instead throw a more meaningful error. This matches the behavior in
+                // the origin-form case.
+                ThrowRequestTargetRejected(target);
+            }
 
             // Validation of absolute URIs is slow, but clients
             // should not be sending this form anyways, so perf optimization
@@ -529,7 +574,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
             {
                 // The previous string does not match what the bytes would convert to,
                 // so we will need to generate a new string.
-                QueryString = _parsedQueryString = query.GetAsciiStringNonNullCharacters();
+                QueryString = _parsedQueryString = query.GetAsciiString();
             }
             else
             {
@@ -576,6 +621,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         }
         else if (!HttpUtilities.IsHostHeaderValid(hostText))
         {
+            KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.InvalidRequestHeaders);
             KestrelBadHttpRequestException.Throw(RequestRejectionReason.InvalidHostHeader, hostText);
         }
     }
@@ -586,6 +632,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         {
             if (hostText != RawTarget)
             {
+                KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.InvalidRequestHeaders);
                 KestrelBadHttpRequestException.Throw(RequestRejectionReason.InvalidHostHeader, hostText);
             }
         }
@@ -596,20 +643,38 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
             // authority component, excluding any userinfo subcomponent and its "@"
             // delimiter.
 
+            // Accessing authority always allocates, store it in a local to only allocate once
+            var authority = _absoluteRequestTarget!.Authority;
+
             // System.Uri doesn't not tell us if the port was in the original string or not.
             // When IsDefaultPort = true, we will allow Host: with or without the default port
-            if (hostText != _absoluteRequestTarget!.Authority)
+            if (hostText != authority)
             {
                 if (!_absoluteRequestTarget.IsDefaultPort
-                    || hostText != _absoluteRequestTarget.Authority + ":" + _absoluteRequestTarget.Port.ToString(CultureInfo.InvariantCulture))
+                    || hostText != $"{authority}:{_absoluteRequestTarget.Port}")
                 {
-                    KestrelBadHttpRequestException.Throw(RequestRejectionReason.InvalidHostHeader, hostText);
+                    if (_context.ServiceContext.ServerOptions.AllowHostHeaderOverride)
+                    {
+                        // No need to include the port here, it's either already in the Authority
+                        // or it's the default port
+                        // see: https://datatracker.ietf.org/doc/html/rfc2616/#section-14.23
+                        // A "host" without any trailing port information implies the default
+                        // port for the service requested (e.g., "80" for an HTTP URL).
+                        hostText = authority;
+                        HttpRequestHeaders.HeaderHost = hostText;
+                    }
+                    else
+                    {
+                        KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.InvalidRequestHeaders);
+                        KestrelBadHttpRequestException.Throw(RequestRejectionReason.InvalidHostHeader, hostText);
+                    }
                 }
             }
         }
 
         if (!HttpUtilities.IsHostHeaderValid(hostText))
         {
+            KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.InvalidRequestHeaders);
             KestrelBadHttpRequestException.Throw(RequestRejectionReason.InvalidHostHeader, hostText);
         }
     }
@@ -619,8 +684,7 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         _requestTimedOut = false;
         _requestTargetForm = HttpRequestTarget.Unknown;
         _absoluteRequestTarget = null;
-        _remainingRequestHeadersBytesAllowed = ServerOptions.Limits.MaxRequestHeadersTotalSize + 2;
-        _requestCount++;
+        _remainingRequestHeadersBytesAllowed = (long)ServerOptions.Limits.MaxRequestHeadersTotalSize + 2;
 
         MinResponseDataRate = ServerOptions.Limits.MinResponseDataRate;
 
@@ -644,7 +708,8 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
     {
         // Reset the features and timeout.
         Reset();
-        TimeoutControl.SetTimeout(_keepAliveTicks, TimeoutReason.KeepAlive);
+        _requestCount++;
+        TimeoutControl.SetTimeout(ServerOptions.Limits.KeepAliveTimeout, TimeoutReason.KeepAlive);
     }
 
     protected override bool BeginRead(out ValueTask<ReadResult> awaitable)
@@ -661,12 +726,21 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         {
             isConsumed = ParseRequest(ref reader);
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException) when (_requestProcessingStatus == RequestProcessingStatus.ParsingHeaders)
         {
-            if (_requestProcessingStatus == RequestProcessingStatus.ParsingHeaders)
-            {
-                KestrelBadHttpRequestException.Throw(RequestRejectionReason.MalformedRequestInvalidHeaders);
-            }
+            KestrelBadHttpRequestException.Throw(RequestRejectionReason.MalformedRequestInvalidHeaders);
+            throw;
+        }
+#pragma warning disable CS0618 // Type or member is obsolete
+        catch (BadHttpRequestException ex)
+        {
+            OnBadRequest(result.Buffer, ex);
+            throw;
+        }
+#pragma warning restore CS0618 // Type or member is obsolete
+        catch (Exception)
+        {
+            KestrelMetrics.AddConnectionEndReason(MetricsContext, ConnectionEndReason.OtherError);
             throw;
         }
         finally
@@ -715,5 +789,100 @@ internal partial class Http1Connection : HttpProtocol, IRequestProcessor, IHttpO
         }
     }
 
-    void IRequestProcessor.Tick(DateTimeOffset now) { }
+    internal static ConnectionEndReason GetConnectionEndReason(Microsoft.AspNetCore.Http.BadHttpRequestException ex)
+    {
+#pragma warning disable CS0618 // Type or member is obsolete
+        var kestrelEx = ex as BadHttpRequestException;
+#pragma warning restore CS0618 // Type or member is obsolete
+
+        switch (kestrelEx?.Reason)
+        {
+            case RequestRejectionReason.UnrecognizedHTTPVersion:
+                return ConnectionEndReason.InvalidHttpVersion;
+            case RequestRejectionReason.InvalidRequestLine:
+            case RequestRejectionReason.RequestLineTooLong:
+            case RequestRejectionReason.InvalidRequestTarget:
+                return ConnectionEndReason.InvalidRequestLine;
+            case RequestRejectionReason.InvalidRequestHeadersNoCRLF:
+            case RequestRejectionReason.InvalidRequestHeader:
+            case RequestRejectionReason.InvalidContentLength:
+            case RequestRejectionReason.MultipleContentLengths:
+            case RequestRejectionReason.MalformedRequestInvalidHeaders:
+            case RequestRejectionReason.InvalidCharactersInHeaderName:
+            case RequestRejectionReason.LengthRequiredHttp10:
+            case RequestRejectionReason.OptionsMethodRequired:
+            case RequestRejectionReason.ConnectMethodRequired:
+            case RequestRejectionReason.MissingHostHeader:
+            case RequestRejectionReason.MultipleHostHeaders:
+            case RequestRejectionReason.InvalidHostHeader:
+                return ConnectionEndReason.InvalidRequestHeaders;
+            case RequestRejectionReason.HeadersExceedMaxTotalSize:
+                return ConnectionEndReason.MaxRequestHeadersTotalSizeExceeded;
+            case RequestRejectionReason.TooManyHeaders:
+                return ConnectionEndReason.MaxRequestHeaderCountExceeded;
+            case RequestRejectionReason.TlsOverHttpError:
+                return ConnectionEndReason.TlsNotSupported;
+            case RequestRejectionReason.UnexpectedEndOfRequestContent:
+                return ConnectionEndReason.UnexpectedEndOfRequestContent;
+            default:
+                // In some scenarios the end reason might already be set to a more specific error
+                // and attempting to set the reason again has no impact.
+                return ConnectionEndReason.OtherError;
+        }
+    }
+
+#pragma warning disable CS0618 // Type or member is obsolete
+    private void OnBadRequest(ReadOnlySequence<byte> requestData, BadHttpRequestException ex)
+#pragma warning restore CS0618 // Type or member is obsolete
+    {
+        // Some code shared between HTTP versions throws errors. For example, HttpRequestHeaders collection
+        // throws when an invalid content length is set.
+        // Only want to set a reasons for HTTP/1.1 connection, so set end reason by catching the exception here.
+        var reason = GetConnectionEndReason(ex);
+        KestrelMetrics.AddConnectionEndReason(MetricsContext, reason);
+
+        if (ex.Reason == RequestRejectionReason.UnrecognizedHTTPVersion)
+        {
+            DetectHttp2Preface(requestData);
+        }
+    }
+
+    private void DetectHttp2Preface(ReadOnlySequence<byte> requestData)
+    {
+        const int PrefaceLineLength = 16;
+
+        // Only check for HTTP/2 preface on non-TLS connection.
+        // When TLS is used then ALPN is used to negotiate correct version.
+        if (ConnectionFeatures.Get<ITlsHandshakeFeature>() == null)
+        {
+            // If there is an unrecognized HTTP version, it is the first request on the connection, and the request line
+            // bytes matches the HTTP/2 preface request line bytes then log and return a HTTP/2 GOAWAY frame.
+            if (_requestCount == 1
+                && requestData.Length >= PrefaceLineLength)
+            {
+                var clientPrefaceRequestLine = Http2.Http2Connection.ClientPreface.Slice(0, PrefaceLineLength);
+                var currentRequestLine = requestData.Slice(0, PrefaceLineLength).ToSpan();
+                if (currentRequestLine.SequenceEqual(clientPrefaceRequestLine))
+                {
+                    Log.PossibleInvalidHttpVersionDetected(ConnectionId, Http.HttpVersion.Http11, Http.HttpVersion.Http2);
+
+                    // Can't write GOAWAY here. Set flag so TryProduceInvalidRequestResponse writes GOAWAY.
+                    _http2PrefaceDetected = true;
+                }
+            }
+        }
+    }
+
+    protected override Task TryProduceInvalidRequestResponse()
+    {
+        if (_http2PrefaceDetected)
+        {
+            _context.Transport.Output.Write(Http2GoAwayHttp11RequiredBytes);
+            return _context.Transport.Output.FlushAsync().GetAsTask();
+        }
+
+        return base.TryProduceInvalidRequestResponse();
+    }
+
+    void IRequestProcessor.Tick(long timestamp) { }
 }

@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 /// <summary>
 /// https://en.wikipedia.org/wiki/Windows_10_version_history
@@ -50,6 +50,11 @@ public static class WindowsVersions
     /// 20H2, 19042
     /// </summary>
     public const string Win10_20H2 = "10.0.19042";
+
+    /// <summary>
+    /// 21H2, 22000
+    /// </summary>
+    public const string Win11_21H2 = "10.0.22000";
 
     /// <summary>
     /// 2022, 20348

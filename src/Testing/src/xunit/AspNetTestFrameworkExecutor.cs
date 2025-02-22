@@ -6,7 +6,7 @@ using System.Reflection;
 using Xunit.Abstractions;
 using Xunit.Sdk;
 
-namespace Microsoft.AspNetCore.Testing;
+namespace Microsoft.AspNetCore.InternalTesting;
 
 public class AspNetTestFrameworkExecutor : XunitTestFrameworkExecutor
 {
@@ -19,7 +19,7 @@ public class AspNetTestFrameworkExecutor : XunitTestFrameworkExecutor
     {
         using (var assemblyRunner = new AspNetTestAssemblyRunner(TestAssembly, testCases, DiagnosticMessageSink, executionMessageSink, executionOptions))
         {
-            await assemblyRunner.RunAsync();
+            await assemblyRunner.RunAsync().ConfigureAwait(false);
         }
     }
 }

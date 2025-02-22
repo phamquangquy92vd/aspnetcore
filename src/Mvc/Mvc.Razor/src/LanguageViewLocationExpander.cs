@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 
 namespace Microsoft.AspNetCore.Mvc.Razor;
@@ -44,10 +42,7 @@ public class LanguageViewLocationExpander : IViewLocationExpander
     /// <inheritdoc />
     public void PopulateValues(ViewLocationExpanderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         // Using CurrentUICulture so it loads the locale specific resources for the views.
         context.Values[ValueKey] = CultureInfo.CurrentUICulture.Name;
@@ -58,15 +53,8 @@ public class LanguageViewLocationExpander : IViewLocationExpander
         ViewLocationExpanderContext context,
         IEnumerable<string> viewLocations)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (viewLocations == null)
-        {
-            throw new ArgumentNullException(nameof(viewLocations));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(viewLocations);
 
         context.Values.TryGetValue(ValueKey, out var value);
 

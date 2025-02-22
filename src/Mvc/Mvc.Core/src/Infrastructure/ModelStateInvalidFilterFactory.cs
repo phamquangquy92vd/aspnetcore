@@ -3,7 +3,6 @@
 
 #nullable enable
 
-using System;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -11,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 
-internal class ModelStateInvalidFilterFactory : IFilterFactory, IOrderedFilter
+internal sealed class ModelStateInvalidFilterFactory : IFilterFactory, IOrderedFilter
 {
     public int Order => ModelStateInvalidFilter.FilterOrder;
 
@@ -22,6 +21,6 @@ internal class ModelStateInvalidFilterFactory : IFilterFactory, IOrderedFilter
         var options = serviceProvider.GetRequiredService<IOptions<ApiBehaviorOptions>>();
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
 
-        return new ModelStateInvalidFilter(options.Value, loggerFactory.CreateLogger<ModelStateInvalidFilter>());
+        return new ModelStateInvalidFilter(options.Value, loggerFactory.CreateLogger(typeof(ModelStateInvalidFilter)));
     }
 }

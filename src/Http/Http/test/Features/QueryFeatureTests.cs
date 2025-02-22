@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Linq;
-using Xunit;
-
 namespace Microsoft.AspNetCore.Http.Features;
 
 public class QueryFeatureTests
@@ -87,7 +84,7 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Single(queryCollection);
-        Assert.Equal(new[] { "value1", "" }, queryCollection[""]);
+        Assert.Equal(new[] { "value1", "" }, queryCollection[""].ToArray());
     }
 
     [Fact]
@@ -101,7 +98,7 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Equal(2, queryCollection.Count);
-        Assert.Equal(new[] { "valueA", "valueC" }, queryCollection["key1"]);
+        Assert.Equal(new[] { "valueA", "valueC" }, queryCollection["key1"].ToArray());
         Assert.Equal("valueB", queryCollection["key2"].FirstOrDefault());
     }
 
@@ -116,7 +113,7 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Equal(2, queryCollection.Count);
-        Assert.Equal(new[] { "valueA", "valueC", "valueD" }, queryCollection["key1"]);
+        Assert.Equal(new[] { "valueA", "valueC", "valueD" }, queryCollection["key1"].ToArray());
         Assert.Equal("valueB", queryCollection["key2"].FirstOrDefault());
     }
 
@@ -218,7 +215,7 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Single(queryCollection);
-        Assert.Equal(new[] { "[ 1 ]", "[ 2 ]" }, queryCollection["fields [todoItems]"]);
+        Assert.Equal(new[] { "[ 1 ]", "[ 2 ]" }, queryCollection["fields [todoItems]"].ToArray());
     }
 
     [Fact]
@@ -237,7 +234,7 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Equal(12, queryCollection.Count);
-        Assert.Equal(new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, queryCollection["KEY"]);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }, queryCollection["KEY"].ToArray());
     }
 
     [Fact]
@@ -252,6 +249,6 @@ public class QueryFeatureTests
         var queryCollection = provider.Query;
 
         Assert.Equal(1, queryCollection.Count);
-        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, queryCollection["KEY"]);
+        Assert.Equal(new[] { "1", "2", "3", "4", "5" }, queryCollection["KEY"].ToArray());
     }
 }

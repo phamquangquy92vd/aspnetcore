@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Reflection;
 
 namespace Microsoft.AspNetCore.Mvc.ViewComponents;
@@ -23,10 +22,7 @@ public static class ViewComponentConventions
     /// <returns></returns>
     public static string GetComponentName(TypeInfo componentType)
     {
-        if (componentType == null)
-        {
-            throw new ArgumentNullException(nameof(componentType));
-        }
+        ArgumentNullException.ThrowIfNull(componentType);
 
         var attribute = componentType.GetCustomAttribute<ViewComponentAttribute>();
         if (attribute != null && !string.IsNullOrEmpty(attribute.Name))
@@ -53,10 +49,7 @@ public static class ViewComponentConventions
     /// <returns>The full name of the component.</returns>
     public static string GetComponentFullName(TypeInfo componentType)
     {
-        if (componentType == null)
-        {
-            throw new ArgumentNullException(nameof(componentType));
-        }
+        ArgumentNullException.ThrowIfNull(componentType);
 
         var attribute = componentType.GetCustomAttribute<ViewComponentAttribute>();
         if (!string.IsNullOrEmpty(attribute?.Name))
@@ -98,10 +91,7 @@ public static class ViewComponentConventions
     /// <returns>If the type is a component.</returns>
     public static bool IsComponent(TypeInfo typeInfo)
     {
-        if (typeInfo == null)
-        {
-            throw new ArgumentNullException(nameof(typeInfo));
-        }
+        ArgumentNullException.ThrowIfNull(typeInfo);
 
         if (!typeInfo.IsClass ||
             !typeInfo.IsPublic ||

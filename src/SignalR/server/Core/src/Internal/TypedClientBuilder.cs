@@ -1,22 +1,20 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.SignalR.Internal;
 
-internal static class TypedClientBuilder<T>
+[RequiresDynamicCode("Creating a proxy instance requires generating code at runtime")]
+internal static class TypedClientBuilder<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] T>
 {
     private const string ClientModuleName = "Microsoft.AspNetCore.SignalR.TypedClientBuilder";
 
     // There is one static instance of _builder per T
-    private static readonly Lazy<Func<IClientProxy, T>> _builder = new Lazy<Func<IClientProxy, T>>(() => GenerateClientBuilder());
+    private static readonly Lazy<Func<IClientProxy, T>> _builder = new Lazy<Func<IClientProxy, T>>(GenerateClientBuilder);
 
     private static readonly PropertyInfo CancellationTokenNoneProperty = typeof(CancellationToken).GetProperty("None", BindingFlags.Public | BindingFlags.Static)!;
 
@@ -48,6 +46,7 @@ internal static class TypedClientBuilder<T>
         return (Func<IClientProxy, T>)factoryMethod!.CreateDelegate(typeof(Func<IClientProxy, T>));
     }
 
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)]
     private static Type GenerateInterfaceImplementation(ModuleBuilder moduleBuilder)
     {
         var name = ClientModuleName + "." + typeof(T).Name + "Impl";
@@ -68,14 +67,19 @@ internal static class TypedClientBuilder<T>
             BuildMethod(type, method, proxyField);
         }
 
-        return type.CreateTypeInfo()!;
+        return type.CreateType();
     }
 
-    private static IEnumerable<MethodInfo> GetAllInterfaceMethods(Type interfaceType)
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2062:UnrecognizedReflectionPattern",
+        Justification = "interfaceType is annotated as preserve All members, so any Types returned from GetInterfaces will be preserved as well. https://github.com/mono/linker/issues/1731 tracks not emitting warnings here.")]
+    private static IEnumerable<MethodInfo> GetAllInterfaceMethods([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type interfaceType)
     {
         foreach (var parent in interfaceType.GetInterfaces())
         {
+            // interfaceType is annotated as preserve All members, so any Types returned from GetInterfaces will be preserved as well. https://github.com/mono/linker/issues/1731 tracks not emitting warnings here.
+#pragma warning disable IL2072
             foreach (var parentMethod in GetAllInterfaceMethods(parent))
+#pragma warning restore IL2072
             {
                 yield return parentMethod;
             }
@@ -117,12 +121,25 @@ internal static class TypedClientBuilder<T>
 
         var parameters = interfaceMethodInfo.GetParameters();
         var paramTypes = parameters.Select(param => param.ParameterType).ToArray();
+        var returnType = interfaceMethodInfo.ReturnType;
+        bool isInvoke = returnType != typeof(Task);
 
         var methodBuilder = type.DefineMethod(interfaceMethodInfo.Name, methodAttributes);
 
-        var invokeMethod = typeof(IClientProxy).GetMethod(
-            nameof(IClientProxy.SendCoreAsync), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
-            new[] { typeof(string), typeof(object[]), typeof(CancellationToken) }, null)!;
+        MethodInfo invokeMethod;
+        if (isInvoke)
+        {
+            invokeMethod = typeof(ISingleClientProxy).GetMethod(
+                nameof(ISingleClientProxy.InvokeCoreAsync), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                new[] { typeof(string), typeof(object[]), typeof(CancellationToken) }, null)!
+                .MakeGenericMethod(returnType.GenericTypeArguments);
+        }
+        else
+        {
+            invokeMethod = typeof(IClientProxy).GetMethod(
+                nameof(IClientProxy.SendCoreAsync), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null,
+                new[] { typeof(string), typeof(object[]), typeof(CancellationToken) }, null)!;
+        }
 
         methodBuilder.SetReturnType(interfaceMethodInfo.ReturnType);
         methodBuilder.SetParameters(paramTypes);
@@ -156,6 +173,30 @@ internal static class TypedClientBuilder<T>
         // Get IClientProxy
         generator.Emit(OpCodes.Ldarg_0);
         generator.Emit(OpCodes.Ldfld, proxyField);
+
+        var isTypeLabel = generator.DefineLabel();
+        if (isInvoke)
+        {
+            var singleClientProxyType = typeof(ISingleClientProxy);
+            /*
+            if (_proxy is ISingleClientProxy singleClientProxy)
+            {
+                return ((ISingleClientProxy)_proxy).InvokeAsync<T>(methodName, args, cancellationToken);
+            }
+            throw new InvalidOperationException("InvokeAsync only works with Single clients.");
+             */
+            generator.Emit(OpCodes.Isinst, singleClientProxyType);
+            generator.Emit(OpCodes.Brtrue_S, isTypeLabel);
+
+            generator.Emit(OpCodes.Ldstr, "InvokeAsync only works with Single clients.");
+            generator.Emit(OpCodes.Newobj, typeof(InvalidOperationException).GetConstructor(new Type[] { typeof(string) })!);
+            generator.Emit(OpCodes.Throw);
+
+            generator.MarkLabel(isTypeLabel);
+            generator.Emit(OpCodes.Ldarg_0);
+            generator.Emit(OpCodes.Ldfld, proxyField);
+            generator.Emit(OpCodes.Castclass, singleClientProxyType);
+        }
 
         // The first argument to IClientProxy.SendCoreAsync is this method's name
         generator.Emit(OpCodes.Ldstr, methodName);
@@ -206,7 +247,9 @@ internal static class TypedClientBuilder<T>
         generator.Emit(OpCodes.Ret); // Return the typed client
     }
 
-    private static void VerifyInterface(Type interfaceType)
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2062:UnrecognizedReflectionPattern",
+        Justification = "interfaceType is annotated as preserve All members, so any Types returned from GetInterfaces will be preserved as well. https://github.com/mono/linker/issues/1731 tracks not emitting warnings here.")]
+    private static void VerifyInterface([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] Type interfaceType)
     {
         if (!interfaceType.IsInterface)
         {
@@ -230,16 +273,19 @@ internal static class TypedClientBuilder<T>
 
         foreach (var parent in interfaceType.GetInterfaces())
         {
+            // interfaceType is annotated as preserve All members, so any Types returned from GetInterfaces will be preserved as well. https://github.com/mono/linker/issues/1731 tracks not emitting warnings here.
+#pragma warning disable IL2072
             VerifyInterface(parent);
+#pragma warning restore IL2072
         }
     }
 
     private static void VerifyMethod(MethodInfo interfaceMethod)
     {
-        if (interfaceMethod.ReturnType != typeof(Task))
+        if (!typeof(Task).IsAssignableFrom(interfaceMethod.ReturnType))
         {
             throw new InvalidOperationException(
-                $"Cannot generate proxy implementation for '{typeof(T).FullName}.{interfaceMethod.Name}'. All client proxy methods must return '{typeof(Task).FullName}'.");
+                $"Cannot generate proxy implementation for '{typeof(T).FullName}.{interfaceMethod.Name}'. All client proxy methods must return '{typeof(Task).FullName}' or '{typeof(Task).FullName}<T>'.");
         }
 
         foreach (var parameter in interfaceMethod.GetParameters())

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -23,20 +22,9 @@ public static class JsonPatchExtensions
         T objectToApplyTo,
         ModelStateDictionary modelState) where T : class
     {
-        if (patchDoc == null)
-        {
-            throw new ArgumentNullException(nameof(patchDoc));
-        }
-
-        if (objectToApplyTo == null)
-        {
-            throw new ArgumentNullException(nameof(objectToApplyTo));
-        }
-
-        if (modelState == null)
-        {
-            throw new ArgumentNullException(nameof(modelState));
-        }
+        ArgumentNullException.ThrowIfNull(patchDoc);
+        ArgumentNullException.ThrowIfNull(objectToApplyTo);
+        ArgumentNullException.ThrowIfNull(modelState);
 
         patchDoc.ApplyTo(objectToApplyTo, modelState, prefix: string.Empty);
     }
@@ -54,20 +42,9 @@ public static class JsonPatchExtensions
         ModelStateDictionary modelState,
         string prefix) where T : class
     {
-        if (patchDoc == null)
-        {
-            throw new ArgumentNullException(nameof(patchDoc));
-        }
-
-        if (objectToApplyTo == null)
-        {
-            throw new ArgumentNullException(nameof(objectToApplyTo));
-        }
-
-        if (modelState == null)
-        {
-            throw new ArgumentNullException(nameof(modelState));
-        }
+        ArgumentNullException.ThrowIfNull(patchDoc);
+        ArgumentNullException.ThrowIfNull(objectToApplyTo);
+        ArgumentNullException.ThrowIfNull(modelState);
 
         patchDoc.ApplyTo(objectToApplyTo, jsonPatchError =>
         {

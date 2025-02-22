@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,10 +33,7 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         UseHealthChecksCore(app, path, port: null, Array.Empty<object>());
         return app;
@@ -60,15 +56,8 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path, HealthCheckOptions options)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(options);
 
         UseHealthChecksCore(app, path, port: null, new[] { Options.Create(options), });
         return app;
@@ -95,10 +84,7 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path, int port)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         UseHealthChecksCore(app, path, port, Array.Empty<object>());
         return app;
@@ -125,15 +111,8 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path, string port)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-
-        if (port == null)
-        {
-            throw new ArgumentNullException(nameof(port));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(port);
 
         if (!int.TryParse(port, out var portAsInt))
         {
@@ -163,15 +142,8 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path, int port, HealthCheckOptions options)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(options);
 
         UseHealthChecksCore(app, path, port, new[] { Options.Create(options), });
         return app;
@@ -196,30 +168,21 @@ public static class HealthCheckApplicationBuilderExtensions
     /// </remarks>
     public static IApplicationBuilder UseHealthChecks(this IApplicationBuilder app, PathString path, string port, HealthCheckOptions options)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         if (path == null)
         {
             throw new ArgumentNullException(nameof(path));
         }
 
-        if (port == null)
-        {
-            throw new ArgumentNullException(nameof(port));
-        }
+        ArgumentNullException.ThrowIfNull(port);
 
         if (!int.TryParse(port, out var portAsInt))
         {
             throw new ArgumentException("The port must be a valid integer.", nameof(port));
         }
 
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         UseHealthChecksCore(app, path, portAsInt, new[] { Options.Create(options), });
         return app;

@@ -5,9 +5,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.Tracing;
-using System.Linq;
 
-namespace Microsoft.AspNetCore.Testing.Tracing;
+namespace Microsoft.AspNetCore.InternalTesting.Tracing;
 
 public class CollectingEventListener : EventListener
 {

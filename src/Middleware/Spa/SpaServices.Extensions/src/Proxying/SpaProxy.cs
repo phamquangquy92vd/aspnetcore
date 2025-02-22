@@ -1,15 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.WebSockets;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.SpaServices.Extensions.Proxy;
@@ -73,9 +68,10 @@ internal static class SpaProxy
         // when proxying to Angular CLI middleware: we won't know what port it's listening
         // on until it finishes starting up.
         var baseUri = await baseUriTask;
-        var targetUri = new Uri(
-            baseUri,
-            context.Request.Path + context.Request.QueryString);
+        var baseUriAsString = baseUri.ToString();
+        var targetUri = new Uri((baseUriAsString.EndsWith("/", StringComparison.OrdinalIgnoreCase) ? baseUriAsString[..^1] : baseUriAsString)
+            + context.Request.Path
+            + context.Request.QueryString);
 
         try
         {
@@ -195,10 +191,7 @@ internal static class SpaProxy
 
     private static Uri ToWebSocketScheme(Uri uri)
     {
-        if (uri == null)
-        {
-            throw new ArgumentNullException(nameof(uri));
-        }
+        ArgumentNullException.ThrowIfNull(uri);
 
         var uriBuilder = new UriBuilder(uri);
         if (string.Equals(uriBuilder.Scheme, "https", StringComparison.OrdinalIgnoreCase))
@@ -215,15 +208,8 @@ internal static class SpaProxy
 
     private static async Task<bool> AcceptProxyWebSocketRequest(HttpContext context, Uri destinationUri, CancellationToken cancellationToken)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (destinationUri == null)
-        {
-            throw new ArgumentNullException(nameof(destinationUri));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(destinationUri);
 
         using (var client = new ClientWebSocket())
         {
@@ -285,10 +271,7 @@ internal static class SpaProxy
 
     private static async Task PumpWebSocket(WebSocket source, WebSocket destination, int bufferSize, CancellationToken cancellationToken)
     {
-        if (bufferSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(bufferSize));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bufferSize);
 
         var buffer = new byte[bufferSize];
 

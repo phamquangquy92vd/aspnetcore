@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Razor.TagHelpers.Testing;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Razor.TagHelpers;
 
@@ -30,7 +26,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttribute, attribute, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData IntIndexerSetData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, int, TagHelperAttribute, IEnumerable<TagHelperAttribute>> IntIndexerSetData
     {
         get
         {
@@ -129,7 +125,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttribute, attribute, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData StringIndexerSetData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, string, object, IEnumerable<TagHelperAttribute>> StringIndexerSetData
     {
         get
         {
@@ -229,7 +225,7 @@ public class TagHelperAttributeListTest
         Assert.False(isReadOnly);
     }
 
-    public static TheoryData AddData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, TagHelperAttribute, IEnumerable<TagHelperAttribute>> AddData
     {
         get
         {
@@ -266,7 +262,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttributes, attributes, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData InsertData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, TagHelperAttribute, int, IEnumerable<TagHelperAttribute>> InsertData
     {
         get
         {
@@ -326,7 +322,7 @@ public class TagHelperAttributeListTest
             () => attributes.Insert(3, new TagHelperAttribute("c", "cb")));
     }
 
-    public static TheoryData CopyToData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, TagHelperAttribute[], int, IEnumerable<TagHelperAttribute>> CopyToData
     {
         get
         {
@@ -376,7 +372,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttributes, attributeDestination, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData RemoveAllData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, string, IEnumerable<TagHelperAttribute>, bool> RemoveAllData
     {
         get
         {
@@ -448,7 +444,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttributes, attributes, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData RemoveData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, TagHelperAttribute, IEnumerable<TagHelperAttribute>, bool> RemoveData
     {
         get
         {
@@ -521,7 +517,7 @@ public class TagHelperAttributeListTest
         Assert.Equal(expectedAttributes, attributes, CaseSensitiveTagHelperAttributeComparer.Default);
     }
 
-    public static TheoryData RemoveAtData
+    public static TheoryData<IEnumerable<TagHelperAttribute>, int, IEnumerable<TagHelperAttribute>> RemoveAtData
     {
         get
         {

@@ -1,11 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class EntityTagHeaderValueTest
@@ -37,7 +32,7 @@ public class EntityTagHeaderValueTest
     public void Ctor_ETagValidFormat_SuccessfullyCreated()
     {
         var etag = new EntityTagHeaderValue("\"tag\"");
-        Assert.Equal("\"tag\"", etag.Tag);
+        Assert.Equal("\"tag\"", etag.Tag.ToString());
         Assert.False(etag.IsWeak, "IsWeak");
     }
 
@@ -45,7 +40,7 @@ public class EntityTagHeaderValueTest
     public void Ctor_ETagValidFormatAndIsWeak_SuccessfullyCreated()
     {
         var etag = new EntityTagHeaderValue("\"e tag\"", true);
-        Assert.Equal("\"e tag\"", etag.Tag);
+        Assert.Equal("\"e tag\"", etag.Tag.ToString());
         Assert.True(etag.IsWeak, "IsWeak");
     }
 
@@ -250,15 +245,15 @@ public class EntityTagHeaderValueTest
     {
         var result = EntityTagHeaderValue.ParseList(null);
         Assert.NotNull(result);
-        Assert.Equal(0, result.Count);
+        Assert.Empty(result);
 
         result = EntityTagHeaderValue.ParseList(new string[0]);
         Assert.NotNull(result);
-        Assert.Equal(0, result.Count);
+        Assert.Empty(result);
 
         result = EntityTagHeaderValue.ParseList(new string[] { "" });
         Assert.NotNull(result);
-        Assert.Equal(0, result.Count);
+        Assert.Empty(result);
     }
 
     [Fact]

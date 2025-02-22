@@ -1,10 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class RangeHeaderValueTest
@@ -20,7 +16,7 @@ public class RangeHeaderValueTest
     {
         var range = new RangeHeaderValue();
         range.Unit = "myunit";
-        Assert.Equal("myunit", range.Unit);
+        Assert.Equal("myunit", range.Unit.AsSpan());
 
         Assert.Throws<ArgumentException>(() => range.Unit = null);
         Assert.Throws<ArgumentException>(() => range.Unit = "");

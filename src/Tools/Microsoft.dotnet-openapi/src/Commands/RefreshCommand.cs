@@ -11,7 +11,7 @@ using Microsoft.Extensions.Tools.Internal;
 
 namespace Microsoft.DotNet.OpenApi.Commands;
 
-internal class RefreshCommand : BaseCommand
+internal sealed class RefreshCommand : BaseCommand
 {
     private const string CommandName = "refresh";
 
@@ -26,17 +26,17 @@ internal class RefreshCommand : BaseCommand
 
     protected override async Task<int> ExecuteCoreAsync()
     {
+        ArgumentException.ThrowIfNullOrEmpty(_sourceFileArg.Value);
+
         var projectFile = ResolveProjectFile(ProjectFileOption);
-
-        var sourceFile = Ensure.NotNullOrEmpty(_sourceFileArg.Value, SourceURLArgName);
-
+        var sourceFile = _sourceFileArg.Value;
         var destination = FindReferenceFromUrl(projectFile, sourceFile);
         await DownloadToFileAsync(sourceFile, destination, overwrite: true);
 
         return 0;
     }
 
-    private string FindReferenceFromUrl(FileInfo projectFile, string url)
+    private static string FindReferenceFromUrl(FileInfo projectFile, string url)
     {
         var project = LoadProject(projectFile);
         var openApiReferenceItems = project.GetItems(OpenApiReference);
@@ -55,8 +55,9 @@ internal class RefreshCommand : BaseCommand
 
     protected override bool ValidateArguments()
     {
-        var sourceFile = Ensure.NotNullOrEmpty(_sourceFileArg.Value, SourceURLArgName);
-        if (!IsUrl(sourceFile))
+        ArgumentException.ThrowIfNullOrEmpty(_sourceFileArg.Value);
+
+        if (!IsUrl(_sourceFileArg.Value))
         {
             throw new ArgumentException("'dotnet openapi refresh' must be given a URL");
         }

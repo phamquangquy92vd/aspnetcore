@@ -4,10 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Identity;
 
@@ -19,7 +21,7 @@ namespace Microsoft.AspNetCore.Identity;
 /// <typeparam name="TUserClaim">The type representing a claim.</typeparam>
 /// <typeparam name="TUserLogin">The type representing a user external login.</typeparam>
 /// <typeparam name="TUserToken">The type representing a user token.</typeparam>
-public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserToken> :
+public abstract class UserStoreBase<TUser, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TKey, TUserClaim, TUserLogin, TUserToken> :
     IUserLoginStore<TUser>,
     IUserClaimStore<TUser>,
     IUserPasswordStore<TUser>,
@@ -44,10 +46,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="describer">The <see cref="IdentityErrorDescriber"/> used to describe store errors.</param>
     public UserStoreBase(IdentityErrorDescriber describer)
     {
-        if (describer == null)
-        {
-            throw new ArgumentNullException(nameof(describer));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(describer);
 
         ErrorDescriber = describer;
     }
@@ -97,7 +96,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="name">The name of the user token.</param>
     /// <param name="value">The value of the user token.</param>
     /// <returns></returns>
-    protected virtual TUserToken CreateUserToken(TUser user, string loginProvider, string name, string value)
+    protected virtual TUserToken CreateUserToken(TUser user, string loginProvider, string name, string? value)
     {
         return new TUserToken
         {
@@ -118,11 +117,8 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        return Task.FromResult(ConvertIdToString(user.Id));
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        return Task.FromResult(ConvertIdToString(user.Id)!);
     }
 
     /// <summary>
@@ -131,14 +127,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose name should be retrieved.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the name for the specified <paramref name="user"/>.</returns>
-    public virtual Task<string> GetUserNameAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetUserNameAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.UserName);
     }
 
@@ -149,14 +142,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="userName">The user name to set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetUserNameAsync(TUser user, string userName, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetUserNameAsync(TUser user, string? userName, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.UserName = userName;
         return Task.CompletedTask;
     }
@@ -167,14 +157,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose normalized name should be retrieved.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the normalized user name for the specified <paramref name="user"/>.</returns>
-    public virtual Task<string> GetNormalizedUserNameAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetNormalizedUserNameAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.NormalizedUserName);
     }
 
@@ -185,14 +172,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="normalizedName">The normalized name to set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetNormalizedUserNameAsync(TUser user, string normalizedName, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetNormalizedUserNameAsync(TUser user, string? normalizedName, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.NormalizedUserName = normalizedName;
         return Task.CompletedTask;
     }
@@ -229,20 +213,22 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <returns>
     /// The <see cref="Task"/> that represents the asynchronous operation, containing the user matching the specified <paramref name="userId"/> if it exists.
     /// </returns>
-    public abstract Task<TUser> FindByIdAsync(string userId, CancellationToken cancellationToken = default(CancellationToken));
+    public abstract Task<TUser?> FindByIdAsync(string userId, CancellationToken cancellationToken = default(CancellationToken));
 
     /// <summary>
     /// Converts the provided <paramref name="id"/> to a strongly typed key object.
     /// </summary>
     /// <param name="id">The id to convert.</param>
     /// <returns>An instance of <typeparamref name="TKey"/> representing the provided <paramref name="id"/>.</returns>
-    public virtual TKey ConvertIdFromString(string id)
+    [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+        Justification = "TKey is annoated with RequiresUnreferencedCodeAttribute.All.")]
+    public virtual TKey? ConvertIdFromString(string? id)
     {
         if (id == null)
         {
             return default(TKey);
         }
-        return (TKey)TypeDescriptor.GetConverter(typeof(TKey)).ConvertFromInvariantString(id);
+        return (TKey?)TypeDescriptor.GetConverter(typeof(TKey)).ConvertFromInvariantString(id);
     }
 
     /// <summary>
@@ -250,7 +236,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// </summary>
     /// <param name="id">The id to convert.</param>
     /// <returns>An <see cref="string"/> representation of the provided <paramref name="id"/>.</returns>
-    public virtual string ConvertIdToString(TKey id)
+    public virtual string? ConvertIdToString(TKey id)
     {
         if (object.Equals(id, default(TKey)))
         {
@@ -267,7 +253,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <returns>
     /// The <see cref="Task"/> that represents the asynchronous operation, containing the user matching the specified <paramref name="normalizedUserName"/> if it exists.
     /// </returns>
-    public abstract Task<TUser> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken = default(CancellationToken));
+    public abstract Task<TUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken = default(CancellationToken));
 
     /// <summary>
     /// A navigation property for the users the store contains.
@@ -284,14 +270,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="passwordHash">The password hash to set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetPasswordHashAsync(TUser user, string passwordHash, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetPasswordHashAsync(TUser user, string? passwordHash, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.PasswordHash = passwordHash;
         return Task.CompletedTask;
     }
@@ -302,14 +285,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user to retrieve the password hash for.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>A <see cref="Task{TResult}"/> that contains the password hash for the user.</returns>
-    public virtual Task<string> GetPasswordHashAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetPasswordHashAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.PasswordHash);
     }
 
@@ -332,7 +312,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="userId">The user's id.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user if it exists.</returns>
-    protected abstract Task<TUser> FindUserAsync(TKey userId, CancellationToken cancellationToken);
+    protected abstract Task<TUser?> FindUserAsync(TKey userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Return a user login with the matching userId, provider, providerKey if it exists.
@@ -342,7 +322,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="providerKey">The key provided by the <paramref name="loginProvider"/> to identify a user.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user login if it exists.</returns>
-    protected abstract Task<TUserLogin> FindUserLoginAsync(TKey userId, string loginProvider, string providerKey, CancellationToken cancellationToken);
+    protected abstract Task<TUserLogin?> FindUserLoginAsync(TKey userId, string loginProvider, string providerKey, CancellationToken cancellationToken);
 
     /// <summary>
     /// Return a user login with  provider, providerKey if it exists.
@@ -351,17 +331,14 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="providerKey">The key provided by the <paramref name="loginProvider"/> to identify a user.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user login if it exists.</returns>
-    protected abstract Task<TUserLogin> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken);
+    protected abstract Task<TUserLogin?> FindUserLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken);
 
     /// <summary>
     /// Throws if this class has been disposed.
     /// </summary>
     protected void ThrowIfDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
+        ObjectDisposedThrowHelper.ThrowIf(_disposed, this);
     }
 
     /// <summary>
@@ -446,15 +423,15 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <returns>
     /// The <see cref="Task"/> for the asynchronous operation, containing the user, if any which matched the specified login provider and key.
     /// </returns>
-    public virtual async Task<TUser> FindByLoginAsync(string loginProvider, string providerKey,
+    public virtual async Task<TUser?> FindByLoginAsync(string loginProvider, string providerKey,
         CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        var userLogin = await FindUserLoginAsync(loginProvider, providerKey, cancellationToken);
+        var userLogin = await FindUserLoginAsync(loginProvider, providerKey, cancellationToken).ConfigureAwait(false);
         if (userLogin != null)
         {
-            return await FindUserAsync(userLogin.UserId, cancellationToken);
+            return await FindUserAsync(userLogin.UserId, cancellationToken).ConfigureAwait(false);
         }
         return null;
     }
@@ -473,10 +450,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.EmailConfirmed);
     }
 
@@ -491,10 +465,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.EmailConfirmed = confirmed;
         return Task.CompletedTask;
     }
@@ -506,14 +477,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="email">The email to set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The task object representing the asynchronous operation.</returns>
-    public virtual Task SetEmailAsync(TUser user, string email, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetEmailAsync(TUser user, string? email, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.Email = email;
         return Task.CompletedTask;
     }
@@ -524,14 +492,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose email should be returned.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The task object containing the results of the asynchronous operation, the email address for the specified <paramref name="user"/>.</returns>
-    public virtual Task<string> GetEmailAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetEmailAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.Email);
     }
 
@@ -543,14 +508,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <returns>
     /// The task object containing the results of the asynchronous lookup operation, the normalized email address if any associated with the specified user.
     /// </returns>
-    public virtual Task<string> GetNormalizedEmailAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetNormalizedEmailAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.NormalizedEmail);
     }
 
@@ -561,14 +523,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="normalizedEmail">The normalized email to set for the specified <paramref name="user"/>.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The task object representing the asynchronous operation.</returns>
-    public virtual Task SetNormalizedEmailAsync(TUser user, string normalizedEmail, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetNormalizedEmailAsync(TUser user, string? normalizedEmail, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.NormalizedEmail = normalizedEmail;
         return Task.CompletedTask;
     }
@@ -581,7 +540,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <returns>
     /// The task object containing the results of the asynchronous lookup operation, the user if any associated with the specified normalized email address.
     /// </returns>
-    public abstract Task<TUser> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default(CancellationToken));
+    public abstract Task<TUser?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default(CancellationToken));
 
     /// <summary>
     /// Gets the last <see cref="DateTimeOffset"/> a user's last lockout expired, if any.
@@ -597,10 +556,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.LockoutEnd);
     }
 
@@ -615,10 +571,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.LockoutEnd = lockoutEnd;
         return Task.CompletedTask;
     }
@@ -633,10 +586,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.AccessFailedCount++;
         return Task.FromResult(user.AccessFailedCount);
     }
@@ -652,10 +602,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.AccessFailedCount = 0;
         return Task.CompletedTask;
     }
@@ -670,10 +617,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.AccessFailedCount);
     }
 
@@ -689,10 +633,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.LockoutEnabled);
     }
 
@@ -707,10 +648,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.LockoutEnabled = enabled;
         return Task.CompletedTask;
     }
@@ -722,14 +660,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="phoneNumber">The telephone number to set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual Task SetPhoneNumberAsync(TUser user, string phoneNumber, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task SetPhoneNumberAsync(TUser user, string? phoneNumber, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.PhoneNumber = phoneNumber;
         return Task.CompletedTask;
     }
@@ -740,14 +675,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose telephone number should be retrieved.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the user's telephone number, if any.</returns>
-    public virtual Task<string> GetPhoneNumberAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetPhoneNumberAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.PhoneNumber);
     }
 
@@ -764,10 +696,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.PhoneNumberConfirmed);
     }
 
@@ -782,10 +711,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.PhoneNumberConfirmed = confirmed;
         return Task.CompletedTask;
     }
@@ -801,14 +727,8 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (stamp == null)
-        {
-            throw new ArgumentNullException(nameof(stamp));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        ArgumentNullThrowHelper.ThrowIfNull(stamp);
         user.SecurityStamp = stamp;
         return Task.CompletedTask;
     }
@@ -819,14 +739,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose security stamp should be set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the security stamp for the specified <paramref name="user"/>.</returns>
-    public virtual Task<string> GetSecurityStampAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
+    public virtual Task<string?> GetSecurityStampAsync(TUser user, CancellationToken cancellationToken = default(CancellationToken))
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.SecurityStamp);
     }
 
@@ -842,10 +759,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         user.TwoFactorEnabled = enabled;
         return Task.CompletedTask;
     }
@@ -864,10 +778,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
         return Task.FromResult(user.TwoFactorEnabled);
     }
 
@@ -889,7 +800,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="name">The name of the token.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user token if it exists.</returns>
-    protected abstract Task<TUserToken> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken);
+    protected abstract Task<TUserToken?> FindTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken);
 
     /// <summary>
     /// Add a new user token.
@@ -914,20 +825,17 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="value">The value of the token.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual async Task SetTokenAsync(TUser user, string loginProvider, string name, string value, CancellationToken cancellationToken)
+    public virtual async Task SetTokenAsync(TUser user, string loginProvider, string name, string? value, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
 
-        var token = await FindTokenAsync(user, loginProvider, name, cancellationToken);
+        var token = await FindTokenAsync(user, loginProvider, name, cancellationToken).ConfigureAwait(false);
         if (token == null)
         {
-            await AddUserTokenAsync(CreateUserToken(user, loginProvider, name, value));
+            await AddUserTokenAsync(CreateUserToken(user, loginProvider, name, value)).ConfigureAwait(false);
         }
         else
         {
@@ -948,14 +856,11 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        var entry = await FindTokenAsync(user, loginProvider, name, cancellationToken);
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        var entry = await FindTokenAsync(user, loginProvider, name, cancellationToken).ConfigureAwait(false);
         if (entry != null)
         {
-            await RemoveUserTokenAsync(entry);
+            await RemoveUserTokenAsync(entry).ConfigureAwait(false);
         }
     }
 
@@ -967,16 +872,13 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="name">The name of the token.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation.</returns>
-    public virtual async Task<string> GetTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
+    public virtual async Task<string?> GetTokenAsync(TUser user, string loginProvider, string name, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        var entry = await FindTokenAsync(user, loginProvider, name, cancellationToken);
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        var entry = await FindTokenAsync(user, loginProvider, name, cancellationToken).ConfigureAwait(false);
         return entry?.Value;
     }
 
@@ -1000,7 +902,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
     /// <param name="user">The user whose security stamp should be set.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The <see cref="Task"/> that represents the asynchronous operation, containing the security stamp for the specified <paramref name="user"/>.</returns>
-    public virtual Task<string> GetAuthenticatorKeyAsync(TUser user, CancellationToken cancellationToken)
+    public virtual Task<string?> GetAuthenticatorKeyAsync(TUser user, CancellationToken cancellationToken)
         => GetTokenAsync(user, InternalLoginProvider, AuthenticatorKeyTokenName, cancellationToken);
 
     /// <summary>
@@ -1014,14 +916,28 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        var mergedCodes = await GetTokenAsync(user, InternalLoginProvider, RecoveryCodeTokenName, cancellationToken) ?? "";
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        var mergedCodes = await GetTokenAsync(user, InternalLoginProvider, RecoveryCodeTokenName, cancellationToken).ConfigureAwait(false) ?? "";
         if (mergedCodes.Length > 0)
         {
-            return mergedCodes.Split(';').Length;
+#if NET8_0_OR_GREATER
+            return mergedCodes.AsSpan().Count(';') + 1;
+#else
+            // non-allocating version of mergedCodes.Split(';').Length
+            var count = 1;
+            var index = 0;
+            while (index < mergedCodes.Length)
+            {
+                var semiColonIndex = mergedCodes.IndexOf(';', index);
+                if (semiColonIndex < 0)
+                {
+                    break;
+                }
+                count++;
+                index = semiColonIndex + 1;
+            }
+            return count;
+#endif
         }
         return 0;
     }
@@ -1052,21 +968,15 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
         cancellationToken.ThrowIfCancellationRequested();
         ThrowIfDisposed();
 
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        if (code == null)
-        {
-            throw new ArgumentNullException(nameof(code));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        ArgumentNullThrowHelper.ThrowIfNull(code);
 
-        var mergedCodes = await GetTokenAsync(user, InternalLoginProvider, RecoveryCodeTokenName, cancellationToken) ?? "";
+        var mergedCodes = await GetTokenAsync(user, InternalLoginProvider, RecoveryCodeTokenName, cancellationToken).ConfigureAwait(false) ?? "";
         var splitCodes = mergedCodes.Split(';');
         if (splitCodes.Contains(code))
         {
             var updatedCodes = new List<string>(splitCodes.Where(s => s != code));
-            await ReplaceCodesAsync(user, updatedCodes, cancellationToken);
+            await ReplaceCodesAsync(user, updatedCodes, cancellationToken).ConfigureAwait(false);
             return true;
         }
         return false;
@@ -1084,7 +994,7 @@ public abstract class UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserTo
 /// <typeparam name="TUserLogin">The type representing a user external login.</typeparam>
 /// <typeparam name="TUserToken">The type representing a user token.</typeparam>
 /// <typeparam name="TRoleClaim">The type representing a role claim.</typeparam>
-public abstract class UserStoreBase<TUser, TRole, TKey, TUserClaim, TUserRole, TUserLogin, TUserToken, TRoleClaim> :
+public abstract class UserStoreBase<TUser, TRole, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TKey, TUserClaim, TUserRole, TUserLogin, TUserToken, TRoleClaim> :
     UserStoreBase<TUser, TKey, TUserClaim, TUserLogin, TUserToken>,
     IUserRoleStore<TUser>
     where TUser : IdentityUser<TKey>
@@ -1116,7 +1026,6 @@ public abstract class UserStoreBase<TUser, TRole, TKey, TUserClaim, TUserRole, T
             RoleId = role.Id
         };
     }
-
 
     /// <summary>
     /// Retrieves all users in the specified role.
@@ -1170,7 +1079,7 @@ public abstract class UserStoreBase<TUser, TRole, TKey, TUserClaim, TUserRole, T
     /// <param name="normalizedRoleName">The normalized role name.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The role if it exists.</returns>
-    protected abstract Task<TRole> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken);
+    protected abstract Task<TRole?> FindRoleAsync(string normalizedRoleName, CancellationToken cancellationToken);
 
     /// <summary>
     /// Return a user role for the userId and roleId if it exists.
@@ -1179,5 +1088,5 @@ public abstract class UserStoreBase<TUser, TRole, TKey, TUserClaim, TUserRole, T
     /// <param name="roleId">The role's id.</param>
     /// <param name="cancellationToken">The <see cref="CancellationToken"/> used to propagate notifications that the operation should be canceled.</param>
     /// <returns>The user role if it exists.</returns>
-    protected abstract Task<TUserRole> FindUserRoleAsync(TKey userId, TKey roleId, CancellationToken cancellationToken);
+    protected abstract Task<TUserRole?> FindUserRoleAsync(TKey userId, TKey roleId, CancellationToken cancellationToken);
 }

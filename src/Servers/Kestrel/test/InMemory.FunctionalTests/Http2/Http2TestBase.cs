@@ -7,102 +7,104 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipelines;
+using System.Net.Http;
 using System.Net.Http.HPack;
 using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal;
-using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http2.FlowControl;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
-using Microsoft.AspNetCore.Testing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.Net.Http.Headers;
 using Moq;
 using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests;
 
-public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, IHttpHeadersHandler
+public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, IHttpStreamHeadersHandler
 {
     protected static readonly int MaxRequestHeaderFieldSize = 16 * 1024;
     protected static readonly string _4kHeaderValue = new string('a', 4096);
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _browserRequestHeaders = new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "GET"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/"),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "localhost:80"),
-            new KeyValuePair<string, string>("user-agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:54.0) Gecko/20100101 Firefox/54.0"),
-            new KeyValuePair<string, string>("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
-            new KeyValuePair<string, string>("accept-language", "en-US,en;q=0.5"),
-            new KeyValuePair<string, string>("accept-encoding", "gzip, deflate, br"),
-            new KeyValuePair<string, string>("upgrade-insecure-requests", "1"),
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "GET"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "localhost:80"),
+        new KeyValuePair<string, string>("user-agent", "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:54.0) Gecko/20100101 Firefox/54.0"),
+        new KeyValuePair<string, string>("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
+        new KeyValuePair<string, string>("accept-language", "en-US,en;q=0.5"),
+        new KeyValuePair<string, string>("accept-encoding", "gzip, deflate, br"),
+        new KeyValuePair<string, string>("upgrade-insecure-requests", "1"),
+    };
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _postRequestHeaders = new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "POST"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/"),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "localhost:80"),
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "POST"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "localhost:80"),
+    };
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _expectContinueRequestHeaders = new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "POST"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "127.0.0.1"),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Expect, "100-continue"),
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "POST"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "127.0.0.1"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(HeaderNames.Expect, "100-continue"),
+    };
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _requestTrailers = new[]
     {
-            new KeyValuePair<string, string>("trailer-one", "1"),
-            new KeyValuePair<string, string>("trailer-two", "2"),
-        };
+        new KeyValuePair<string, string>("trailer-one", "1"),
+        new KeyValuePair<string, string>("trailer-two", "2"),
+    };
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _oneContinuationRequestHeaders = new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "GET"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/"),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "localhost:80"),
-            new KeyValuePair<string, string>("a", _4kHeaderValue),
-            new KeyValuePair<string, string>("b", _4kHeaderValue),
-            new KeyValuePair<string, string>("c", _4kHeaderValue),
-            new KeyValuePair<string, string>("d", _4kHeaderValue)
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "GET"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "localhost:80"),
+        new KeyValuePair<string, string>("a", _4kHeaderValue),
+        new KeyValuePair<string, string>("b", _4kHeaderValue),
+        new KeyValuePair<string, string>("c", _4kHeaderValue),
+        new KeyValuePair<string, string>("d", _4kHeaderValue)
+    };
 
     protected static readonly IEnumerable<KeyValuePair<string, string>> _twoContinuationsRequestHeaders = new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "GET"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/"),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "localhost:80"),
-            new KeyValuePair<string, string>("a", _4kHeaderValue),
-            new KeyValuePair<string, string>("b", _4kHeaderValue),
-            new KeyValuePair<string, string>("c", _4kHeaderValue),
-            new KeyValuePair<string, string>("d", _4kHeaderValue),
-            new KeyValuePair<string, string>("e", _4kHeaderValue),
-            new KeyValuePair<string, string>("f", _4kHeaderValue),
-            new KeyValuePair<string, string>("g", _4kHeaderValue),
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "GET"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "localhost:80"),
+        new KeyValuePair<string, string>("a", _4kHeaderValue),
+        new KeyValuePair<string, string>("b", _4kHeaderValue),
+        new KeyValuePair<string, string>("c", _4kHeaderValue),
+        new KeyValuePair<string, string>("d", _4kHeaderValue),
+        new KeyValuePair<string, string>("e", _4kHeaderValue),
+        new KeyValuePair<string, string>("f", _4kHeaderValue),
+        new KeyValuePair<string, string>("g", _4kHeaderValue),
+    };
 
     protected static IEnumerable<KeyValuePair<string, string>> ReadRateRequestHeaders(int expectedBytes) => new[]
     {
-            new KeyValuePair<string, string>(HeaderNames.Method, "POST"),
-            new KeyValuePair<string, string>(HeaderNames.Path, "/" + expectedBytes),
-            new KeyValuePair<string, string>(HeaderNames.Scheme, "http"),
-            new KeyValuePair<string, string>(HeaderNames.Authority, "localhost:80"),
-        };
+        new KeyValuePair<string, string>(InternalHeaderNames.Method, "POST"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Path, "/" + expectedBytes),
+        new KeyValuePair<string, string>(InternalHeaderNames.Scheme, "http"),
+        new KeyValuePair<string, string>(InternalHeaderNames.Authority, "localhost:80"),
+    };
 
     protected static readonly byte[] _helloBytes = Encoding.ASCII.GetBytes("hello");
     protected static readonly byte[] _worldBytes = Encoding.ASCII.GetBytes("world");
@@ -117,6 +119,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
     internal readonly DynamicHPackEncoder _hpackEncoder;
     private readonly byte[] _headerEncodingBuffer = new byte[Http2PeerSettings.MinAllowedMaxFrameSize];
 
+    private readonly FakeTimeProvider _timeProvider = new();
     internal readonly TimeoutControl _timeoutControl;
     protected readonly Mock<ConnectionContext> _mockConnectionContext = new Mock<ConnectionContext>();
     internal readonly Mock<ITimeoutHandler> _mockTimeoutHandler = new Mock<ITimeoutHandler>();
@@ -128,11 +131,12 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
     protected readonly Dictionary<string, string> _decodedHeaders = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     protected readonly RequestFields _receivedRequestFields = new RequestFields();
     protected readonly HashSet<int> _abortedStreamIds = new HashSet<int>();
-    protected readonly object _abortedStreamIdsLock = new object();
+    protected readonly Lock _abortedStreamIdsLock = new();
     protected readonly TaskCompletionSource _closingStateReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     protected readonly TaskCompletionSource _closedStateReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
     protected readonly RequestDelegate _noopApplication;
+    protected readonly RequestDelegate _notImplementedApp;
     protected readonly RequestDelegate _readHeadersApplication;
     protected readonly RequestDelegate _readTrailersApplication;
     protected readonly RequestDelegate _bufferingApplication;
@@ -151,30 +155,36 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
     internal TestServiceContext _serviceContext;
 
     internal DuplexPipe.DuplexPipePair _pair;
+    internal IConnectionMetricsTagsFeature _metricsTagsFeature;
+    internal IConnectionMetricsContextFeature _metricsContextFeature;
     internal Http2Connection _connection;
     protected Task _connectionTask;
     protected long _bytesReceived;
+
+    internal Dictionary<string, object> ConnectionTags => _metricsTagsFeature.Tags.ToDictionary(t => t.Key, t => t.Value);
+    internal ConnectionMetricsContext MetricsContext => _metricsContextFeature.MetricsContext;
 
     public Http2TestBase()
     {
         _hpackDecoder = new HPackDecoder((int)_clientSettings.HeaderTableSize, MaxRequestHeaderFieldSize);
         _hpackEncoder = new DynamicHPackEncoder();
 
-        _timeoutControl = new TimeoutControl(_mockTimeoutHandler.Object);
+        _timeoutControl = new TimeoutControl(_mockTimeoutHandler.Object, _timeProvider);
         _mockTimeoutControl = new Mock<MockTimeoutControlBase>(_timeoutControl) { CallBase = true };
         _timeoutControl.Debugger = Mock.Of<IDebugger>();
 
         _mockConnectionContext.Setup(c => c.Abort(It.IsAny<ConnectionAbortedException>())).Callback<ConnectionAbortedException>(ex =>
         {
-                // Emulate transport abort so the _connectionTask completes.
-                Task.Run(() =>
-            {
-                Logger.LogInformation(0, ex, "ConnectionContext.Abort() was called. Completing _pair.Application.Output.");
-                _pair.Application.Output.Complete(ex);
-            });
+            // Emulate transport abort so the _connectionTask completes.
+            Task.Run(() =>
+        {
+            Logger.LogInformation(0, ex, "ConnectionContext.Abort() was called. Completing _pair.Application.Output.");
+            _pair.Application.Output.Complete(ex);
+        });
         });
 
         _noopApplication = context => Task.CompletedTask;
+        _notImplementedApp = _ => throw new NotImplementedException();
 
         _readHeadersApplication = context =>
         {
@@ -198,8 +208,8 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
             using (var ms = new MemoryStream())
             {
-                    // Consuming the entire request body guarantees trailers will be available
-                    await context.Request.Body.CopyToAsync(ms);
+                // Consuming the entire request body guarantees trailers will be available
+                await context.Request.Body.CopyToAsync(ms);
             }
 
             Assert.True(context.Request.SupportsTrailers(), "SupportsTrailers");
@@ -333,8 +343,8 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
             var stalledReadTask = context.Request.Body.ReadAsync(buffer, 0, buffer.Length);
 
-                // Write to the response so the test knows the app started the stalled read.
-                await context.Response.Body.WriteAsync(new byte[1], 0, 1);
+            // Write to the response so the test knows the app started the stalled read.
+            await context.Response.Body.WriteAsync(new byte[1], 0, 1);
 
             await stalledReadTask;
         };
@@ -342,7 +352,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         _echoMethodNoBody = context =>
         {
             Assert.False(context.Request.CanHaveBody());
-            Assert.False(context.Request.Headers.ContainsKey(HeaderNames.Method));
+            Assert.False(context.Request.Headers.ContainsKey(InternalHeaderNames.Method));
             context.Response.Headers["Method"] = context.Request.Method;
 
             return Task.CompletedTask;
@@ -350,7 +360,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
         _echoHost = context =>
         {
-            Assert.False(context.Request.Headers.ContainsKey(HeaderNames.Authority));
+            Assert.False(context.Request.Headers.ContainsKey(InternalHeaderNames.Authority));
             context.Response.Headers.Host = context.Request.Headers.Host;
 
             return Task.CompletedTask;
@@ -358,7 +368,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
         _echoPath = context =>
         {
-            Assert.False(context.Request.Headers.ContainsKey(HeaderNames.Path));
+            Assert.False(context.Request.Headers.ContainsKey(InternalHeaderNames.Path));
             context.Response.Headers["path"] = context.Request.Path.ToString();
             context.Response.Headers["rawtarget"] = context.Features.Get<IHttpRequestFeature>().RawTarget;
 
@@ -380,13 +390,15 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         };
     }
 
-    public override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
     {
         base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
 
         _serviceContext = new TestServiceContext(LoggerFactory)
         {
             Scheduler = PipeScheduler.Inline,
+            FakeTimeProvider = _timeProvider,
+            TimeProvider = _timeProvider,
         };
 
         TestSink.MessageLogged += context =>
@@ -413,7 +425,17 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         base.Dispose();
     }
 
-    void IHttpHeadersHandler.OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    internal void AssertConnectionNoError()
+    {
+        MetricsAssert.NoError(ConnectionTags);
+    }
+
+    internal void AssertConnectionEndReason(ConnectionEndReason expectedEndReason)
+    {
+        Assert.Equal(expectedEndReason, MetricsContext.ConnectionEndReason);
+    }
+
+    void IHttpStreamHeadersHandler.OnHeader(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
         var nameStr = name.GetHeaderName();
         _decodedHeaders[nameStr] = value.GetRequestHeaderString(nameStr, _serviceContext.ServerOptions.RequestHeaderEncodingSelector, checkForNewlineChars: true);
@@ -424,17 +446,22 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         Debug.Assert(index <= H2StaticTable.Count);
 
         ref readonly var entry = ref H2StaticTable.Get(index - 1);
-        ((IHttpHeadersHandler)this).OnHeader(entry.Name, entry.Value);
+        ((IHttpStreamHeadersHandler)this).OnHeader(entry.Name, entry.Value);
     }
 
     public void OnStaticIndexedHeader(int index, ReadOnlySpan<byte> value)
     {
         Debug.Assert(index <= H2StaticTable.Count);
 
-        ((IHttpHeadersHandler)this).OnHeader(H2StaticTable.Get(index - 1).Name, value);
+        ((IHttpStreamHeadersHandler)this).OnHeader(H2StaticTable.Get(index - 1).Name, value);
     }
 
-    void IHttpHeadersHandler.OnHeadersComplete(bool endStream) { }
+    void IHttpStreamHeadersHandler.OnHeadersComplete(bool endStream) { }
+
+    void IHttpStreamHeadersHandler.OnDynamicIndexedHeader(int? index, ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+        ((IHttpStreamHeadersHandler)this).OnHeader(name, value);
+    }
 
     protected void CreateConnection()
     {
@@ -446,29 +473,83 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
         _pair = DuplexPipe.CreateConnectionPair(inputPipeOptions, outputPipeOptions);
 
+        _metricsTagsFeature = new TestConnectionMetricsTagsFeature();
+
+        var metricsContext = TestContextFactory.CreateMetricsContext(_mockConnectionContext.Object);
+        _metricsContextFeature = new TestConnectionMetricsContextFeature() { MetricsContext = metricsContext };
+
+        var features = new FeatureCollection();
+        features.Set<IConnectionMetricsContextFeature>(_metricsContextFeature);
+        features.Set<IConnectionMetricsTagsFeature>(_metricsTagsFeature);
+        _mockConnectionContext.Setup(x => x.Features).Returns(features);
         var httpConnectionContext = TestContextFactory.CreateHttpConnectionContext(
             serviceContext: _serviceContext,
             connectionContext: _mockConnectionContext.Object,
             transport: _pair.Transport,
             memoryPool: _memoryPool,
-            connectionFeatures: new FeatureCollection(),
-            timeoutControl: _mockTimeoutControl.Object);
+            connectionFeatures: features,
+            timeoutControl: _mockTimeoutControl.Object,
+            metricsContext: metricsContext);
 
         _connection = new Http2Connection(httpConnectionContext);
+        _connection._streamLifetimeHandler = new LifetimeHandlerInterceptor(_connection._streamLifetimeHandler, this);
 
         var httpConnection = new HttpConnection(httpConnectionContext);
         httpConnection.Initialize(_connection);
         _mockTimeoutHandler.Setup(h => h.OnTimeout(It.IsAny<TimeoutReason>()))
                            .Callback<TimeoutReason>(r => httpConnection.OnTimeout(r));
 
-        _timeoutControl.Initialize(_serviceContext.SystemClock.UtcNow.Ticks);
+        _timeoutControl.Initialize();
     }
 
-    protected async Task InitializeConnectionAsync(RequestDelegate application, int expectedSettingsCount = 3, bool expectedWindowUpdate = true)
+    private sealed class TestConnectionMetricsTagsFeature : IConnectionMetricsTagsFeature
+    {
+        public ICollection<KeyValuePair<string, object>> Tags { get; } = new List<KeyValuePair<string, object>>();
+    }
+
+    private class TestConnectionMetricsContextFeature : IConnectionMetricsContextFeature
+    {
+        public ConnectionMetricsContext MetricsContext { get; init; }
+    }
+
+    private class LifetimeHandlerInterceptor : IHttp2StreamLifetimeHandler
+    {
+        private readonly IHttp2StreamLifetimeHandler _inner;
+        private readonly Http2TestBase _httpTestBase;
+
+        public LifetimeHandlerInterceptor(IHttp2StreamLifetimeHandler inner, Http2TestBase httpTestBase)
+        {
+            _inner = inner;
+            _httpTestBase = httpTestBase;
+        }
+
+        public void DecrementActiveClientStreamCount()
+        {
+            _inner.DecrementActiveClientStreamCount();
+        }
+
+        public void OnStreamCompleted(Http2Stream stream)
+        {
+            _inner.OnStreamCompleted(stream);
+
+            // Stream in test might not have been started with StartStream method.
+            // In that case there isn't a record of a running stream.
+            if (_httpTestBase._runningStreams.TryGetValue(stream.StreamId, out var tcs))
+            {
+                tcs.TrySetResult();
+            }
+        }
+    }
+
+    protected void InitializeConnectionWithoutPreface(RequestDelegate application, bool addKestrelFeatures = false)
     {
         if (_connection == null)
         {
             CreateConnection();
+        }
+        if (addKestrelFeatures)
+        {
+            AddKestrelConnection();
         }
 
         var connectionTask = _connection.ProcessRequestsAsync(new DummyApplication(application));
@@ -487,9 +568,15 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         }
 
         _connectionTask = CompletePipeOnTaskCompletion();
+    }
+
+    protected async Task InitializeConnectionAsync(RequestDelegate application, int expectedSettingsCount = 4, bool expectedWindowUpdate = true, bool addKestrelFeatures = false)
+    {
+        InitializeConnectionWithoutPreface(application, addKestrelFeatures);
 
         // Lose xUnit's AsyncTestSyncContext so middleware always runs inline for better determinism.
-        await ThreadPoolAwaitable.Instance;
+        await Task.CompletedTask.ConfigureAwait(ConfigureAwaitOptions.ForceYielding);
+
         await SendPreambleAsync();
         await SendSettingsAsync();
 
@@ -510,6 +597,18 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
             withLength: 0,
             withFlags: (byte)Http2SettingsFrameFlags.ACK,
             withStreamId: 0);
+    }
+
+    protected void AddKestrelConnection()
+    {
+        new KestrelConnection<BaseConnectionContext>(
+            0,
+            _serviceContext,
+            new TransportConnectionManager(_serviceContext.ConnectionManager),
+            _ => throw new NotImplementedException($"{nameof(_connection.ProcessRequestsAsync)} should invoked instead - hence transport connection manager does not have the connection registered."),
+            _mockConnectionContext.Object,
+            new KestrelTrace(_serviceContext.LoggerFactory),
+            TestContextFactory.CreateMetricsContext(_mockConnectionContext.Object));
     }
 
     protected Task StartStreamAsync(int streamId, IEnumerable<KeyValuePair<string, string>> headers, bool endStream, bool flushFrame = true)
@@ -655,7 +754,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
         HPackHeaderWriter.BeginEncodeHeaders(_hpackEncoder, GetHeadersEnumerator(headers), payload, out var length);
         var padding = buffer.Slice(extendedHeaderLength + length, padLength);
-        padding.Fill(0);
+        padding.Clear();
 
         frame.PayloadLength = extendedHeaderLength + length + padLength;
 
@@ -667,6 +766,11 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         Http2FrameWriter.WriteHeader(frame, writableBuffer);
         writableBuffer.Write(buffer.Slice(0, frame.PayloadLength));
         return FlushAsync(writableBuffer);
+    }
+
+    protected Task WaitForStreamAsync(int streamId)
+    {
+        return _runningStreams[streamId].Task;
     }
 
     protected Task WaitForAllStreamsAsync()
@@ -773,7 +877,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         Http2FrameWriter.WriteHeader(frame, outputWriter);
         await SendAsync(buffer.Span.Slice(0, length));
 
-        return done;
+        return done == HeaderWriteResult.Done;
     }
 
     internal Task<bool> SendHeadersAsync(int streamId, Http2HeadersFrameFlags flags, IEnumerable<KeyValuePair<string, string>> headers)
@@ -843,7 +947,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         Http2FrameWriter.WriteHeader(frame, outputWriter);
         await SendAsync(buffer.Span.Slice(0, length));
 
-        return done;
+        return done == HeaderWriteResult.Done;
     }
 
     internal async Task SendContinuationAsync(int streamId, Http2ContinuationFrameFlags flags, byte[] payload)
@@ -871,7 +975,7 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         Http2FrameWriter.WriteHeader(frame, outputWriter);
         await SendAsync(buffer.Span.Slice(0, length));
 
-        return done;
+        return done == HeaderWriteResult.Done;
     }
 
     internal Http2HeadersEnumerator GetHeadersEnumerator(IEnumerable<KeyValuePair<string, string>> headers)
@@ -1103,7 +1207,23 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         return FlushAsync(outputWriter);
     }
 
-    internal async Task<Http2FrameWithPayload> ReceiveFrameAsync(uint maxFrameSize = Http2PeerSettings.DefaultMaxFrameSize)
+    internal async Task<byte[]> ReadAllAsync()
+    {
+        while (true)
+        {
+            var result = await _pair.Application.Input.ReadAsync().AsTask().DefaultTimeout();
+
+            if (result.IsCompleted)
+            {
+                return result.Buffer.ToArray();
+            }
+
+            // Consume nothing, just wait for everything
+            _pair.Application.Input.AdvanceTo(result.Buffer.Start, result.Buffer.End);
+        }
+    }
+
+    internal async Task<Http2FrameWithPayload> ReceiveFrameAsync(uint maxFrameSize = uint.MaxValue)
     {
         var frame = new Http2FrameWithPayload();
 
@@ -1145,12 +1265,12 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
     internal async Task<Http2FrameWithPayload> ExpectAsync(Http2FrameType type, int withLength, byte withFlags, int withStreamId)
     {
-        var frame = await ReceiveFrameAsync((uint)withLength);
+        var frame = await ReceiveFrameAsync();
 
         Assert.Equal(type, frame.Type);
-        Assert.Equal(withLength, frame.PayloadLength);
-        Assert.Equal(withFlags, frame.Flags);
         Assert.Equal(withStreamId, frame.StreamId);
+        Assert.Equal(withFlags, frame.Flags);
+        Assert.Equal(withLength, frame.PayloadLength);
 
         return frame;
     }
@@ -1231,20 +1351,20 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
     {
         foreach (var header in expectedHeaders)
         {
-            if (header.Key == HeaderNames.Method)
+            if (header.Key == InternalHeaderNames.Method)
             {
                 Assert.Equal(header.Value, _receivedRequestFields.Method);
             }
-            else if (header.Key == HeaderNames.Authority)
+            else if (header.Key == InternalHeaderNames.Authority)
             {
                 Assert.True(_receivedHeaders.TryGetValue(HeaderNames.Host, out var host), header.Key);
                 Assert.Equal(header.Value, host);
             }
-            else if (header.Key == HeaderNames.Scheme)
+            else if (header.Key == InternalHeaderNames.Scheme)
             {
                 Assert.Equal(header.Value, _receivedRequestFields.Scheme);
             }
-            else if (header.Key == HeaderNames.Path)
+            else if (header.Key == InternalHeaderNames.Path)
             {
                 Assert.Equal(header.Value, _receivedRequestFields.RawTarget);
             }
@@ -1256,25 +1376,31 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
         }
     }
 
-    protected void TriggerTick(DateTimeOffset? nowOrNull = null)
+    protected void TriggerTick(TimeSpan timeSpan)
     {
-        var now = nowOrNull ?? _serviceContext.MockSystemClock.UtcNow;
-        _serviceContext.MockSystemClock.UtcNow = now;
-        _timeoutControl.Tick(now);
-        ((IRequestProcessor)_connection)?.Tick(now);
+        _serviceContext.FakeTimeProvider.Advance(timeSpan);
+        TriggerTick();
     }
 
-    protected void AdvanceClock(TimeSpan timeSpan)
+    protected void TriggerTick()
     {
-        var clock = _serviceContext.MockSystemClock;
-        var endTime = clock.UtcNow + timeSpan;
+        var timestamp = _serviceContext.FakeTimeProvider.GetTimestamp();
+        _timeoutControl.Tick(timestamp);
+        ((IRequestProcessor)_connection)?.Tick(timestamp);
+    }
 
-        while (clock.UtcNow + Heartbeat.Interval < endTime)
+    protected void AdvanceTime(TimeSpan timeSpan)
+    {
+        var timeProvider = _serviceContext.FakeTimeProvider;
+        var endTime = timeProvider.GetTimestamp(timeSpan);
+
+        while (timeProvider.GetTimestamp(Heartbeat.Interval) < endTime)
         {
-            TriggerTick(clock.UtcNow + Heartbeat.Interval);
+            TriggerTick(Heartbeat.Interval);
         }
 
-        TriggerTick(endTime);
+        timeProvider.Advance(timeProvider.GetElapsedTime(timeProvider.GetTimestamp(), endTime));
+        TriggerTick();
     }
 
     private static PipeOptions GetInputPipeOptions(ServiceContext serviceContext, MemoryPool<byte> memoryPool, PipeScheduler writerScheduler) => new PipeOptions
@@ -1335,21 +1461,20 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
 
         public virtual TimeoutReason TimerReason => _realTimeoutControl.TimerReason;
 
-        public virtual void SetTimeout(long ticks, TimeoutReason timeoutReason)
+        public virtual void SetTimeout(TimeSpan timeout, TimeoutReason timeoutReason)
         {
-            _realTimeoutControl.SetTimeout(ticks, timeoutReason);
+            _realTimeoutControl.SetTimeout(timeout, timeoutReason);
         }
 
-        public virtual void ResetTimeout(long ticks, TimeoutReason timeoutReason)
+        public virtual void ResetTimeout(TimeSpan timeout, TimeoutReason timeoutReason)
         {
-            _realTimeoutControl.ResetTimeout(ticks, timeoutReason);
+            _realTimeoutControl.ResetTimeout(timeout, timeoutReason);
         }
 
         public virtual void CancelTimeout()
         {
             _realTimeoutControl.CancelTimeout();
         }
-
 
         public virtual void InitializeHttp2(InputFlowControl connectionInputFlowControl)
         {
@@ -1381,7 +1506,6 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
             _realTimeoutControl.BytesRead(count);
         }
 
-
         public virtual void StartTimingWrite()
         {
             _realTimeoutControl.StartTimingWrite();
@@ -1397,9 +1521,9 @@ public class Http2TestBase : TestApplicationErrorLoggerLoggedTest, IDisposable, 
             _realTimeoutControl.BytesWrittenToBuffer(minRate, size);
         }
 
-        public virtual void Tick(DateTimeOffset now)
+        public virtual void Tick(long timestamp)
         {
-            _realTimeoutControl.Tick(now);
+            _realTimeoutControl.Tick(timestamp);
         }
 
         public long GetResponseDrainDeadline(long ticks, MinDataRate minRate)

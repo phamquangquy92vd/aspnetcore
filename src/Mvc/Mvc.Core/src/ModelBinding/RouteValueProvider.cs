@@ -3,7 +3,6 @@
 
 #nullable enable
 
-using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Routing;
 
@@ -39,20 +38,9 @@ public class RouteValueProvider : BindingSourceValueProvider
     public RouteValueProvider(BindingSource bindingSource, RouteValueDictionary values, CultureInfo culture)
         : base(bindingSource)
     {
-        if (bindingSource == null)
-        {
-            throw new ArgumentNullException(nameof(bindingSource));
-        }
-
-        if (values == null)
-        {
-            throw new ArgumentNullException(nameof(values));
-        }
-
-        if (culture == null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(bindingSource);
+        ArgumentNullException.ThrowIfNull(values);
+        ArgumentNullException.ThrowIfNull(culture);
 
         _values = values;
         Culture = culture;
@@ -88,10 +76,7 @@ public class RouteValueProvider : BindingSourceValueProvider
     /// <inheritdoc />
     public override ValueProviderResult GetValue(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         if (key.Length == 0)
         {

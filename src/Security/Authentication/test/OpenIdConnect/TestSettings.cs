@@ -1,23 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Authentication.Test.OpenIdConnect;
 
@@ -33,13 +26,17 @@ internal class TestSettings
     {
     }
 
-    public TestSettings(Action<OpenIdConnectOptions> configure)
+    public TestSettings(Action<OpenIdConnectOptions> configure, HttpMessageHandler backchannel = null)
     {
+        if (backchannel == null)
+        {
+            backchannel = new MockBackchannel();
+        }
         _configureOptions = o =>
         {
             configure?.Invoke(o);
             _options = o;
-            _options.BackchannelHttpHandler = new MockBackchannel();
+            _options.BackchannelHttpHandler = backchannel;
         };
     }
 
@@ -81,7 +78,7 @@ internal class TestSettings
             }
 
             Debug.WriteLine(buf.ToString());
-            Assert.True(false, buf.ToString());
+            Assert.Fail(buf.ToString());
         }
 
         return formInputs;
@@ -119,7 +116,7 @@ internal class TestSettings
             }
 
             Debug.WriteLine(buf.ToString());
-            Assert.True(false, buf.ToString());
+            Assert.Fail(buf.ToString());
         }
 
         return formInputs;
@@ -158,7 +155,7 @@ internal class TestSettings
             }
 
             Debug.WriteLine(buf.ToString());
-            Assert.True(false, buf.ToString());
+            Assert.Fail(buf.ToString());
         }
 
         return queryDict;

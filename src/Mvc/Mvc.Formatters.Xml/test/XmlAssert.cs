@@ -1,13 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Xml;
 using System.Xml.Linq;
-using Xunit;
 using Xunit.Sdk;
 
 namespace Microsoft.AspNetCore.Mvc.Formatters.Xml;
@@ -35,7 +29,7 @@ public static class XmlAssert
 
         if (!areEqual)
         {
-            throw new EqualException(
+            throw EqualException.ForMismatchedValues(
                 sortedExpectedXDocument.ToString(SaveOptions.DisableFormatting),
                 sortedActualXDocument.ToString(SaveOptions.DisableFormatting));
         }

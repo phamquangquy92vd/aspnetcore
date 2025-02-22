@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.Localization;
@@ -35,14 +33,8 @@ internal sealed class DataAnnotationsModelValidatorProvider : IMetadataBasedMode
         IOptions<MvcDataAnnotationsLocalizationOptions> options,
         IStringLocalizerFactory? stringLocalizerFactory)
     {
-        if (validationAttributeAdapterProvider == null)
-        {
-            throw new ArgumentNullException(nameof(validationAttributeAdapterProvider));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(validationAttributeAdapterProvider);
+        ArgumentNullException.ThrowIfNull(options);
 
         _validationAttributeAdapterProvider = validationAttributeAdapterProvider;
         _options = options;

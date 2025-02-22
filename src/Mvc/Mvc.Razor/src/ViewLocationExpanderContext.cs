@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.Razor;
 
 /// <summary>
@@ -28,15 +25,8 @@ public class ViewLocationExpanderContext
         string? pageName,
         bool isMainPage)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (viewName == null)
-        {
-            throw new ArgumentNullException(nameof(viewName));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(viewName);
 
         ActionContext = actionContext;
         ViewName = viewName;

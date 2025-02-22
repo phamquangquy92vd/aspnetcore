@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Routing.Template;
 
 namespace Microsoft.AspNetCore.Routing;
@@ -19,10 +17,7 @@ public static class InlineRouteParameterParser
     /// <returns>A <see cref="TemplatePart"/> instance.</returns>
     public static TemplatePart ParseRouteParameter(string routeParameter)
     {
-        if (routeParameter == null)
-        {
-            throw new ArgumentNullException(nameof(routeParameter));
-        }
+        ArgumentNullException.ThrowIfNull(routeParameter);
 
         if (routeParameter.Length == 0)
         {

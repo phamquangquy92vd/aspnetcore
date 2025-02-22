@@ -1,18 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.WebSockets;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Http.Connections.Internal.Transports;
 
-internal partial class WebSocketsServerTransport : IHttpTransport
+internal sealed partial class WebSocketsServerTransport : IHttpTransport
 {
     private readonly WebSocketOptions _options;
     private readonly ILogger _logger;
@@ -20,22 +17,14 @@ internal partial class WebSocketsServerTransport : IHttpTransport
     private readonly HttpConnectionContext _connection;
     private volatile bool _aborted;
 
+    // Used to determine if the close was graceful or a network issue
+    private bool _gracefulClose;
+
     public WebSocketsServerTransport(WebSocketOptions options, IDuplexPipe application, HttpConnectionContext connection, ILoggerFactory loggerFactory)
     {
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
-
-        if (application == null)
-        {
-            throw new ArgumentNullException(nameof(application));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(application);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _options = options;
         _application = application;
@@ -45,7 +34,7 @@ internal partial class WebSocketsServerTransport : IHttpTransport
         _logger = loggerFactory.CreateLogger("Microsoft.AspNetCore.Http.Connections.Internal.Transports.WebSocketsTransport");
     }
 
-    public async Task ProcessRequestAsync(HttpContext context, CancellationToken token)
+    public async Task<bool> ProcessRequestAsync(HttpContext context, CancellationToken token)
     {
         Debug.Assert(context.WebSockets.IsWebSocketRequest, "Not a websocket request");
 
@@ -64,13 +53,16 @@ internal partial class WebSocketsServerTransport : IHttpTransport
                 Log.SocketClosed(_logger);
             }
         }
+
+        return _gracefulClose;
     }
 
     public async Task ProcessSocketAsync(WebSocket socket)
     {
-        // Begin sending and receiving. Receiving must be started first because ExecuteAsync enables SendAsync.
+        var ignoreFirstCancel = false;
+
         var receiving = StartReceiving(socket);
-        var sending = StartSending(socket);
+        var sending = StartSending(socket, ignoreFirstCancel);
 
         // Wait for send or receive to complete
         var trigger = await Task.WhenAny(receiving, sending);
@@ -149,6 +141,7 @@ internal partial class WebSocketsServerTransport : IHttpTransport
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
+                    _gracefulClose = true;
                     return;
                 }
 
@@ -159,6 +152,7 @@ internal partial class WebSocketsServerTransport : IHttpTransport
                 // Need to check again for netcoreapp3.0 and later because a close can happen between a 0-byte read and the actual read
                 if (receiveResult.MessageType == WebSocketMessageType.Close)
                 {
+                    _gracefulClose = true;
                     return;
                 }
 
@@ -189,17 +183,21 @@ internal partial class WebSocketsServerTransport : IHttpTransport
         {
             if (!_aborted && !token.IsCancellationRequested)
             {
+                _gracefulClose = true;
                 _application.Output.Complete(ex);
             }
         }
         finally
         {
-            // We're done writing
-            _application.Output.Complete();
+            if (_gracefulClose)
+            {
+                // We're done writing
+                _application.Output.Complete();
+            }
         }
     }
 
-    private async Task StartSending(WebSocket socket)
+    private async Task StartSending(WebSocket socket, bool ignoreFirstCancel)
     {
         Exception? error = null;
 
@@ -214,10 +212,12 @@ internal partial class WebSocketsServerTransport : IHttpTransport
 
                 try
                 {
-                    if (result.IsCanceled)
+                    if (result.IsCanceled && !ignoreFirstCancel)
                     {
                         break;
                     }
+
+                    ignoreFirstCancel = false;
 
                     if (!buffer.IsEmpty)
                     {
@@ -238,6 +238,12 @@ internal partial class WebSocketsServerTransport : IHttpTransport
                             {
                                 break;
                             }
+                        }
+                        catch (OperationCanceledException ex) when (ex.CancellationToken == _connection.SendingToken)
+                        {
+                            _gracefulClose = true;
+                            // TODO: probably log
+                            break;
                         }
                         catch (Exception ex)
                         {
@@ -280,9 +286,16 @@ internal partial class WebSocketsServerTransport : IHttpTransport
                 }
             }
 
-            _application.Input.Complete();
-        }
+            if (_gracefulClose)
+            {
+                _application.Input.Complete();
+            }
 
+            if (error is not null)
+            {
+                Log.SendErrored(_logger, error);
+            }
+        }
     }
 
     private static bool WebSocketCanSend(WebSocket ws)

@@ -4,7 +4,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 
 // Console.WriteLine("Ready");
 // Console.ReadKey();
@@ -16,7 +16,7 @@ handler.SslOptions.ClientCertificates = new X509CertificateCollection(new[] { Te
 using var client = new HttpClient(handler);
 client.DefaultRequestVersion =
     HttpVersion.Version20;
-    // HttpVersion.Version30;
+// HttpVersion.Version30;
 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher;
 
 var response = await client.GetAsync("https://localhost:5003");

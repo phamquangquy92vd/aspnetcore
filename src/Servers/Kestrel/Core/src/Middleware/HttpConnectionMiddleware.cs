@@ -2,15 +2,15 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Net;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Connections.Features;
 using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal;
 
-internal class HttpConnectionMiddleware<TContext> where TContext : notnull
+internal sealed class HttpConnectionMiddleware<TContext> where TContext : notnull
 {
     private readonly ServiceContext _serviceContext;
     private readonly IHttpApplication<TContext> _application;
@@ -29,6 +29,7 @@ internal class HttpConnectionMiddleware<TContext> where TContext : notnull
     {
         var memoryPoolFeature = connectionContext.Features.Get<IMemoryPoolFeature>();
         var protocols = connectionContext.Features.Get<HttpProtocolsFeature>()?.HttpProtocols ?? _endpointDefaultProtocols;
+        var metricContext = connectionContext.Features.GetRequiredFeature<IConnectionMetricsContextFeature>().MetricsContext;
         var localEndPoint = connectionContext.LocalEndPoint as IPEndPoint;
         var altSvcHeader = _addAltSvcHeader && localEndPoint != null ? HttpUtilities.GetEndpointAltSvc(localEndPoint, protocols) : null;
 
@@ -41,7 +42,8 @@ internal class HttpConnectionMiddleware<TContext> where TContext : notnull
             connectionContext.Features,
             memoryPoolFeature?.MemoryPool ?? System.Buffers.MemoryPool<byte>.Shared,
             localEndPoint,
-            connectionContext.RemoteEndPoint as IPEndPoint);
+            connectionContext.RemoteEndPoint as IPEndPoint,
+            metricContext);
         httpConnectionContext.Transport = connectionContext.Transport;
 
         var connection = new HttpConnection(httpConnectionContext);

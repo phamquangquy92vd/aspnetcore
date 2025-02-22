@@ -6,15 +6,17 @@ using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.ServerSentEvents;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Microsoft.AspNetCore.Http.Connections.Client.Internal;
 
-internal partial class ServerSentEventsTransport : ITransport
+internal sealed partial class ServerSentEventsTransport : ITransport
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger _logger;
@@ -23,7 +25,6 @@ internal partial class ServerSentEventsTransport : ITransport
     private volatile Exception? _error;
     private readonly CancellationTokenSource _transportCts = new CancellationTokenSource();
     private readonly CancellationTokenSource _inputCts = new CancellationTokenSource();
-    private readonly ServerSentEventsMessageParser _parser = new ServerSentEventsMessageParser();
     private IDuplexPipe? _transport;
     private IDuplexPipe? _application;
 
@@ -35,13 +36,10 @@ internal partial class ServerSentEventsTransport : ITransport
 
     public ServerSentEventsTransport(HttpClient httpClient, HttpConnectionOptions? httpConnectionOptions = null, ILoggerFactory? loggerFactory = null)
     {
-        if (httpClient == null)
-        {
-            throw new ArgumentNullException(nameof(httpClient));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(httpClient);
 
         _httpClient = httpClient;
-        _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<ServerSentEventsTransport>();
+        _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger(typeof(ServerSentEventsTransport));
         _httpConnectionOptions = httpConnectionOptions ?? new();
     }
 
@@ -61,7 +59,7 @@ internal partial class ServerSentEventsTransport : ITransport
 
         try
         {
-            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
         }
         catch
@@ -96,7 +94,7 @@ internal partial class ServerSentEventsTransport : ITransport
         var sending = SendUtils.SendMessages(url, _application, _httpClient, _logger, _inputCts.Token);
 
         // Wait for send or receive to complete
-        var trigger = await Task.WhenAny(receiving, sending);
+        var trigger = await Task.WhenAny(receiving, sending).ConfigureAwait(false);
 
         if (trigger == receiving)
         {
@@ -109,7 +107,7 @@ internal partial class ServerSentEventsTransport : ITransport
             // Cancel the application so that ReadAsync yields
             _application.Input.CancelPendingRead();
 
-            await sending;
+            await sending.ConfigureAwait(false);
         }
         else
         {
@@ -121,7 +119,7 @@ internal partial class ServerSentEventsTransport : ITransport
             // Cancel any pending flush so that we can quit
             _application.Output.CancelPendingFlush();
 
-            await receiving;
+            await receiving.ConfigureAwait(false);
         }
     }
 
@@ -131,79 +129,34 @@ internal partial class ServerSentEventsTransport : ITransport
 
         Log.StartReceive(_logger);
 
-        static void CancelReader(object? state) => ((PipeReader)state!).CancelPendingRead();
-
         using (response)
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods
-        using (var stream = await response.Content.ReadAsStreamAsync())
+        using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
 #pragma warning restore CA2016 // Forward the 'CancellationToken' parameter to methods
         {
-            var reader = PipeReader.Create(stream);
-
-            using var registration = cancellationToken.Register(CancelReader, reader);
-
             try
             {
-                while (true)
+                var parser = SseParser.Create(stream, (eventType, bytes) => bytes.ToArray());
+                await foreach (var item in parser.EnumerateAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    // We rely on the CancelReader callback to cancel pending reads. Do not pass the token to ReadAsync since that would result in an exception on cancelation.
-                    var result = await reader.ReadAsync(default);
-                    var buffer = result.Buffer;
-                    var consumed = buffer.Start;
-                    var examined = buffer.End;
+                    Log.MessageToApplication(_logger, item.Data.Length);
 
-                    try
+                    // When cancellationToken is canceled the next line will cancel pending flushes on the pipe unblocking the await.
+                    // Avoid passing the passed in context.
+                    var flushResult = await _application.Output.WriteAsync(item.Data, default).ConfigureAwait(false);
+
+                    // We canceled in the middle of applying back pressure
+                    // or if the consumer is done
+                    if (flushResult.IsCanceled || flushResult.IsCompleted)
                     {
-                        if (result.IsCanceled)
-                        {
-                            Log.ReceiveCanceled(_logger);
-                            break;
-                        }
-
-                        if (!buffer.IsEmpty)
-                        {
-                            Log.ParsingSSE(_logger, buffer.Length);
-
-                            var parseResult = _parser.ParseMessage(buffer, out consumed, out examined, out var message);
-                            FlushResult flushResult = default;
-
-                            switch (parseResult)
-                            {
-                                case ServerSentEventsMessageParser.ParseResult.Completed:
-                                    Log.MessageToApplication(_logger, message!.Length);
-
-                                    // When cancellationToken is canceled the next line will cancel pending flushes on the pipe unblocking the await.
-                                    // Avoid passing the passed in context.
-                                    flushResult = await _application.Output.WriteAsync(message, default);
-
-                                    _parser.Reset();
-                                    break;
-                                case ServerSentEventsMessageParser.ParseResult.Incomplete:
-                                    if (result.IsCompleted)
-                                    {
-                                        throw new FormatException("Incomplete message.");
-                                    }
-                                    break;
-                            }
-
-                            // We canceled in the middle of applying back pressure
-                            // or if the consumer is done
-                            if (flushResult.IsCanceled || flushResult.IsCompleted)
-                            {
-                                Log.EventStreamEnded(_logger);
-                                break;
-                            }
-                        }
-                        else if (result.IsCompleted)
-                        {
-                            break;
-                        }
-                    }
-                    finally
-                    {
-                        reader.AdvanceTo(consumed, examined);
+                        Log.EventStreamEnded(_logger);
+                        break;
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                Log.ReceiveCanceled(_logger);
             }
             catch (Exception ex)
             {
@@ -214,8 +167,6 @@ internal partial class ServerSentEventsTransport : ITransport
                 _application.Output.Complete(_error);
 
                 Log.ReceiveStopped(_logger);
-
-                reader.Complete();
             }
         }
     }
@@ -237,7 +188,7 @@ internal partial class ServerSentEventsTransport : ITransport
 
         try
         {
-            await Running;
+            await Running.ConfigureAwait(false);
         }
         catch (Exception ex)
         {

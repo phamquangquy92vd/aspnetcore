@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Razor.Infrastructure;
@@ -110,15 +109,8 @@ public class ImageTagHelper : UrlResolutionTagHelper
     /// <inheritdoc />
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (output == null)
-        {
-            throw new ArgumentNullException(nameof(output));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(output);
 
         output.CopyHtmlAttribute(SrcAttributeName, context);
         ProcessUrlAttribute(SrcAttributeName, output);
@@ -131,8 +123,9 @@ public class ImageTagHelper : UrlResolutionTagHelper
             // pipeline have touched the value. If the value is already encoded this ImageTagHelper may
             // not function properly.
             Src = output.Attributes[SrcAttributeName].Value as string;
+            var src = GetVersionedResourceUrl(Src);
 
-            output.Attributes.SetAttribute(SrcAttributeName, FileVersionProvider.AddFileVersionToPath(ViewContext.HttpContext.Request.PathBase, Src));
+            output.Attributes.SetAttribute(SrcAttributeName, src);
         }
     }
 
@@ -142,5 +135,25 @@ public class ImageTagHelper : UrlResolutionTagHelper
         {
             FileVersionProvider = ViewContext.HttpContext.RequestServices.GetRequiredService<IFileVersionProvider>();
         }
+    }
+
+    private string GetVersionedResourceUrl(string url)
+    {
+        if (AppendVersion == true)
+        {
+            var pathBase = ViewContext.HttpContext.Request.PathBase;
+            if (ResourceCollectionUtilities.TryResolveFromAssetCollection(ViewContext, url, out var resolvedUrl))
+            {
+                url = resolvedUrl;
+                return url;
+            }
+
+            if (url != null)
+            {
+                url = FileVersionProvider.AddFileVersionToPath(pathBase, url);
+            }
+        }
+
+        return url;
     }
 }

@@ -1,7 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 
@@ -18,16 +17,12 @@ public class ClientErrorResultFilterConvention : IActionModelConvention
     /// <inheritdoc />
     public void Apply(ActionModel action)
     {
-        if (action == null)
-        {
-            throw new ArgumentNullException(nameof(action));
-        }
+        ArgumentNullException.ThrowIfNull(action);
 
         if (!ShouldApply(action))
         {
             return;
         }
-
 
         action.Filters.Add(_filterFactory);
     }

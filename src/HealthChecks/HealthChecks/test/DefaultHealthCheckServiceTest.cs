@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Internal;
 using Microsoft.Extensions.Logging;
@@ -337,8 +337,8 @@ public class DefaultHealthCheckServiceTest
         var loggerFactory = new TestLoggerFactory(sink, enabled: true);
         var service = CreateHealthChecksService(b =>
         {
-                // Override the logger factory for testing
-                b.Services.AddSingleton<ILoggerFactory>(loggerFactory);
+            // Override the logger factory for testing
+            b.Services.AddSingleton<ILoggerFactory>(loggerFactory);
 
             b.AddCheck("TestScope", check);
         });
@@ -517,7 +517,7 @@ public class DefaultHealthCheckServiceTest
         await checkHealthTask;
 
         // Assert
-        Assert.Collection(checkHealthTask.Result.Entries,
+        Assert.Collection((await checkHealthTask).Entries,
             entry =>
             {
                 Assert.Equal("test1", entry.Key);
@@ -579,8 +579,8 @@ public class DefaultHealthCheckServiceTest
 
             SingleThreadedSynchronizationContext.Run(() =>
             {
-                    // Act
-                    service.CheckHealthAsync(token).GetAwaiter().GetResult();
+                // Act
+                service.CheckHealthAsync(token).GetAwaiter().GetResult();
                 hangs = false;
             });
         }
@@ -648,7 +648,10 @@ public class DefaultHealthCheckServiceTest
         {
             lock (_lock)
             {
-                if (_wasUsed) throw new InvalidOperationException("Should only used once");
+                if (_wasUsed)
+                {
+                    throw new InvalidOperationException("Should only used once");
+                }
                 _wasUsed = true;
             }
         }
@@ -740,7 +743,10 @@ public class DefaultHealthCheckServiceTest
 
         public void Dispose()
         {
-            if (IsDisposed) throw new InvalidOperationException("Dependency disposed multiple times.");
+            if (IsDisposed)
+            {
+                throw new InvalidOperationException("Dependency disposed multiple times.");
+            }
             IsDisposed = true;
         }
     }
@@ -751,7 +757,10 @@ public class DefaultHealthCheckServiceTest
 
         public ValueTask DisposeAsync()
         {
-            if (IsAsyncDisposed) throw new InvalidOperationException("Dependency disposed multiple times.");
+            if (IsAsyncDisposed)
+            {
+                throw new InvalidOperationException("Dependency disposed multiple times.");
+            }
             IsAsyncDisposed = true;
             return default;
         }
@@ -765,13 +774,19 @@ public class DefaultHealthCheckServiceTest
 
         public void Dispose()
         {
-            if (IsDisposed || IsAsyncDisposed) throw new InvalidOperationException("Dependency disposed multiple times.");
+            if (IsDisposed || IsAsyncDisposed)
+            {
+                throw new InvalidOperationException("Dependency disposed multiple times.");
+            }
             IsDisposed = true;
         }
 
         public ValueTask DisposeAsync()
         {
-            if (IsDisposed || IsAsyncDisposed) throw new InvalidOperationException("Dependency disposed multiple times.");
+            if (IsDisposed || IsAsyncDisposed)
+            {
+                throw new InvalidOperationException("Dependency disposed multiple times.");
+            }
             IsAsyncDisposed = true;
             return default;
         }

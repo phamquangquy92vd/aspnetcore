@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Net.Http;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.TestHost;
 
@@ -38,10 +35,7 @@ public class RequestBuilder
     /// <returns>This <see cref="RequestBuilder"/> for chaining.</returns>
     public RequestBuilder And(Action<HttpRequestMessage> configure)
     {
-        if (configure == null)
-        {
-            throw new ArgumentNullException(nameof(configure));
-        }
+        ArgumentNullException.ThrowIfNull(configure);
 
         configure(_req);
         return this;

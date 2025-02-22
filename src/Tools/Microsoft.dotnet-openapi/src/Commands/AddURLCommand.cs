@@ -9,7 +9,7 @@ using Microsoft.Extensions.Tools.Internal;
 
 namespace Microsoft.DotNet.OpenApi.Commands;
 
-internal class AddURLCommand : BaseCommand
+internal sealed class AddURLCommand : BaseCommand
 {
     private const string CommandName = "url";
 
@@ -31,9 +31,10 @@ internal class AddURLCommand : BaseCommand
 
     protected override async Task<int> ExecuteCoreAsync()
     {
-        var projectFilePath = ResolveProjectFile(ProjectFileOption);
+        ArgumentException.ThrowIfNullOrEmpty(_sourceFileArg.Value);
 
-        var sourceFile = Ensure.NotNullOrEmpty(_sourceFileArg.Value, SourceUrlArgName);
+        var projectFilePath = ResolveProjectFile(ProjectFileOption);
+        var sourceFile = _sourceFileArg.Value;
         var codeGenerator = GetCodeGenerator(_codeGeneratorOption);
 
         // We have to download the file from that URL, save it to a local file, then create a OpenApiReference
@@ -47,8 +48,10 @@ internal class AddURLCommand : BaseCommand
     protected override bool ValidateArguments()
     {
         ValidateCodeGenerator(_codeGeneratorOption);
-        var sourceFile = Ensure.NotNullOrEmpty(_sourceFileArg.Value, SourceUrlArgName);
-        if (!IsUrl(sourceFile))
+
+        ArgumentException.ThrowIfNullOrEmpty(_sourceFileArg.Value);
+
+        if (!IsUrl(_sourceFileArg.Value))
         {
             Error.Write($"{SourceUrlArgName} was not valid. Valid values are URLs");
             return false;

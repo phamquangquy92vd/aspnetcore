@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Text;
 
@@ -9,8 +8,8 @@ namespace Microsoft.AspNetCore.Server.HttpSys;
 
 internal static class Helpers
 {
-    internal static readonly byte[] ChunkTerminator = new byte[] { (byte)'0', (byte)'\r', (byte)'\n', (byte)'\r', (byte)'\n' };
-    internal static readonly byte[] CRLF = new byte[] { (byte)'\r', (byte)'\n' };
+    public static ReadOnlySpan<byte> ChunkTerminator => "0\r\n\r\n"u8;
+    public static ReadOnlySpan<byte> CRLF => "\r\n"u8;
 
     internal static ArraySegment<byte> GetChunkHeader(long size)
     {

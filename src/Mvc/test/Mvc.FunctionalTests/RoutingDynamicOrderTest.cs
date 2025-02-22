@@ -1,31 +1,35 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
+using System.Reflection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using RoutingWebSite;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public class RoutingDynamicOrderTest : IClassFixture<MvcTestFixture<RoutingWebSite.StartupForDynamic>>
+public class RoutingDynamicOrderTest : LoggedTest
 {
-    public RoutingDynamicOrderTest(MvcTestFixture<RoutingWebSite.StartupForDynamic> fixture)
-    {
-        Factory = fixture.Factories.FirstOrDefault() ?? fixture.WithWebHostBuilder(ConfigureWebHostBuilder);
-    }
-
     private static void ConfigureWebHostBuilder(IWebHostBuilder builder) => builder.UseStartup<RoutingWebSite.StartupForDynamicOrder>();
 
-    public WebApplicationFactory<StartupForDynamic> Factory { get; }
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    {
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<RoutingWebSite.StartupForDynamic>(LoggerFactory).WithWebHostBuilder(ConfigureWebHostBuilder);
+    }
+
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<RoutingWebSite.StartupForDynamic> Factory { get; private set; }
 
     [Fact]
     public async Task PrefersAttributeRoutesOverDynamicControllerRoutes()

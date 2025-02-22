@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.WebUtilities;
@@ -29,10 +27,7 @@ public class QueryFeature : IQueryFeature
     /// <param name="query">The <see cref="IQueryCollection"/> to use as a backing store.</param>
     public QueryFeature(IQueryCollection query)
     {
-        if (query == null)
-        {
-            throw new ArgumentNullException(nameof(query));
-        }
+        ArgumentNullException.ThrowIfNull(query);
 
         _parsedValues = query;
     }
@@ -43,10 +38,7 @@ public class QueryFeature : IQueryFeature
     /// <param name="features">The <see cref="IFeatureCollection"/> to initialize.</param>
     public QueryFeature(IFeatureCollection features)
     {
-        if (features == null)
-        {
-            throw new ArgumentNullException(nameof(features));
-        }
+        ArgumentNullException.ThrowIfNull(features);
 
         _features.Initalize(features);
     }

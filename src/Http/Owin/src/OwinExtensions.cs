@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Owin;
@@ -32,10 +29,7 @@ public static class OwinExtensions
     /// <returns>An action used to create the OWIN pipeline.</returns>
     public static AddMiddleware UseOwin(this IApplicationBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         AddMiddleware add = middleware =>
         {
@@ -48,8 +42,8 @@ public static class OwinExtensions
                 var app = middleware(exitMiddleware);
                 return httpContext =>
                 {
-                        // Use the existing OWIN env if there is one.
-                        IDictionary<string, object> env;
+                    // Use the existing OWIN env if there is one.
+                    IDictionary<string, object> env;
                     var owinEnvFeature = httpContext.Features.Get<IOwinEnvironmentFeature>();
                     if (owinEnvFeature != null)
                     {
@@ -78,14 +72,8 @@ public static class OwinExtensions
     /// <returns>The original <see cref="IApplicationBuilder"/>.</returns>
     public static IApplicationBuilder UseOwin(this IApplicationBuilder builder, Action<AddMiddleware> pipeline)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-        if (pipeline == null)
-        {
-            throw new ArgumentNullException(nameof(pipeline));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(pipeline);
 
         pipeline(builder.UseOwin());
         return builder;
@@ -109,10 +97,7 @@ public static class OwinExtensions
     /// <returns>An <see cref="IApplicationBuilder"/>.</returns>
     public static IApplicationBuilder UseBuilder(this AddMiddleware app, IServiceProvider serviceProvider)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         // Do not set ApplicationBuilder.ApplicationServices to null. May fail later due to missing services but
         // at least that results in a more useful Exception than a NRE.
@@ -146,8 +131,8 @@ public static class OwinExtensions
 
             return env =>
             {
-                    // Use the existing HttpContext if there is one.
-                    HttpContext context;
+                // Use the existing HttpContext if there is one.
+                HttpContext context;
                 object obj;
                 if (env.TryGetValue(typeof(HttpContext).FullName, out obj))
                 {
@@ -187,21 +172,15 @@ public static class OwinExtensions
     /// <returns>An <see cref="IApplicationBuilder"/>.</returns>
     public static AddMiddleware UseBuilder(this AddMiddleware app, Action<IApplicationBuilder> pipeline, IServiceProvider serviceProvider)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
-        if (pipeline == null)
-        {
-            throw new ArgumentNullException(nameof(pipeline));
-        }
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(pipeline);
 
         var builder = app.UseBuilder(serviceProvider);
         pipeline(builder);
         return app;
     }
 
-    private class EmptyProvider : IServiceProvider
+    private sealed class EmptyProvider : IServiceProvider
     {
         public object GetService(Type serviceType)
         {

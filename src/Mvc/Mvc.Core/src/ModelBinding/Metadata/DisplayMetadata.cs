@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 
 /// <summary>
@@ -75,10 +72,7 @@ public class DisplayMetadata
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _displayFormatStringProvider = value;
         }
@@ -137,10 +131,7 @@ public class DisplayMetadata
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _editFormatStringProvider = value;
         }
@@ -227,10 +218,7 @@ public class DisplayMetadata
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _nullDisplayTextProvider = value;
         }

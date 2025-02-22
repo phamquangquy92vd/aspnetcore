@@ -1,27 +1,20 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Compression;
 using System.IO.Pipelines;
-using System.Linq;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.ResponseCompression.Tests;
 
@@ -39,7 +32,7 @@ public class ResponseCompressionMiddlewareTest
     {
         get
         {
-            yield return new EncodingTestData("gzip", expectedBodyLength: 30);
+            yield return new EncodingTestData("gzip", expectedBodyLength: 29);
             yield return new EncodingTestData("br", expectedBodyLength: 21);
         }
     }
@@ -66,7 +59,7 @@ public class ResponseCompressionMiddlewareTest
     {
         var (response, logMessages) = await InvokeMiddleware(100, requestAcceptEncodings: new[] { "gzip", "deflate" }, responseType: TextPlain);
 
-        CheckResponseCompressed(response, expectedBodyLength: 30, expectedEncoding: "gzip");
+        CheckResponseCompressed(response, expectedBodyLength: 29, expectedEncoding: "gzip");
         AssertCompressedWithLog(logMessages, "gzip");
     }
 
@@ -103,7 +96,7 @@ public class ResponseCompressionMiddlewareTest
 
         var (response, logMessages) = await InvokeMiddleware(100, new[] { encoding1, encoding2 }, responseType: TextPlain, configure: Configure);
 
-        CheckResponseCompressed(response, expectedBodyLength: 30, expectedEncoding: "gzip");
+        CheckResponseCompressed(response, expectedBodyLength: 29, expectedEncoding: "gzip");
         AssertCompressedWithLog(logMessages, "gzip");
     }
 
@@ -133,7 +126,7 @@ public class ResponseCompressionMiddlewareTest
     {
         var (response, logMessages) = await InvokeMiddleware(100, requestAcceptEncodings: new[] { "gzip", "deflate" }, responseType: TextPlain, httpMethod: HttpMethods.Head);
 
-        // Per RFC 7231, section 4.3.2, the Content-Lenght header can be omitted on HEAD requests.
+        // Per RFC 7231, section 4.3.2, the Content-Length header can be omitted on HEAD requests.
         CheckResponseCompressed(response, expectedBodyLength: null, expectedEncoding: "gzip");
         AssertCompressedWithLog(logMessages, "gzip");
     }
@@ -147,7 +140,7 @@ public class ResponseCompressionMiddlewareTest
     {
         var (response, logMessages) = await InvokeMiddleware(uncompressedBodyLength: 100, requestAcceptEncodings: new[] { "gzip" }, contentType);
 
-        CheckResponseCompressed(response, expectedBodyLength: 30, expectedEncoding: "gzip");
+        CheckResponseCompressed(response, expectedBodyLength: 29, expectedEncoding: "gzip");
         AssertCompressedWithLog(logMessages, "gzip");
     }
 
@@ -279,7 +272,7 @@ public class ResponseCompressionMiddlewareTest
 
         if (compress)
         {
-            CheckResponseCompressed(response, expectedBodyLength: 30, expectedEncoding: "gzip");
+            CheckResponseCompressed(response, expectedBodyLength: 29, expectedEncoding: "gzip");
             AssertCompressedWithLog(logMessages, "gzip");
         }
         else
@@ -300,7 +293,7 @@ public class ResponseCompressionMiddlewareTest
                 options.ExcludedMimeTypes = new[] { "text/*" };
             });
 
-        CheckResponseCompressed(response, expectedBodyLength: 30, expectedEncoding: "gzip");
+        CheckResponseCompressed(response, expectedBodyLength: 29, expectedEncoding: "gzip");
         AssertCompressedWithLog(logMessages, "gzip");
     }
 
@@ -369,9 +362,9 @@ public class ResponseCompressionMiddlewareTest
     }
 
     [Theory]
-    [InlineData(new[] { "identity;q=0.5", "gzip;q=1" }, 30)]
-    [InlineData(new[] { "identity;q=0", "gzip;q=0.8" }, 30)]
-    [InlineData(new[] { "identity;q=0.5", "gzip" }, 30)]
+    [InlineData(new[] { "identity;q=0.5", "gzip;q=1" }, 29)]
+    [InlineData(new[] { "identity;q=0", "gzip;q=0.8" }, 29)]
+    [InlineData(new[] { "identity;q=0.5", "gzip" }, 29)]
     public async Task Request_AcceptWithHigherCompressionQuality_Compressed(string[] acceptEncodings, int expectedBodyLength)
     {
         var (response, logMessages) = await InvokeMiddleware(100, requestAcceptEncodings: acceptEncodings, responseType: TextPlain);
@@ -418,7 +411,6 @@ public class ResponseCompressionMiddlewareTest
         AssertLog(logMessages.Skip(1).First(), LogLevel.Debug, "Response compression disabled due to the Content-Range header.");
     }
 
-
     [Fact]
     public async Task Response_WithContentEncodingAlreadySet_NotReCompressed()
     {
@@ -439,7 +431,7 @@ public class ResponseCompressionMiddlewareTest
 
     [Theory]
     [InlineData(false, 100)]
-    [InlineData(true, 30)]
+    [InlineData(true, 29)]
     public async Task Request_Https_CompressedIfEnabled(bool enableHttps, int expectedLength)
     {
         var sink = new TestSink(
@@ -484,7 +476,7 @@ public class ResponseCompressionMiddlewareTest
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(expectedLength, response.Content.ReadAsByteArrayAsync().Result.Length);
+        Assert.Equal(expectedLength, (await response.Content.ReadAsByteArrayAsync()).Length);
 
         var logMessages = sink.Writes.ToList();
         if (enableHttps)
@@ -500,7 +492,7 @@ public class ResponseCompressionMiddlewareTest
     [Theory]
     [InlineData(HttpsCompressionMode.Default, 100)]
     [InlineData(HttpsCompressionMode.DoNotCompress, 100)]
-    [InlineData(HttpsCompressionMode.Compress, 30)]
+    [InlineData(HttpsCompressionMode.Compress, 29)]
     public async Task Request_Https_CompressedIfOptIn(HttpsCompressionMode mode, int expectedLength)
     {
         var sink = new TestSink(
@@ -547,7 +539,7 @@ public class ResponseCompressionMiddlewareTest
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(expectedLength, response.Content.ReadAsByteArrayAsync().Result.Length);
+        Assert.Equal(expectedLength, (await response.Content.ReadAsByteArrayAsync()).Length);
 
         var logMessages = sink.Writes.ToList();
         if (mode == HttpsCompressionMode.Compress)
@@ -561,8 +553,8 @@ public class ResponseCompressionMiddlewareTest
     }
 
     [Theory]
-    [InlineData(HttpsCompressionMode.Default, 30)]
-    [InlineData(HttpsCompressionMode.Compress, 30)]
+    [InlineData(HttpsCompressionMode.Default, 29)]
+    [InlineData(HttpsCompressionMode.Compress, 29)]
     [InlineData(HttpsCompressionMode.DoNotCompress, 100)]
     public async Task Request_Https_NotCompressedIfOptOut(HttpsCompressionMode mode, int expectedLength)
     {
@@ -610,7 +602,7 @@ public class ResponseCompressionMiddlewareTest
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(expectedLength, response.Content.ReadAsByteArrayAsync().Result.Length);
+        Assert.Equal(expectedLength, (await response.Content.ReadAsByteArrayAsync()).Length);
 
         var logMessages = sink.Writes.ToList();
         if (mode == HttpsCompressionMode.DoNotCompress)
@@ -627,7 +619,7 @@ public class ResponseCompressionMiddlewareTest
     [MemberData(nameof(SupportedEncodingsWithBodyLength))]
     public async Task FlushHeaders_SendsHeaders_Compresses(string encoding, int expectedBodyLength)
     {
-        var responseReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
@@ -662,7 +654,7 @@ public class ResponseCompressionMiddlewareTest
         request.Headers.AcceptEncoding.ParseAdd(encoding);
 
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        responseReceived.SetResult(0);
+        responseReceived.SetResult();
 
         await response.Content.LoadIntoBufferAsync();
 
@@ -673,7 +665,7 @@ public class ResponseCompressionMiddlewareTest
     [MemberData(nameof(SupportedEncodingsWithBodyLength))]
     public async Task FlushAsyncHeaders_SendsHeaders_Compresses(string encoding, int expectedBodyLength)
     {
-        var responseReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
@@ -707,7 +699,7 @@ public class ResponseCompressionMiddlewareTest
         request.Headers.AcceptEncoding.ParseAdd(encoding);
 
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-        responseReceived.SetResult(0);
+        responseReceived.SetResult();
 
         await response.Content.LoadIntoBufferAsync();
 
@@ -718,7 +710,7 @@ public class ResponseCompressionMiddlewareTest
     [MemberData(nameof(SupportedEncodings))]
     public async Task FlushBody_CompressesAndFlushes(string encoding)
     {
-        var responseReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
@@ -767,7 +759,7 @@ public class ResponseCompressionMiddlewareTest
         var read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
 
-        responseReceived.SetResult(0);
+        responseReceived.SetResult();
 
         read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
@@ -777,7 +769,7 @@ public class ResponseCompressionMiddlewareTest
     [MemberData(nameof(SupportedEncodings))]
     public async Task FlushAsyncBody_CompressesAndFlushes(string encoding)
     {
-        var responseReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
@@ -820,7 +812,7 @@ public class ResponseCompressionMiddlewareTest
         var read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
 
-        responseReceived.SetResult(0);
+        responseReceived.SetResult();
 
         read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
@@ -832,11 +824,11 @@ public class ResponseCompressionMiddlewareTest
     {
         var responseReceived = new[]
         {
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             };
 
         using var host = new HostBuilder()
@@ -892,7 +884,7 @@ public class ResponseCompressionMiddlewareTest
             var read = await body.ReadAsync(new byte[100], 0, 100);
             Assert.True(read > 0);
 
-            signal.SetResult(0);
+            signal.SetResult();
         }
     }
 
@@ -902,11 +894,11 @@ public class ResponseCompressionMiddlewareTest
     {
         var responseReceived = new[]
         {
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             };
 
         using var host = new HostBuilder()
@@ -956,7 +948,7 @@ public class ResponseCompressionMiddlewareTest
             var read = await body.ReadAsync(new byte[100], 0, 100);
             Assert.True(read > 0);
 
-            signal.SetResult(0);
+            signal.SetResult();
         }
     }
 
@@ -966,11 +958,11 @@ public class ResponseCompressionMiddlewareTest
     {
         var responseReceived = new[]
         {
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
-                new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
+                new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously),
             };
 
         using var host = new HostBuilder()
@@ -1023,7 +1015,7 @@ public class ResponseCompressionMiddlewareTest
             Assert.Equal(1, read);
             Assert.Equal('a', (char)data[0]);
 
-            signal.SetResult(0);
+            signal.SetResult();
         }
     }
 
@@ -1122,7 +1114,7 @@ public class ResponseCompressionMiddlewareTest
 
         var response = await client.SendAsync(request);
 
-        CheckResponseCompressed(response, expectedBodyLength: 34, expectedEncoding: "gzip");
+        CheckResponseCompressed(response, expectedBodyLength: 35, expectedEncoding: "gzip");
 
         Assert.False(fakeSendFile.SendFileInvoked);
     }
@@ -1181,7 +1173,7 @@ public class ResponseCompressionMiddlewareTest
     [MemberData(nameof(SupportedEncodings))]
     public async Task Dispose_SyncWriteOrFlushNotCalled(string encoding)
     {
-        var responseReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using var host = new HostBuilder()
             .ConfigureWebHost(webHostBuilder =>
@@ -1229,13 +1221,13 @@ public class ResponseCompressionMiddlewareTest
         var read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
 
-        responseReceived.SetResult(0);
+        responseReceived.SetResult();
 
         read = await body.ReadAsync(new byte[100], 0, 100);
         Assert.True(read > 0);
     }
 
-    private async Task<(HttpResponseMessage, List<WriteContext>)> InvokeMiddleware(
+    private static async Task<(HttpResponseMessage, List<WriteContext>)> InvokeMiddleware(
         int uncompressedBodyLength,
         string[] requestAcceptEncodings,
         string responseType,
@@ -1294,7 +1286,7 @@ public class ResponseCompressionMiddlewareTest
         return (response, sink.Writes.ToList());
     }
 
-    private void CheckResponseCompressed(HttpResponseMessage response, long? expectedBodyLength, string expectedEncoding)
+    private static void CheckResponseCompressed(HttpResponseMessage response, long? expectedBodyLength, string expectedEncoding)
     {
         var containsVaryAcceptEncoding = false;
         foreach (var value in response.Headers.GetValues(HeaderNames.Vary))
@@ -1311,7 +1303,7 @@ public class ResponseCompressionMiddlewareTest
         Assert.Equal(expectedBodyLength, response.Content.Headers.ContentLength);
     }
 
-    private void CheckResponseNotCompressed(HttpResponseMessage response, long? expectedBodyLength, bool sendVaryHeader)
+    private static void CheckResponseNotCompressed(HttpResponseMessage response, long? expectedBodyLength, bool sendVaryHeader)
     {
         if (sendVaryHeader)
         {
@@ -1335,7 +1327,7 @@ public class ResponseCompressionMiddlewareTest
         Assert.Equal(expectedBodyLength, response.Content.Headers.ContentLength);
     }
 
-    private void AssertLog(WriteContext log, LogLevel level, string message)
+    private static void AssertLog(WriteContext log, LogLevel level, string message)
     {
         Assert.Equal(level, log.LogLevel);
         Assert.Equal(message, log.State.ToString());

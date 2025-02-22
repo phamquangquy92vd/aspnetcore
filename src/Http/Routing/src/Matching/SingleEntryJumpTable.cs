@@ -1,11 +1,9 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-
-using System;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
 
-internal class SingleEntryJumpTable : JumpTable
+internal sealed class SingleEntryJumpTable : JumpTable
 {
     private readonly int _defaultDestination;
     private readonly int _exitDestination;
@@ -26,19 +24,14 @@ internal class SingleEntryJumpTable : JumpTable
 
     public override int GetDestination(string path, PathSegment segment)
     {
-        if (segment.Length == 0)
+        var length = segment.Length;
+        if (length == 0)
         {
             return _exitDestination;
         }
 
-        if (segment.Length == _text.Length &&
-            string.Compare(
-                path,
-                segment.Start,
-                _text,
-                0,
-                segment.Length,
-                StringComparison.OrdinalIgnoreCase) == 0)
+        var pathSpan = path.AsSpan(segment.Start, length);
+        if (pathSpan.Equals(_text, StringComparison.OrdinalIgnoreCase))
         {
             return _destination;
         }

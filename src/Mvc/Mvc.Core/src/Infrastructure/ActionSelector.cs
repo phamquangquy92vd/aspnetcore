@@ -3,10 +3,7 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.AspNetCore.Routing;
@@ -18,7 +15,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 /// <summary>
 /// A default <see cref="IActionSelector"/> implementation.
 /// </summary>
-internal class ActionSelector : IActionSelector
+internal sealed partial class ActionSelector : IActionSelector
 {
     private readonly IActionDescriptorCollectionProvider _actionDescriptorCollectionProvider;
     private readonly ActionConstraintCache _actionConstraintCache;
@@ -65,10 +62,7 @@ internal class ActionSelector : IActionSelector
 
     public IReadOnlyList<ActionDescriptor> SelectCandidates(RouteContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var cache = Current;
 
@@ -84,15 +78,8 @@ internal class ActionSelector : IActionSelector
 
     public ActionDescriptor? SelectBestCandidate(RouteContext context, IReadOnlyList<ActionDescriptor> candidates)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (candidates == null)
-        {
-            throw new ArgumentNullException(nameof(candidates));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(candidates);
 
         var finalMatches = EvaluateActionConstraints(context, candidates);
 
@@ -111,8 +98,7 @@ internal class ActionSelector : IActionSelector
             var actionNames = string.Join(
                 Environment.NewLine,
                 finalMatches.Select(a => a.DisplayName));
-
-            _logger.AmbiguousActions(actionNames);
+            Log.AmbiguousActions(_logger, actionNames);
 
             var message = Resources.FormatDefaultActionSelector_AmbiguousActions(
                 Environment.NewLine,
@@ -219,7 +205,8 @@ internal class ActionSelector : IActionSelector
                         if (!constraint.Accept(constraintContext))
                         {
                             isMatch = false;
-                            _logger.ConstraintMismatch(
+                            Log.ConstraintMismatch(
+                                _logger,
                                 candidate.Action.DisplayName,
                                 candidate.Action.Id,
                                 constraint);
@@ -258,5 +245,14 @@ internal class ActionSelector : IActionSelector
         {
             return EvaluateActionConstraintsCore(context, actionsWithoutConstraint, order);
         }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Error, "Request matched multiple actions resulting in ambiguity. Matching actions: {AmbiguousActions}", EventName = "AmbiguousActions")]
+        public static partial void AmbiguousActions(ILogger logger, string ambiguousActions);
+
+        [LoggerMessage(2, LogLevel.Debug, "Action '{ActionName}' with id '{ActionId}' did not match the constraint '{ActionConstraint}'", EventName = "ConstraintMismatch")]
+        public static partial void ConstraintMismatch(ILogger logger, string? actionName, string actionId, IActionConstraint actionConstraint);
     }
 }

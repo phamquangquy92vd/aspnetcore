@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
 using System.Reflection;
 
 namespace Microsoft.AspNetCore.Server.IntegrationTesting;
@@ -55,10 +52,7 @@ public class DeploymentParameters
         RuntimeFlavor runtimeFlavor,
         RuntimeArchitecture runtimeArchitecture)
     {
-        if (string.IsNullOrEmpty(applicationPath))
-        {
-            throw new ArgumentException("Value cannot be null.", nameof(applicationPath));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(applicationPath);
 
         if (!Directory.Exists(applicationPath))
         {
@@ -189,11 +183,12 @@ public class DeploymentParameters
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "[Variation] :: ServerType={0}, Runtime={1}, Arch={2}, BaseUrlHint={3}, Publish={4}",
+            "[Variation] :: ServerType={0}, Runtime={1}, Arch={2}, BaseUrlHint={3}, Publish={4}, HostingModel={5}",
             ServerType,
             RuntimeFlavor,
             RuntimeArchitecture,
             ApplicationBaseUriHint,
-            PublishApplicationBeforeDeployment);
+            PublishApplicationBeforeDeployment,
+            HostingModel);
     }
 }

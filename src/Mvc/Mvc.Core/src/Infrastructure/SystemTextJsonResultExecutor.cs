@@ -1,12 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -36,15 +33,8 @@ internal sealed partial class SystemTextJsonResultExecutor : IActionResultExecut
 
     public async Task ExecuteAsync(ActionContext context, JsonResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         var jsonSerializerOptions = GetSerializerOptions(result);
 
@@ -71,15 +61,14 @@ internal sealed partial class SystemTextJsonResultExecutor : IActionResultExecut
         var objectType = value?.GetType() ?? typeof(object);
 
         // Keep this code in sync with SystemTextJsonOutputFormatter
-        var responseStream = response.Body;
         if (resolvedContentTypeEncoding.CodePage == Encoding.UTF8.CodePage)
         {
             try
             {
-                await JsonSerializer.SerializeAsync(responseStream, value, objectType, jsonSerializerOptions, context.HttpContext.RequestAborted);
-                await responseStream.FlushAsync(context.HttpContext.RequestAborted);
+                var responseWriter = response.BodyWriter;
+                await JsonSerializer.SerializeAsync(responseWriter, value, objectType, jsonSerializerOptions, context.HttpContext.RequestAborted);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested) { }
         }
         else
         {
@@ -93,7 +82,7 @@ internal sealed partial class SystemTextJsonResultExecutor : IActionResultExecut
                 await JsonSerializer.SerializeAsync(transcodingStream, value, objectType, jsonSerializerOptions, context.HttpContext.RequestAborted);
                 await transcodingStream.FlushAsync(context.HttpContext.RequestAborted);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)
             { }
             catch (Exception ex)
             {

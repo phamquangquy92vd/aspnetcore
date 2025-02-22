@@ -1,13 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 using Microsoft.AspNetCore.Razor.TagHelpers;
 using Microsoft.Extensions.Caching.Distributed;
@@ -31,7 +28,7 @@ namespace Microsoft.AspNetCore.Mvc.TagHelpers.Cache;
 /// </item>
 /// </list>
 /// </summary>
-public class DistributedCacheTagHelperService : IDistributedCacheTagHelperService
+public partial class DistributedCacheTagHelperService : IDistributedCacheTagHelperService
 {
     private readonly IDistributedCacheTagHelperStorage _storage;
     private readonly IDistributedCacheTagHelperFormatter _formatter;
@@ -52,25 +49,10 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
         HtmlEncoder HtmlEncoder,
         ILoggerFactory loggerFactory)
     {
-        if (storage == null)
-        {
-            throw new ArgumentNullException(nameof(storage));
-        }
-
-        if (formatter == null)
-        {
-            throw new ArgumentNullException(nameof(formatter));
-        }
-
-        if (HtmlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(HtmlEncoder));
-        }
-
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(storage);
+        ArgumentNullException.ThrowIfNull(formatter);
+        ArgumentNullException.ThrowIfNull(HtmlEncoder);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
 
         _formatter = formatter;
         _storage = storage;
@@ -142,7 +124,7 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
                         }
                         catch (Exception e)
                         {
-                            _logger.DistributedFormatterDeserializationException(storageKey, e);
+                            Log.DistributedFormatterDeserializationException(_logger, storageKey, e);
                         }
                         finally
                         {
@@ -164,7 +146,7 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
                     // Remove the worker task before setting the result.
                     // If the result is null, other threads would potentially
                     // acquire it otherwise.
-                    _workers.TryRemove(key, out result);
+                    _workers.TryRemove(key, out _);
 
                     // Notify all other awaiters to render the content
                     tcs.TrySetResult(content);
@@ -179,7 +161,7 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
         return content;
     }
 
-    private byte[] Encode(byte[] value, byte[] serializedKey)
+    private static byte[] Encode(byte[] value, byte[] serializedKey)
     {
         using (var buffer = new MemoryStream())
         {
@@ -193,7 +175,7 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
         }
     }
 
-    private byte[] Decode(byte[] value, byte[] expectedKey)
+    private static byte[] Decode(byte[] value, byte[] expectedKey)
     {
         byte[] decoded = null;
 
@@ -215,5 +197,11 @@ public class DistributedCacheTagHelperService : IDistributedCacheTagHelperServic
         }
 
         return decoded;
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Error, "Couldn't deserialize cached value for key {Key}.", EventName = "DistributedFormatterDeserializationException")]
+        public static partial void DistributedFormatterDeserializationException(ILogger logger, string key, Exception exception);
     }
 }

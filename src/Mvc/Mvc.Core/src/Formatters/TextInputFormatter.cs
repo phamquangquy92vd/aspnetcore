@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -37,10 +34,7 @@ public abstract class TextInputFormatter : InputFormatter
     /// <inheritdoc />
     public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var selectedEncoding = SelectCharacterEncoding(context);
         if (selectedEncoding == null)
@@ -78,10 +72,7 @@ public abstract class TextInputFormatter : InputFormatter
     /// </returns>
     protected Encoding? SelectCharacterEncoding(InputFormatterContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (SupportedEncodings.Count == 0)
         {

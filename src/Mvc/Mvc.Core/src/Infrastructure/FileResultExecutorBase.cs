@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.Extensions.Logging;
@@ -81,10 +78,7 @@ public class FileResultExecutorBase
     /// <returns>An <see cref="ILogger"/>.</returns>
     protected static ILogger CreateLogger<T>(ILoggerFactory factory)
     {
-        if (factory == null)
-        {
-            throw new ArgumentNullException(nameof(factory));
-        }
+        ArgumentNullException.ThrowIfNull(factory);
 
         return factory.CreateLogger<T>();
     }

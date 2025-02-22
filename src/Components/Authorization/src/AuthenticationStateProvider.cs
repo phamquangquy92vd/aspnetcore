@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
-
 namespace Microsoft.AspNetCore.Components.Authorization;
 
 /// <summary>
@@ -29,10 +26,7 @@ public abstract class AuthenticationStateProvider
     /// <param name="task">A <see cref="Task"/> that supplies the updated <see cref="AuthenticationState"/>.</param>
     protected void NotifyAuthenticationStateChanged(Task<AuthenticationState> task)
     {
-        if (task == null)
-        {
-            throw new ArgumentNullException(nameof(task));
-        }
+        ArgumentNullException.ThrowIfNull(task);
 
         AuthenticationStateChanged?.Invoke(task);
     }

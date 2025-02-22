@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Mvc.Core;
@@ -36,20 +34,9 @@ public class ValidationVisitor
         IModelMetadataProvider metadataProvider,
         ValidationStateDictionary? validationState)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (validatorProvider == null)
-        {
-            throw new ArgumentNullException(nameof(validatorProvider));
-        }
-
-        if (validatorCache == null)
-        {
-            throw new ArgumentNullException(nameof(validatorCache));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(validatorProvider);
+        ArgumentNullException.ThrowIfNull(validatorCache);
 
         Context = actionContext;
         ValidatorProvider = validatorProvider;
@@ -418,7 +405,7 @@ public class ValidationVisitor
     /// <summary>
     /// Validate a simple type.
     /// </summary>
-    /// <returns>True if valie.</returns>
+    /// <returns>True if valid.</returns>
     protected virtual bool VisitSimpleType()
     {
         if (ModelState.HasReachedMaxErrors)

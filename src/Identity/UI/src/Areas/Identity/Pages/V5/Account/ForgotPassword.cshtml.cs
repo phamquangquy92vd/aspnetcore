@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
@@ -27,7 +24,7 @@ public abstract class ForgotPasswordModel : PageModel
     ///     directly from your code. This API may change or be removed in future releases.
     /// </summary>
     [BindProperty]
-    public InputModel Input { get; set; }
+    public InputModel Input { get; set; } = default!;
 
     /// <summary>
     ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
@@ -41,7 +38,7 @@ public abstract class ForgotPasswordModel : PageModel
         /// </summary>
         [Required]
         [EmailAddress]
-        public string Email { get; set; }
+        public string Email { get; set; } = default!;
     }
 
     /// <summary>
@@ -51,12 +48,12 @@ public abstract class ForgotPasswordModel : PageModel
     public virtual Task<IActionResult> OnPostAsync() => throw new NotImplementedException();
 }
 
-internal class ForgotPasswordModel<TUser> : ForgotPasswordModel where TUser : class
+internal sealed class ForgotPasswordModel<TUser> : ForgotPasswordModel where TUser : class
 {
     private readonly UserManager<TUser> _userManager;
-    private readonly IEmailSender _emailSender;
+    private readonly IEmailSender<TUser> _emailSender;
 
-    public ForgotPasswordModel(UserManager<TUser> userManager, IEmailSender emailSender)
+    public ForgotPasswordModel(UserManager<TUser> userManager, IEmailSender<TUser> emailSender)
     {
         _userManager = userManager;
         _emailSender = emailSender;
@@ -81,12 +78,9 @@ internal class ForgotPasswordModel<TUser> : ForgotPasswordModel where TUser : cl
                 "/Account/ResetPassword",
                 pageHandler: null,
                 values: new { area = "Identity", code },
-                protocol: Request.Scheme);
+                protocol: Request.Scheme)!;
 
-            await _emailSender.SendEmailAsync(
-                Input.Email,
-                "Reset Password",
-                $"Please reset your password by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+            await _emailSender.SendPasswordResetLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
 
             return RedirectToPage("./ForgotPasswordConfirmation");
         }

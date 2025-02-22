@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +22,7 @@ public class FacebookOptions : OAuthOptions
         AuthorizationEndpoint = FacebookDefaults.AuthorizationEndpoint;
         TokenEndpoint = FacebookDefaults.TokenEndpoint;
         UserInformationEndpoint = FacebookDefaults.UserInformationEndpoint;
+        UsePkce = true;
         Scope.Add("email");
         Fields.Add("name");
         Fields.Add("email");
@@ -52,15 +50,8 @@ public class FacebookOptions : OAuthOptions
     /// </summary>
     public override void Validate()
     {
-        if (string.IsNullOrEmpty(AppId))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(AppId)), nameof(AppId));
-        }
-
-        if (string.IsNullOrEmpty(AppSecret))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(AppSecret)), nameof(AppSecret));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(AppId);
+        ArgumentException.ThrowIfNullOrEmpty(AppSecret);
 
         base.Validate();
     }
@@ -88,14 +79,14 @@ public class FacebookOptions : OAuthOptions
     /// <summary>
     /// Gets or sets if the <c>appsecret_proof</c> should be generated and sent with Facebook API calls.
     /// </summary>
-    /// <remarks>See https://developers.facebook.com/docs/graph-api/security#appsecret_proof for more details.</remarks>
+    /// <remarks>See <see href="https://developers.facebook.com/docs/graph-api/security#appsecret_proof"/> for more details.</remarks>
     /// <value>Defaults to <see langword="true"/>.</value>
     public bool SendAppSecretProof { get; set; }
 
     /// <summary>
     /// The list of fields to retrieve from the UserInformationEndpoint.
-    /// https://developers.facebook.com/docs/graph-api/reference/user
     /// </summary>
+    /// <remarks>See <see href="https://developers.facebook.com/docs/graph-api/reference/user"/> for more details.</remarks>
     /// <value>
     /// Defaults to include the following fields if none are specified: "name", "email", "first_name", and "last_name".
     /// </value>

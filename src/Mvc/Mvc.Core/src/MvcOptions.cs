@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
@@ -120,7 +118,7 @@ public class MvcOptions : IEnumerable<ICompatibilitySwitch>
     /// </para>
     /// <para>
     /// MVC does not support non-nullable reference type annotations on type arguments and type parameter
-    /// contraints. The framework will not infer any validation attributes for generic-typed properties
+    /// constraints. The framework will not infer any validation attributes for generic-typed properties
     /// or collection elements.
     /// </para>
     /// </remarks>
@@ -155,10 +153,7 @@ public class MvcOptions : IEnumerable<ICompatibilitySwitch>
         get => _maxModelStateErrors;
         set
         {
-            if (value < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
 
             _maxModelStateErrors = value;
         }
@@ -320,10 +315,7 @@ public class MvcOptions : IEnumerable<ICompatibilitySwitch>
         set
         {
             // Disallowing an empty collection would cause the CollectionModelBinder to throw unconditionally.
-            if (value <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
 
             _maxModelBindingCollectionSize = value;
         }
@@ -359,10 +351,7 @@ public class MvcOptions : IEnumerable<ICompatibilitySwitch>
         {
             // Disallowing one model binder (if supported) would cause the model binding system to throw
             // unconditionally. DefaultModelBindingContext always allows a top-level binder i.e. its own creation.
-            if (value <= 1)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, 1);
 
             _maxModelBindingRecursionDepth = value;
         }

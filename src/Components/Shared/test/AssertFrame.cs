@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.RenderTree;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Test.Helpers;
 
@@ -142,5 +139,20 @@ internal static class AssertFrame
         Assert.Equal(RenderTreeFrameType.ComponentReferenceCapture, frame.FrameType);
         Assert.Same(action, frame.ComponentReferenceCaptureAction);
         AssertFrame.Sequence(frame, sequence);
+    }
+
+    public static void ComponentRenderMode(RenderTreeFrame frame, IComponentRenderMode mode)
+    {
+        Assert.Equal(RenderTreeFrameType.ComponentRenderMode, frame.FrameType);
+        Assert.Same(mode, frame.ComponentRenderMode);
+        AssertFrame.Sequence(frame, 0);
+    }
+
+    public static void NamedEvent(RenderTreeFrame frame, string eventType, string assignedName)
+    {
+        Assert.Equal(RenderTreeFrameType.NamedEvent, frame.FrameType);
+        Assert.Equal(eventType, frame.NamedEventType);
+        Assert.Equal(assignedName, frame.NamedEventAssignedName);
+        AssertFrame.Sequence(frame, 0);
     }
 }

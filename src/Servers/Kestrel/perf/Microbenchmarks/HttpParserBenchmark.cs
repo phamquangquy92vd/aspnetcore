@@ -1,12 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Net.Http;
+using System.IO.Pipelines;
 using BenchmarkDotNet.Attributes;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
-using HttpMethod = Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpMethod;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Microbenchmarks;
 
@@ -15,6 +13,21 @@ public class HttpParserBenchmark : IHttpRequestLineHandler, IHttpHeadersHandler
     private readonly HttpParser<Adapter> _parser = new HttpParser<Adapter>();
 
     private ReadOnlySequence<byte> _buffer;
+    private ReadOnlySequence<byte> _multispanHeader;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        var segment = new BufferSegment();
+        var split = RequestParsingData.UnicodeRequest.Length / 2;
+        segment.SetOwnedMemory(RequestParsingData.UnicodeRequest.AsSpan(0, split).ToArray());
+        segment.End = split;
+        var next = new BufferSegment();
+        next.SetOwnedMemory(RequestParsingData.UnicodeRequest.AsSpan(split).ToArray());
+        next.End = split;
+        segment.SetNext(next);
+        _multispanHeader = new ReadOnlySequence<byte>(segment, 0, next, next.Memory.Length);
+    }
 
     [Benchmark(Baseline = true, OperationsPerInvoke = RequestParsingData.InnerLoopCount)]
     public void PlaintextTechEmpower()
@@ -52,6 +65,16 @@ public class HttpParserBenchmark : IHttpRequestLineHandler, IHttpHeadersHandler
         for (var i = 0; i < RequestParsingData.InnerLoopCount; i++)
         {
             InsertData(RequestParsingData.UnicodeRequest);
+            ParseData();
+        }
+    }
+
+    [Benchmark(OperationsPerInvoke = RequestParsingData.InnerLoopCount)]
+    public void MultispanUnicodeHeader()
+    {
+        for (var i = 0; i < RequestParsingData.InnerLoopCount; i++)
+        {
+            _buffer = _multispanHeader;
             ParseData();
         }
     }

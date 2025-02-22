@@ -1,15 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.ExceptionServices;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Test.Helpers;
 
@@ -51,6 +46,8 @@ public class TestRenderer : Renderer
     public bool ShouldHandleExceptions { get; set; }
 
     public Task NextRenderResultTask { get; set; } = Task.CompletedTask;
+
+    private HashSet<TestRendererComponentState> UndisposedComponentStates { get; } = new();
 
     public new int AssignRootComponentId(IComponent component)
         => base.AssignRootComponentId(component);
@@ -137,4 +134,35 @@ public class TestRenderer : Renderer
 
     public new void ProcessPendingRender()
         => base.ProcessPendingRender();
+
+    protected override ComponentState CreateComponentState(int componentId, IComponent component, ComponentState parentComponentState)
+        => new TestRendererComponentState(this, componentId, component, parentComponentState);
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+
+        if (UndisposedComponentStates.Count > 0)
+        {
+            throw new InvalidOperationException("Did not dispose all the ComponentState instances. This could lead to ArrayBuffer not returning buffers to its pool.");
+        }
+    }
+
+    class TestRendererComponentState : ComponentState, IAsyncDisposable
+    {
+        private readonly TestRenderer _renderer;
+
+        public TestRendererComponentState(Renderer renderer, int componentId, IComponent component, ComponentState parentComponentState)
+            : base(renderer, componentId, component, parentComponentState)
+        {
+            _renderer = (TestRenderer)renderer;
+            _renderer.UndisposedComponentStates.Add(this);
+        }
+
+        public override ValueTask DisposeAsync()
+        {
+            _renderer.UndisposedComponentStates.Remove(this);
+            return base.DisposeAsync();
+        }
+    }
 }

@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.Core;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,10 +32,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _actionContext; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _actionContext = value;
         }
     }
@@ -48,10 +43,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _state.FieldName; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _state.FieldName = value;
         }
     }
@@ -69,10 +61,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _state.ModelMetadata; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _state.ModelMetadata = value;
         }
     }
@@ -83,10 +72,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _state.ModelName; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _state.ModelName = value;
         }
     }
@@ -97,10 +83,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _modelState; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _modelState = value;
         }
     }
@@ -134,10 +117,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _originalValueProvider; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _originalValueProvider = value;
         }
     }
@@ -148,10 +128,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _state.ValueProvider; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _state.ValueProvider = value;
         }
     }
@@ -169,10 +146,7 @@ public class DefaultModelBindingContext : ModelBindingContext
         get { return _validationState; }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
             _validationState = value;
         }
     }
@@ -227,25 +201,10 @@ public class DefaultModelBindingContext : ModelBindingContext
         BindingInfo? bindingInfo,
         string modelName)
     {
-        if (actionContext == null)
-        {
-            throw new ArgumentNullException(nameof(actionContext));
-        }
-
-        if (valueProvider == null)
-        {
-            throw new ArgumentNullException(nameof(valueProvider));
-        }
-
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
-
-        if (modelName == null)
-        {
-            throw new ArgumentNullException(nameof(modelName));
-        }
+        ArgumentNullException.ThrowIfNull(actionContext);
+        ArgumentNullException.ThrowIfNull(valueProvider);
+        ArgumentNullException.ThrowIfNull(metadata);
+        ArgumentNullException.ThrowIfNull(modelName);
 
         var binderModelName = bindingInfo?.BinderModelName ?? metadata.BinderModelName;
         var bindingSource = bindingInfo?.BindingSource ?? metadata.BindingSource;
@@ -289,20 +248,9 @@ public class DefaultModelBindingContext : ModelBindingContext
         string modelName,
         object? model)
     {
-        if (modelMetadata == null)
-        {
-            throw new ArgumentNullException(nameof(modelMetadata));
-        }
-
-        if (fieldName == null)
-        {
-            throw new ArgumentNullException(nameof(fieldName));
-        }
-
-        if (modelName == null)
-        {
-            throw new ArgumentNullException(nameof(modelName));
-        }
+        ArgumentNullException.ThrowIfNull(modelMetadata);
+        ArgumentNullException.ThrowIfNull(fieldName);
+        ArgumentNullException.ThrowIfNull(modelName);
 
         var scope = EnterNestedScope();
 

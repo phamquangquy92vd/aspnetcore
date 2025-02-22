@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using Xunit;
-
 namespace Microsoft.Net.Http.Headers;
 
 public class RangeConditionHeaderValueTest
@@ -118,7 +115,7 @@ public class RangeConditionHeaderValueTest
     [InlineData("W/Wed 09 Nov 1994 08:49:37 GMT")]
     [InlineData("\"x\",")]
     [InlineData("Wed 09 Nov 1994 08:49:37 GMT,")]
-    public void Parse_SetOfInvalidValueStrings_Throws(string input)
+    public void Parse_SetOfInvalidValueStrings_Throws(string? input)
     {
         Assert.Throws<FormatException>(() => RangeConditionHeaderValue.Parse(input));
     }
@@ -147,7 +144,7 @@ public class RangeConditionHeaderValueTest
     [InlineData("W/Wed 09 Nov 1994 08:49:37 GMT")]
     [InlineData("\"x\",")]
     [InlineData("Wed 09 Nov 1994 08:49:37 GMT,")]
-    public void TryParse_SetOfInvalidValueStrings_ReturnsFalse(string input)
+    public void TryParse_SetOfInvalidValueStrings_ReturnsFalse(string? input)
     {
         Assert.False(RangeConditionHeaderValue.TryParse(input, out var result));
         Assert.Null(result);

@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -40,10 +38,7 @@ public class ConsumesAttribute :
     /// </summary>
     public ConsumesAttribute(string contentType, params string[] otherContentTypes)
     {
-        if (contentType == null)
-        {
-            throw new ArgumentNullException(nameof(contentType));
-        }
+        ArgumentNullException.ThrowIfNull(contentType);
 
         // We want to ensure that the given provided content types are valid values, so
         // we validate them using the semantics of MediaTypeHeaderValue.
@@ -66,10 +61,7 @@ public class ConsumesAttribute :
     /// </summary>
     public ConsumesAttribute(Type requestType, string contentType, params string[] otherContentTypes)
     {
-        if (contentType == null)
-        {
-            throw new ArgumentNullException(nameof(contentType));
-        }
+        ArgumentNullException.ThrowIfNull(contentType);
 
         // We want to ensure that the given provided content types are valid values, so
         // we validate them using the semantics of MediaTypeHeaderValue.
@@ -83,7 +75,6 @@ public class ConsumesAttribute :
         ContentTypes = GetContentTypes(contentType, otherContentTypes);
         _contentTypes = GetAllContentTypes(contentType, otherContentTypes);
         _requestType = requestType;
-
     }
 
     // The value used is a non default value so that it avoids getting mixed with other action constraints
@@ -114,10 +105,7 @@ public class ConsumesAttribute :
     /// <inheritdoc />
     public void OnResourceExecuting(ResourceExecutingContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         // Only execute if the current filter is the one which is closest to the action.
         // Ignore all other filters. This is to ensure we have a overriding behavior.
@@ -154,10 +142,7 @@ public class ConsumesAttribute :
     /// <inheritdoc />
     public void OnResourceExecuted(ResourceExecutedContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
     }
 
     /// <inheritdoc />
@@ -248,7 +233,7 @@ public class ConsumesAttribute :
             filter => filter.Filter is IConsumesActionConstraint).Filter == this;
     }
 
-    private MediaTypeCollection GetContentTypes(string firstArg, string[] args)
+    private static MediaTypeCollection GetContentTypes(string firstArg, string[] args)
     {
         var completeArgs = new List<string>(args.Length + 1);
         completeArgs.Add(firstArg);

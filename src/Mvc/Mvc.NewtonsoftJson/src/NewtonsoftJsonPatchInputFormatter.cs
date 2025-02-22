@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using Microsoft.Extensions.Logging;
@@ -65,15 +62,8 @@ public class NewtonsoftJsonPatchInputFormatter : NewtonsoftJsonInputFormatter
         InputFormatterContext context,
         Encoding encoding)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (encoding == null)
-        {
-            throw new ArgumentNullException(nameof(encoding));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(encoding);
 
         var result = await base.ReadRequestBodyAsync(context, encoding);
         if (!result.HasError)
@@ -90,10 +80,7 @@ public class NewtonsoftJsonPatchInputFormatter : NewtonsoftJsonInputFormatter
     /// <inheritdoc />
     public override bool CanRead(InputFormatterContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var modelType = context.ModelType;
         if (!typeof(IJsonPatchDocument).IsAssignableFrom(modelType) ||

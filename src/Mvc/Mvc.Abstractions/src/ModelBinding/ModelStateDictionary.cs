@@ -1,14 +1,14 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Primitives;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -17,6 +17,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 /// Represents the state of an attempt to bind values from an HTTP Request to an action method, which includes
 /// validation information.
 /// </summary>
+[DebuggerDisplay("Entries = {Count}, IsValid = {IsValid}")]
+[DebuggerTypeProxy(typeof(ModelStateDictionaryDebugView))]
 public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?>
 {
     // Make sure to update the doc headers if this value is changed.
@@ -24,6 +26,9 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// The default value for <see cref="MaxAllowedErrors"/> of <c>200</c>.
     /// </summary>
     public static readonly int DefaultMaxAllowedErrors = 200;
+
+    // internal for testing
+    internal const int DefaultMaxRecursionDepth = 32;
 
     private const char DelimiterDot = '.';
     private const char DelimiterOpen = '[';
@@ -43,8 +48,18 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// Initializes a new instance of the <see cref="ModelStateDictionary"/> class.
     /// </summary>
     public ModelStateDictionary(int maxAllowedErrors)
+        : this(maxAllowedErrors, maxValidationDepth: DefaultMaxRecursionDepth, maxStateDepth: DefaultMaxRecursionDepth)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ModelStateDictionary"/> class.
+    /// </summary>
+    private ModelStateDictionary(int maxAllowedErrors, int maxValidationDepth, int maxStateDepth)
     {
         MaxAllowedErrors = maxAllowedErrors;
+        MaxValidationDepth = maxValidationDepth;
+        MaxStateDepth = maxStateDepth;
         var emptySegment = new StringSegment(buffer: string.Empty);
         _root = new ModelStateNode(subKey: emptySegment)
         {
@@ -58,12 +73,11 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </summary>
     /// <param name="dictionary">The <see cref="ModelStateDictionary"/> to copy values from.</param>
     public ModelStateDictionary(ModelStateDictionary dictionary)
-        : this(dictionary?.MaxAllowedErrors ?? DefaultMaxAllowedErrors)
+        : this(dictionary?.MaxAllowedErrors ?? DefaultMaxAllowedErrors,
+              dictionary?.MaxValidationDepth ?? DefaultMaxRecursionDepth,
+              dictionary?.MaxStateDepth ?? DefaultMaxRecursionDepth)
     {
-        if (dictionary == null)
-        {
-            throw new ArgumentNullException(nameof(dictionary));
-        }
+        ArgumentNullException.ThrowIfNull(dictionary);
 
         Merge(dictionary);
     }
@@ -97,10 +111,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         }
         set
         {
-            if (value < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(value));
-            }
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
 
             _maxAllowedErrors = value;
         }
@@ -154,17 +165,14 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     }
 
     /// <inheritdoc />
-    public ModelValidationState ValidationState => GetValidity(_root) ?? ModelValidationState.Valid;
+    public ModelValidationState ValidationState => GetValidity(_root, currentDepth: 0) ?? ModelValidationState.Valid;
 
     /// <inheritdoc />
     public ModelStateEntry? this[string key]
     {
         get
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             TryGetValue(key, out var entry);
             return entry;
@@ -173,6 +181,10 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
 
     // Flag that indicates if TooManyModelErrorException has already been added to this dictionary.
     private bool HasRecordedMaxModelError { get; set; }
+
+    internal int? MaxValidationDepth { get; set; }
+
+    internal int? MaxStateDepth { get; set; }
 
     /// <summary>
     /// Adds the specified <paramref name="exception"/> to the <see cref="ModelStateEntry.Errors"/> instance
@@ -194,15 +206,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </returns>
     public bool TryAddModelException(string key, Exception exception)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (exception == null)
-        {
-            throw new ArgumentNullException(nameof(exception));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(exception);
 
         if ((exception is InputFormatterException || exception is ValueProviderException)
            && !string.IsNullOrEmpty(exception.Message))
@@ -217,7 +222,6 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
             return false;
         }
 
-        ErrorCount++;
         AddModelErrorCore(key, exception);
         return true;
     }
@@ -234,20 +238,9 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <param name="metadata">The <see cref="ModelMetadata"/> associated with the model.</param>
     public void AddModelError(string key, Exception exception, ModelMetadata metadata)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (exception == null)
-        {
-            throw new ArgumentNullException(nameof(exception));
-        }
-
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(exception);
+        ArgumentNullException.ThrowIfNull(metadata);
 
         TryAddModelError(key, exception, metadata);
     }
@@ -268,20 +261,9 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </returns>
     public bool TryAddModelError(string key, Exception exception, ModelMetadata metadata)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (exception == null)
-        {
-            throw new ArgumentNullException(nameof(exception));
-        }
-
-        if (metadata == null)
-        {
-            throw new ArgumentNullException(nameof(metadata));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(exception);
+        ArgumentNullException.ThrowIfNull(metadata);
 
         if (ErrorCount >= MaxAllowedErrors - 1)
         {
@@ -327,7 +309,6 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
             return TryAddModelError(key, exception.Message);
         }
 
-        ErrorCount++;
         AddModelErrorCore(key, exception);
         return true;
     }
@@ -342,15 +323,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <param name="errorMessage">The error message to add.</param>
     public void AddModelError(string key, string errorMessage)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (errorMessage == null)
-        {
-            throw new ArgumentNullException(nameof(errorMessage));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(errorMessage);
 
         TryAddModelError(key, errorMessage);
     }
@@ -369,15 +343,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </returns>
     public bool TryAddModelError(string key, string errorMessage)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
-
-        if (errorMessage == null)
-        {
-            throw new ArgumentNullException(nameof(errorMessage));
-        }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(errorMessage);
 
         if (ErrorCount >= MaxAllowedErrors - 1)
         {
@@ -385,13 +352,13 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
             return false;
         }
 
-        ErrorCount++;
         var modelState = GetOrAddNode(key);
         Count += !modelState.IsContainerNode ? 0 : 1;
         modelState.ValidationState = ModelValidationState.Invalid;
         modelState.MarkNonContainerNode();
         modelState.Errors.Add(errorMessage);
 
+        ErrorCount++;
         return true;
     }
 
@@ -405,13 +372,10 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// state errors; <see cref="ModelValidationState.Valid"/> otherwise.</returns>
     public ModelValidationState GetFieldValidationState(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var item = GetNode(key);
-        return GetValidity(item) ?? ModelValidationState.Unvalidated;
+        return GetValidity(item, currentDepth: 0) ?? ModelValidationState.Unvalidated;
     }
 
     /// <summary>
@@ -423,10 +387,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// state errors; <see cref="ModelValidationState.Valid"/> otherwise.</returns>
     public ModelValidationState GetValidationState(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         if (TryGetValue(key, out var validationState))
         {
@@ -443,10 +404,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <param name="key">The key of the <see cref="ModelStateEntry"/> to mark as valid.</param>
     public void MarkFieldValid(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var modelState = GetOrAddNode(key);
         if (modelState.ValidationState == ModelValidationState.Invalid)
@@ -466,10 +424,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <param name="key">The key of the <see cref="ModelStateEntry"/> to mark as skipped.</param>
     public void MarkFieldSkipped(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var modelState = GetOrAddNode(key);
         if (modelState.ValidationState == ModelValidationState.Invalid)
@@ -515,10 +470,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </param>
     public void SetModelValue(string key, object? rawValue, string? attemptedValue)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var modelState = GetOrAddNode(key);
         Count += !modelState.IsContainerNode ? 0 : 1;
@@ -536,10 +488,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </param>
     public void SetModelValue(string key, ValueProviderResult valueProviderResult)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         // Avoid creating a new array for rawValue if there's only one value.
         object? rawValue;
@@ -611,11 +560,18 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         var current = _root;
         if (key.Length > 0)
         {
+            var currentDepth = 0;
             var match = default(MatchResult);
             do
             {
+                if (MaxStateDepth != null && currentDepth >= MaxStateDepth)
+                {
+                    throw new InvalidOperationException(Resources.FormatModelStateDictionary_MaxModelStateDepth(MaxStateDepth));
+                }
+
                 var subKey = FindNext(key, ref match);
                 current = current.GetOrAddNode(subKey);
+                currentDepth++;
 
             } while (match.Type != Delimiter.None);
 
@@ -661,9 +617,10 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         return new StringSegment(key, keyStart, index - keyStart);
     }
 
-    private static ModelValidationState? GetValidity(ModelStateNode? node)
+    private ModelValidationState? GetValidity(ModelStateNode? node, int currentDepth)
     {
-        if (node == null)
+        if (node == null ||
+            (MaxValidationDepth != null && currentDepth >= MaxValidationDepth))
         {
             return null;
         }
@@ -686,9 +643,11 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
 
         if (node.ChildNodes != null)
         {
+            currentDepth++;
+
             for (var i = 0; i < node.ChildNodes.Count; i++)
             {
-                var entryState = GetValidity(node.ChildNodes[i]);
+                var entryState = GetValidity(node.ChildNodes[i], currentDepth);
 
                 if (entryState == ModelValidationState.Unvalidated)
                 {
@@ -712,7 +671,6 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
             var exception = new TooManyModelErrorsException(Resources.ModelStateDictionary_MaxModelStateErrors);
             AddModelErrorCore(string.Empty, exception);
             HasRecordedMaxModelError = true;
-            ErrorCount++;
         }
     }
 
@@ -723,6 +681,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         modelState.ValidationState = ModelValidationState.Invalid;
         modelState.MarkNonContainerNode();
         modelState.Errors.Add(exception);
+
+        ErrorCount++;
     }
 
     /// <summary>
@@ -740,10 +700,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <inheritdoc />
     public bool ContainsKey(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         return !GetNode(key)?.IsContainerNode ?? false;
     }
@@ -756,10 +713,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// returns <c>false</c> if key was not found.</returns>
     public bool Remove(string key)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var node = GetNode(key);
         if (node?.IsContainerNode == false)
@@ -776,10 +730,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <inheritdoc />
     public bool TryGetValue(string key, [NotNullWhen(true)] out ModelStateEntry? value)
     {
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(key);
 
         var result = GetNode(key);
         if (result?.IsContainerNode == false)
@@ -813,15 +764,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// </summary>
     public static bool StartsWithPrefix(string prefix, string key)
     {
-        if (prefix == null)
-        {
-            throw new ArgumentNullException(nameof(prefix));
-        }
-
-        if (key == null)
-        {
-            throw new ArgumentNullException(nameof(key));
-        }
+        ArgumentNullException.ThrowIfNull(prefix);
+        ArgumentNullException.ThrowIfNull(key);
 
         if (prefix.Length == 0)
         {
@@ -862,10 +806,7 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
     /// <returns>The <see cref="PrefixEnumerable"/>.</returns>
     public PrefixEnumerable FindKeysWithPrefix(string prefix)
     {
-        if (prefix == null)
-        {
-            throw new ArgumentNullException(nameof(prefix));
-        }
+        ArgumentNullException.ThrowIfNull(prefix);
 
         return new PrefixEnumerable(this, prefix);
     }
@@ -883,8 +824,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         OpenBracket
     }
 
-    [DebuggerDisplay("SubKey={SubKey}, Key={Key}, ValidationState={ValidationState}")]
-    private class ModelStateNode : ModelStateEntry
+    [DebuggerDisplay("SubKey = {SubKey}, Key = {Key}, ValidationState = {ValidationState}")]
+    private sealed class ModelStateNode : ModelStateEntry
     {
         private bool _isContainerNode = true;
 
@@ -1040,15 +981,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         /// <param name="prefix">The prefix.</param>
         public PrefixEnumerable(ModelStateDictionary dictionary, string prefix)
         {
-            if (dictionary == null)
-            {
-                throw new ArgumentNullException(nameof(dictionary));
-            }
-
-            if (prefix == null)
-            {
-                throw new ArgumentNullException(nameof(prefix));
-            }
+            ArgumentNullException.ThrowIfNull(dictionary);
+            ArgumentNullException.ThrowIfNull(prefix);
 
             _dictionary = dictionary;
             _prefix = prefix;
@@ -1081,15 +1015,8 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
         /// <param name="prefix">The prefix.</param>
         public Enumerator(ModelStateDictionary dictionary, string prefix)
         {
-            if (dictionary == null)
-            {
-                throw new ArgumentNullException(nameof(dictionary));
-            }
-
-            if (prefix == null)
-            {
-                throw new ArgumentNullException(nameof(prefix));
-            }
+            ArgumentNullException.ThrowIfNull(dictionary);
+            ArgumentNullException.ThrowIfNull(prefix);
 
             _index = -1;
             _rootNode = dictionary.GetNode(prefix);
@@ -1327,5 +1254,13 @@ public class ModelStateDictionary : IReadOnlyDictionary<string, ModelStateEntry?
             _prefixEnumerator.Reset();
             Current = default!;
         }
+    }
+
+    private sealed class ModelStateDictionaryDebugView(ModelStateDictionary dictionary)
+    {
+        private readonly ModelStateDictionary _dictionary = dictionary;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.RootHidden)]
+        public DictionaryItemDebugView<string, ModelStateEntry?>[] Items => _dictionary.Select(pair => new DictionaryItemDebugView<string, ModelStateEntry?>(pair)).ToArray();
     }
 }

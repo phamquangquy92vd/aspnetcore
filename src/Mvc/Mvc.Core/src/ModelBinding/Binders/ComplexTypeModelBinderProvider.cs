@@ -3,8 +3,6 @@
 
 #nullable disable
 
-using System;
-using System.Collections.Generic;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -19,10 +17,7 @@ public class ComplexTypeModelBinderProvider : IModelBinderProvider
     /// <inheritdoc />
     public IModelBinder GetBinder(ModelBinderProviderContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         if (context.Metadata.IsComplexType && !context.Metadata.IsCollectionType)
         {

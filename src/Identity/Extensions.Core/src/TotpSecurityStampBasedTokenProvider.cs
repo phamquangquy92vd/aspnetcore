@@ -4,6 +4,7 @@
 using System;
 using System.Globalization;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Identity;
 
@@ -35,12 +36,9 @@ public abstract class TotpSecurityStampBasedTokenProvider<TUser> : IUserTwoFacto
     /// </remarks>
     public virtual async Task<string> GenerateAsync(string purpose, UserManager<TUser> manager, TUser user)
     {
-        if (manager == null)
-        {
-            throw new ArgumentNullException(nameof(manager));
-        }
-        var token = await manager.CreateSecurityTokenAsync(user);
-        var modifier = await GetUserModifierAsync(purpose, manager, user);
+        ArgumentNullThrowHelper.ThrowIfNull(manager);
+        var token = await manager.CreateSecurityTokenAsync(user).ConfigureAwait(false);
+        var modifier = await GetUserModifierAsync(purpose, manager, user).ConfigureAwait(false);
 
         return Rfc6238AuthenticationService.GenerateCode(token, modifier).ToString("D6", CultureInfo.InvariantCulture);
     }
@@ -60,17 +58,14 @@ public abstract class TotpSecurityStampBasedTokenProvider<TUser> : IUserTwoFacto
     /// </returns>
     public virtual async Task<bool> ValidateAsync(string purpose, string token, UserManager<TUser> manager, TUser user)
     {
-        if (manager == null)
-        {
-            throw new ArgumentNullException(nameof(manager));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(manager);
         int code;
         if (!int.TryParse(token, out code))
         {
             return false;
         }
-        var securityToken = await manager.CreateSecurityTokenAsync(user);
-        var modifier = await GetUserModifierAsync(purpose, manager, user);
+        var securityToken = await manager.CreateSecurityTokenAsync(user).ConfigureAwait(false);
+        var modifier = await GetUserModifierAsync(purpose, manager, user).ConfigureAwait(false);
 
         return securityToken != null && Rfc6238AuthenticationService.ValidateCode(securityToken, code, modifier);
     }
@@ -87,11 +82,8 @@ public abstract class TotpSecurityStampBasedTokenProvider<TUser> : IUserTwoFacto
     /// </returns>
     public virtual async Task<string> GetUserModifierAsync(string purpose, UserManager<TUser> manager, TUser user)
     {
-        if (manager == null)
-        {
-            throw new ArgumentNullException(nameof(manager));
-        }
-        var userId = await manager.GetUserIdAsync(user);
+        ArgumentNullThrowHelper.ThrowIfNull(manager);
+        var userId = await manager.GetUserIdAsync(user).ConfigureAwait(false);
 
         return $"Totp:{purpose}:{userId}";
     }

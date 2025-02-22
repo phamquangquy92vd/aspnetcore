@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
@@ -17,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http3;
 
-internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
+internal sealed class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
 {
     private readonly Http3FrameWriter _frameWriter;
     private readonly TimingPipeFlusher _flusher;
@@ -27,7 +24,7 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
     private readonly Pipe _pipe;
     private readonly PipeWriter _pipeWriter;
     private readonly PipeReader _pipeReader;
-    private readonly object _dataWriterLock = new object();
+    private readonly Lock _dataWriterLock = new();
     private ValueTask<FlushResult> _dataWriteProcessingTask;
     private bool _startedWritingDataFrames;
     private bool _streamCompleted;
@@ -71,6 +68,29 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
         _dataWriteProcessingTask = ProcessDataWrites().Preserve();
     }
 
+    // Called once Application code has exited
+    // Or on Dispose which also would occur after Application code finished
+    public void Complete()
+    {
+        lock (_dataWriterLock)
+        {
+            Stop();
+
+            _pipeWriter.Complete();
+
+            if (_fakeMemoryOwner != null)
+            {
+                _fakeMemoryOwner.Dispose();
+                _fakeMemoryOwner = null;
+            }
+            if (_fakeMemory != null)
+            {
+                ArrayPool<byte>.Shared.Return(_fakeMemory);
+                _fakeMemory = null;
+            }
+        }
+    }
+
     public void Dispose()
     {
         lock (_dataWriterLock)
@@ -82,23 +102,12 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
 
             _disposed = true;
 
-            Stop();
-
-            if (_fakeMemoryOwner != null)
-            {
-                _fakeMemoryOwner.Dispose();
-                _fakeMemoryOwner = null;
-            }
-
-            if (_fakeMemory != null)
-            {
-                ArrayPool<byte>.Shared.Return(_fakeMemory);
-                _fakeMemory = null;
-            }
+            Complete();
         }
     }
 
-    void IHttpOutputAborter.Abort(ConnectionAbortedException abortReason)
+    // In HTTP/1.x, this aborts the entire connection. For HTTP/3 we abort the stream.
+    void IHttpOutputAborter.Abort(ConnectionAbortedException abortReason, ConnectionEndReason reason)
     {
         _stream.Abort(abortReason, Http3ErrorCode.InternalError);
     }
@@ -124,6 +133,8 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
             _pipeWriter.Advance(bytes);
         }
     }
+
+    public long UnflushedBytes => _pipeWriter.UnflushedBytes;
 
     public void CancelPendingFlush()
     {
@@ -166,7 +177,7 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
 
             if (_streamCompleted)
             {
-                return default;
+                return new ValueTask<FlushResult>(new FlushResult(false, true));
             }
 
             if (_startedWritingDataFrames)
@@ -198,7 +209,6 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
             return _pipeWriter.GetMemory(sizeHint);
         }
     }
-
 
     public Span<byte> GetSpan(int sizeHint = 0)
     {
@@ -289,7 +299,9 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
 
             _streamCompleted = true;
 
-            _pipeWriter.Complete(new OperationCanceledException());
+            // Application code could be using this PipeWriter, we cancel the next (or in progress) flush so they can observe this Stop
+            // Additionally, _streamCompleted will cause any future PipeWriter operations to noop
+            _pipeWriter.CancelPendingFlush();
         }
     }
 
@@ -353,7 +365,7 @@ internal class Http3OutputProducer : IHttpOutputProducer, IHttpOutputAborter
             // frame will actually be written causing the headers to be flushed.
             if (_streamCompleted || data.Length == 0)
             {
-                return default;
+                return new ValueTask<FlushResult>(new FlushResult(false, true));
             }
 
             _startedWritingDataFrames = true;

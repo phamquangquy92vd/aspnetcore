@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using System.Diagnostics;
-using System.IO;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
@@ -89,7 +86,7 @@ internal sealed partial class PageRouteModelFactory
         const string AreaPagesRoot = "/Pages/";
 
         result = default;
-        Debug.Assert(relativePath.StartsWith("/", StringComparison.Ordinal));
+        Debug.Assert(relativePath.StartsWith('/'));
         // Parse the area root directory.
         var areaRootEndIndex = relativePath.IndexOf('/', startIndex: 1);
         if (areaRootEndIndex == -1 ||
@@ -124,7 +121,7 @@ internal sealed partial class PageRouteModelFactory
         return true;
     }
 
-    private string GetViewEnginePath(string rootDirectory, string path)
+    private static string GetViewEnginePath(string rootDirectory, string path)
     {
         // rootDirectory = "/Pages/AllMyPages/"
         // path = "/Pages/AllMyPages/Home.cshtml"
@@ -142,7 +139,7 @@ internal sealed partial class PageRouteModelFactory
         // Result = /Products/List/Categories
         Debug.Assert(!string.IsNullOrEmpty(areaName));
         Debug.Assert(!string.IsNullOrEmpty(viewEnginePath));
-        Debug.Assert(viewEnginePath.StartsWith("/", StringComparison.Ordinal));
+        Debug.Assert(viewEnginePath.StartsWith('/'));
 
         return string.Create(1 + areaName.Length + viewEnginePath.Length, (areaName, viewEnginePath), (span, tuple) =>
         {
@@ -175,8 +172,8 @@ internal sealed partial class PageRouteModelFactory
 
     private static string NormalizeDirectory(string directory)
     {
-        Debug.Assert(directory.StartsWith("/", StringComparison.Ordinal));
-        if (directory.Length > 1 && !directory.EndsWith("/", StringComparison.Ordinal))
+        Debug.Assert(directory.StartsWith('/'));
+        if (directory.Length > 1 && !directory.EndsWith('/'))
         {
             return directory + "/";
         }

@@ -3,7 +3,6 @@
 
 using System.Security.Claims;
 using System.Text.Json;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication.Internal;
 
 namespace Microsoft.AspNetCore.Components.WebAssembly.Authentication;
@@ -51,7 +50,7 @@ public class AccountClaimsPrincipalFactory<TAccount> where TAccount : RemoteUser
                 if (value != null ||
                     (value is JsonElement element && element.ValueKind != JsonValueKind.Undefined && element.ValueKind != JsonValueKind.Null))
                 {
-                    identity.AddClaim(new Claim(name, value.ToString()));
+                    identity.AddClaim(new Claim(name, value.ToString()!));
                 }
             }
         }

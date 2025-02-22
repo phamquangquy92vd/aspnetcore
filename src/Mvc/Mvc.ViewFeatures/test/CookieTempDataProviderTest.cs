@@ -1,20 +1,17 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Infrastructure;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
 
@@ -39,16 +36,12 @@ public class CookieTempDataProviderTest
         });
 
         var responseCookies = new MockResponseCookieCollection();
-        var httpContext = new Mock<HttpContext>();
-        httpContext
-            .SetupGet(hc => hc.Request.PathBase)
-            .Returns("/");
-        httpContext
-            .Setup(hc => hc.Response.Cookies)
-            .Returns(responseCookies);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.PathBase = "/";
+        httpContext.Features.Set<IResponseCookiesFeature>(new FakeResponseCookiesFeature(responseCookies));
 
         // Act
-        tempDataProvider.SaveTempData(httpContext.Object, Dictionary);
+        tempDataProvider.SaveTempData(httpContext, Dictionary);
 
         // Assert
         Assert.Contains(responseCookies, (cookie) => cookie.Key == expectedCookieName);
@@ -129,16 +122,12 @@ public class CookieTempDataProviderTest
         var dataProtector = new PassThroughDataProtector();
         var tempDataProvider = GetProvider(dataProtector);
         var responseCookies = new MockResponseCookieCollection();
-        var httpContext = new Mock<HttpContext>();
-        httpContext
-            .SetupGet(hc => hc.Request.PathBase)
-            .Returns("/");
-        httpContext
-            .Setup(hc => hc.Response.Cookies)
-            .Returns(responseCookies);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.PathBase = "/";
+        httpContext.Features.Set<IResponseCookiesFeature>(new FakeResponseCookiesFeature(responseCookies));
 
         // Act
-        tempDataProvider.SaveTempData(httpContext.Object, Dictionary);
+        tempDataProvider.SaveTempData(httpContext, Dictionary);
 
         // Assert
         Assert.Equal(1, responseCookies.Count);
@@ -168,19 +157,13 @@ public class CookieTempDataProviderTest
         options.Cookie.SecurePolicy = cookieSecurePolicy;
         var tempDataProvider = GetProvider(dataProtector, options);
         var responseCookies = new MockResponseCookieCollection();
-        var httpContext = new Mock<HttpContext>();
-        httpContext
-            .SetupGet(hc => hc.Request.PathBase)
-            .Returns("/");
-        httpContext
-            .SetupGet(hc => hc.Request.IsHttps)
-            .Returns(isRequestSecure);
-        httpContext
-            .Setup(hc => hc.Response.Cookies)
-            .Returns(responseCookies);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.PathBase = "/";
+        httpContext.Features.Set<IResponseCookiesFeature>(new FakeResponseCookiesFeature(responseCookies));
+        httpContext.Request.IsHttps = isRequestSecure;
 
         // Act
-        tempDataProvider.SaveTempData(httpContext.Object, Dictionary);
+        tempDataProvider.SaveTempData(httpContext, Dictionary);
 
         // Assert
         Assert.Equal(1, responseCookies.Count);
@@ -210,19 +193,12 @@ public class CookieTempDataProviderTest
         var dataProtector = new PassThroughDataProtector();
         var tempDataProvider = GetProvider(dataProtector);
         var responseCookies = new MockResponseCookieCollection();
-        var httpContext = new Mock<HttpContext>();
-        httpContext
-            .SetupGet(hc => hc.Request.PathBase)
-            .Returns(pathBase);
-        httpContext
-            .SetupGet(hc => hc.Request.IsHttps)
-            .Returns(false);
-        httpContext
-            .Setup(hc => hc.Response.Cookies)
-            .Returns(responseCookies);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.PathBase = pathBase;
+        httpContext.Features.Set<IResponseCookiesFeature>(new FakeResponseCookiesFeature(responseCookies));
 
         // Act
-        tempDataProvider.SaveTempData(httpContext.Object, Dictionary);
+        tempDataProvider.SaveTempData(httpContext, Dictionary);
 
         // Assert
         Assert.Equal(1, responseCookies.Count);
@@ -266,19 +242,12 @@ public class CookieTempDataProviderTest
                 }
             });
         var responseCookies = new MockResponseCookieCollection();
-        var httpContext = new Mock<HttpContext>();
-        httpContext
-            .SetupGet(hc => hc.Request.IsHttps)
-            .Returns(false);
-        httpContext
-            .SetupGet(hc => hc.Request.PathBase)
-            .Returns(requestPathBase);
-        httpContext
-            .Setup(hc => hc.Response.Cookies)
-            .Returns(responseCookies);
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.PathBase = requestPathBase;
+        httpContext.Features.Set<IResponseCookiesFeature>(new FakeResponseCookiesFeature(responseCookies));
 
         // Act
-        tempDataProvider.SaveTempData(httpContext.Object, Dictionary);
+        tempDataProvider.SaveTempData(httpContext, Dictionary);
 
         // Assert
         Assert.Equal(1, responseCookies.Count);
@@ -315,8 +284,8 @@ public class CookieTempDataProviderTest
         Assert.Single(responseCookies);
         var cookie = responseCookies.Single();
         Assert.NotNull(cookie);
-        Assert.Equal(CookieTempDataProvider.CookieName, cookie.Name);
-        Assert.Equal(string.Empty, cookie.Value);
+        Assert.Equal(CookieTempDataProvider.CookieName, cookie.Name.AsSpan());
+        Assert.Equal(string.Empty, cookie.Value.AsSpan());
         Assert.NotNull(cookie.Expires);
         Assert.True(cookie.Expires.Value < DateTimeOffset.Now); // expired cookie
     }
@@ -351,7 +320,6 @@ public class CookieTempDataProviderTest
     private void UpdateRequestWithCookies(HttpContext httpContext)
     {
         var responseCookies = httpContext.Response.GetTypedHeaders().SetCookie;
-
 
         if (responseCookies.Count > 0)
         {
@@ -499,5 +467,10 @@ public class CookieTempDataProviderTest
         {
             return Bytes;
         }
+    }
+
+    private class FakeResponseCookiesFeature(IResponseCookies cookies) : IResponseCookiesFeature
+    {
+        public IResponseCookies Cookies => cookies;
     }
 }

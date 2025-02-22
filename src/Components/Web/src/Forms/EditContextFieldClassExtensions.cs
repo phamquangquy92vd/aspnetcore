@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 
 namespace Microsoft.AspNetCore.Components.Forms;
@@ -47,10 +46,7 @@ public static class EditContextFieldClassExtensions
     /// <param name="fieldCssClassProvider">The <see cref="FieldCssClassProvider"/>.</param>
     public static void SetFieldCssClassProvider(this EditContext editContext, FieldCssClassProvider fieldCssClassProvider)
     {
-        if (fieldCssClassProvider is null)
-        {
-            throw new ArgumentNullException(nameof(fieldCssClassProvider));
-        }
+        ArgumentNullException.ThrowIfNull(fieldCssClassProvider);
 
         editContext.Properties[FieldCssClassProviderKey] = fieldCssClassProvider;
     }

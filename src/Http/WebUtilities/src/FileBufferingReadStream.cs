@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Internal;
 
 namespace Microsoft.AspNetCore.WebUtilities;
@@ -76,15 +73,8 @@ public class FileBufferingReadStream : Stream
         Func<string> tempFileDirectoryAccessor,
         ArrayPool<byte> bytePool)
     {
-        if (inner == null)
-        {
-            throw new ArgumentNullException(nameof(inner));
-        }
-
-        if (tempFileDirectoryAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(tempFileDirectoryAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(tempFileDirectoryAccessor);
 
         _bytePool = bytePool;
         if (memoryThreshold <= _maxRentedBufferSize)
@@ -135,15 +125,8 @@ public class FileBufferingReadStream : Stream
         string tempFileDirectory,
         ArrayPool<byte> bytePool)
     {
-        if (inner == null)
-        {
-            throw new ArgumentNullException(nameof(inner));
-        }
-
-        if (tempFileDirectory == null)
-        {
-            throw new ArgumentNullException(nameof(tempFileDirectory));
-        }
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(tempFileDirectory);
 
         _bytePool = bytePool;
         if (memoryThreshold <= _maxRentedBufferSize)
@@ -190,13 +173,13 @@ public class FileBufferingReadStream : Stream
     /// <inheritdoc/>
     public override bool CanRead
     {
-        get { return true; }
+        get { return !_disposed; }
     }
 
     /// <inheritdoc/>
     public override bool CanSeek
     {
-        get { return true; }
+        get { return !_disposed; }
     }
 
     /// <inheritdoc/>
@@ -258,6 +241,14 @@ public class FileBufferingReadStream : Stream
         }
 
         _tempFileName = Path.Combine(_tempFileDirectory, "ASPNETCORE_" + Guid.NewGuid().ToString() + ".tmp");
+
+        // Create a temp file with the correct Unix file mode before moving it to the assigned _tempFileName in the _tempFileDirectory.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var tempTempFileName = Path.GetTempFileName();
+            File.Move(tempTempFileName, _tempFileName);
+        }
+
         return new FileStream(_tempFileName, FileMode.Create, FileAccess.ReadWrite, FileShare.Delete, 1024 * 16,
             FileOptions.Asynchronous | FileOptions.DeleteOnClose | FileOptions.SequentialScan);
     }
@@ -317,7 +308,8 @@ public class FileBufferingReadStream : Stream
         {
             _buffer.Write(buffer.Slice(0, read));
         }
-        else
+        // Allow zero-byte reads
+        else if (buffer.Length > 0)
         {
             _completelyBuffered = true;
         }
@@ -392,7 +384,8 @@ public class FileBufferingReadStream : Stream
         {
             await _buffer.WriteAsync(buffer.Slice(0, read), cancellationToken);
         }
-        else
+        // Allow zero-byte reads
+        else if (buffer.Length > 0)
         {
             _completelyBuffered = true;
         }
@@ -402,6 +395,12 @@ public class FileBufferingReadStream : Stream
 
     /// <inheritdoc/>
     public override void Write(byte[] buffer, int offset, int count)
+    {
+        throw new NotSupportedException();
+    }
+
+    /// <inheritdoc/>
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
     {
         throw new NotSupportedException();
     }
@@ -498,9 +497,6 @@ public class FileBufferingReadStream : Stream
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(FileBufferingReadStream));
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 }

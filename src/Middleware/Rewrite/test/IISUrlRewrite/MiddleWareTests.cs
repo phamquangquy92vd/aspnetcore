@@ -1,23 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Net;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Rewrite.IISUrlRewrite;
 using Microsoft.AspNetCore.Rewrite.UrlActions;
-using Microsoft.AspNetCore.Rewrite.UrlMatches;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Rewrite.Tests.UrlRewrite;
 
@@ -553,7 +545,7 @@ public class MiddlewareTests
     }
 
     [Fact]
-    public async Task ThrowIndexOutOfRangeExceptionWithCorrectMessage()
+    public async Task ThrowArgumentOutOfRangeExceptionWithCorrectMessage()
     {
         // Arrange, Act, Assert
         var options = new RewriteOptions().AddIISUrlRewrite(new StringReader(@"<rewrite>
@@ -584,7 +576,7 @@ public class MiddlewareTests
 
         var server = host.GetTestServer();
 
-        var ex = await Assert.ThrowsAsync<IndexOutOfRangeException>(() => server.CreateClient().GetAsync("article/23?p1=123&p2=abc"));
+        var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => server.CreateClient().GetAsync("article/23?p1=123&p2=abc"));
 
         Assert.Equal("Cannot access back reference at index 9. Only 5 back references were captured.", ex.Message);
     }

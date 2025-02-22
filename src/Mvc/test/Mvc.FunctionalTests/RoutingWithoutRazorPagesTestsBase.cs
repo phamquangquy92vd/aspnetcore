@@ -1,30 +1,37 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Threading.Tasks;
+using System.Reflection;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Newtonsoft.Json;
-using Xunit;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.Mvc.FunctionalTests;
 
-public abstract class RoutingWithoutRazorPagesTestsBase<TStartup> : IClassFixture<MvcTestFixture<TStartup>> where TStartup : class
+public abstract class RoutingWithoutRazorPagesTestsBase<TStartup> : LoggedTest where TStartup : class
 {
-    protected RoutingWithoutRazorPagesTestsBase(MvcTestFixture<TStartup> fixture)
-    {
-        var factory = fixture.Factories.FirstOrDefault() ?? fixture.WithWebHostBuilder(ConfigureWebHostBuilder);
-        Client = factory.CreateDefaultClient();
-    }
-
     private static void ConfigureWebHostBuilder(IWebHostBuilder builder) =>
         builder.UseStartup<TStartup>();
 
-    public HttpClient Client { get; }
+    protected override void Initialize(TestContext context, MethodInfo methodInfo, object[] testMethodArguments, ITestOutputHelper testOutputHelper)
+    {
+        base.Initialize(context, methodInfo, testMethodArguments, testOutputHelper);
+        Factory = new MvcTestFixture<TStartup>(LoggerFactory).WithWebHostBuilder(ConfigureWebHostBuilder);
+        Client = Factory.CreateDefaultClient();
+    }
+
+    public override void Dispose()
+    {
+        Factory.Dispose();
+        base.Dispose();
+    }
+
+    public WebApplicationFactory<TStartup> Factory { get; private set; }
+    public HttpClient Client { get; private set; }
 
     [Fact]
     public async Task AttributeRoutedAction_ContainsPage_RouteMatched()

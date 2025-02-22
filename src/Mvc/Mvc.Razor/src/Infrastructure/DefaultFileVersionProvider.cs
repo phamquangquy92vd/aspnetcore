@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -15,24 +14,16 @@ namespace Microsoft.AspNetCore.Mvc.Razor.Infrastructure;
 /// <summary>
 /// Provides version hash for a specified file.
 /// </summary>
-internal class DefaultFileVersionProvider : IFileVersionProvider
+internal sealed class DefaultFileVersionProvider : IFileVersionProvider
 {
     private const string VersionKey = "v";
-    private static readonly char[] QueryStringAndFragmentTokens = new[] { '?', '#' };
 
     public DefaultFileVersionProvider(
         IWebHostEnvironment hostingEnvironment,
         TagHelperMemoryCacheProvider cacheProvider)
     {
-        if (hostingEnvironment == null)
-        {
-            throw new ArgumentNullException(nameof(hostingEnvironment));
-        }
-
-        if (cacheProvider == null)
-        {
-            throw new ArgumentNullException(nameof(cacheProvider));
-        }
+        ArgumentNullException.ThrowIfNull(hostingEnvironment);
+        ArgumentNullException.ThrowIfNull(cacheProvider);
 
         FileProvider = hostingEnvironment.WebRootFileProvider;
         Cache = cacheProvider.Cache;
@@ -44,14 +35,11 @@ internal class DefaultFileVersionProvider : IFileVersionProvider
 
     public string AddFileVersionToPath(PathString requestPathBase, string path)
     {
-        if (path == null)
-        {
-            throw new ArgumentNullException(nameof(path));
-        }
+        ArgumentNullException.ThrowIfNull(path);
 
         var resolvedPath = path;
 
-        var queryStringOrFragmentStartIndex = path.IndexOfAny(QueryStringAndFragmentTokens);
+        var queryStringOrFragmentStartIndex = path.AsSpan().IndexOfAny('?', '#');
         if (queryStringOrFragmentStartIndex != -1)
         {
             resolvedPath = path.Substring(0, queryStringOrFragmentStartIndex);
@@ -63,7 +51,7 @@ internal class DefaultFileVersionProvider : IFileVersionProvider
             return path;
         }
 
-        if (Cache.TryGetValue(path, out string value))
+        if (Cache.TryGetValue<string>(path, out var value) && value is not null)
         {
             return value;
         }
@@ -92,19 +80,16 @@ internal class DefaultFileVersionProvider : IFileVersionProvider
         }
 
         cacheEntryOptions.SetSize(value.Length * sizeof(char));
-        value = Cache.Set(path, value, cacheEntryOptions);
+        Cache.Set(path, value, cacheEntryOptions);
         return value;
     }
 
     private static string GetHashForFile(IFileInfo fileInfo)
     {
-        using (var sha256 = SHA256.Create())
+        using (var readStream = fileInfo.CreateReadStream())
         {
-            using (var readStream = fileInfo.CreateReadStream())
-            {
-                var hash = sha256.ComputeHash(readStream);
-                return WebEncoders.Base64UrlEncode(hash);
-            }
+            var hash = SHA256.HashData(readStream);
+            return WebEncoders.Base64UrlEncode(hash);
         }
     }
 }

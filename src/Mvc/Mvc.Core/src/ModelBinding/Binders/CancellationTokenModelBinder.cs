@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
@@ -18,10 +15,7 @@ public class CancellationTokenModelBinder : IModelBinder
     /// <inheritdoc />
     public Task BindModelAsync(ModelBindingContext bindingContext)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
 
         // We need to force boxing now, so we can insert the same reference to the boxed CancellationToken
         // in both the ValidationState and ModelBindingResult.

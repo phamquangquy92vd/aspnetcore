@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.Razor;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Razor.TagHelpers;
@@ -23,15 +22,8 @@ public static class MvcRazorMvcBuilderExtensions
         this IMvcBuilder builder,
         Action<RazorViewEngineOptions> setupAction)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-
-        if (setupAction == null)
-        {
-            throw new ArgumentNullException(nameof(setupAction));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(setupAction);
 
         builder.Services.Configure(setupAction);
         return builder;
@@ -45,10 +37,7 @@ public static class MvcRazorMvcBuilderExtensions
     /// <returns>The <see cref="IMvcBuilder"/> instance this method extends.</returns>
     public static IMvcBuilder AddTagHelpersAsServices(this IMvcBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         TagHelpersAsServices.AddTagHelpersAsServices(builder.PartManager, builder.Services);
         return builder;
@@ -70,15 +59,8 @@ public static class MvcRazorMvcBuilderExtensions
         Action<TTagHelper, ViewContext> initialize)
         where TTagHelper : ITagHelper
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-
-        if (initialize == null)
-        {
-            throw new ArgumentNullException(nameof(initialize));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(initialize);
 
         var initializer = new TagHelperInitializer<TTagHelper>(initialize);
 

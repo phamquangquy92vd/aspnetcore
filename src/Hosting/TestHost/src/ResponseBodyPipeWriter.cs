@@ -1,16 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics.Contracts;
-using System.IO;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.TestHost;
 
-internal class ResponseBodyPipeWriter : PipeWriter
+internal sealed class ResponseBodyPipeWriter : PipeWriter
 {
     private readonly Func<Task> _onFirstWriteAsync;
     private readonly Pipe _pipe;
@@ -99,4 +95,8 @@ internal class ResponseBodyPipeWriter : PipeWriter
         CheckNotComplete();
         return _pipe.Writer.GetSpan(sizeHint);
     }
+
+    public override bool CanGetUnflushedBytes => _pipe.Writer.CanGetUnflushedBytes;
+
+    public override long UnflushedBytes => _pipe.Writer.UnflushedBytes;
 }

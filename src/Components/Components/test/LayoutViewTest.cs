@@ -1,13 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.RenderTree;
 using Microsoft.AspNetCore.Components.Test.Helpers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Test;
 
@@ -182,14 +178,14 @@ public class LayoutViewTest
         // Assert
         Assert.Equal(2, _renderer.Batches.Count);
         var batch = _renderer.Batches[1];
-        Assert.Equal(0, batch.DisposedComponentIDs.Count);
+        Assert.Empty(batch.DisposedComponentIDs);
         Assert.Collection(batch.DiffsInOrder,
             diff => Assert.Empty(diff.Edits), // LayoutView rerendered, but with no changes
             diff => Assert.Empty(diff.Edits), // RootLayout rerendered, but with no changes
             diff =>
             {
-                    // NestedLayout rerendered, patching content in place
-                    Assert.Collection(diff.Edits, edit =>
+                // NestedLayout rerendered, patching content in place
+                Assert.Collection(diff.Edits, edit =>
                 {
                     Assert.Equal(RenderTreeEditType.UpdateText, edit.Type);
                     Assert.Equal(1, edit.SiblingIndex);
@@ -224,55 +220,55 @@ public class LayoutViewTest
         Assert.True(setParametersTask2.IsCompletedSuccessfully);
         Assert.Equal(2, _renderer.Batches.Count);
         var batch = _renderer.Batches[1];
-        Assert.Equal(1, batch.DisposedComponentIDs.Count); // Disposes NestedLayout
+        Assert.Single(batch.DisposedComponentIDs); // Disposes NestedLayout
         Assert.Collection(batch.DiffsInOrder,
             diff => Assert.Empty(diff.Edits), // LayoutView rerendered, but with no changes
             diff =>
             {
-                    // RootLayout rerendered, changing child
-                    Assert.Collection(diff.Edits,
-                    edit =>
-                    {
-                        Assert.Equal(RenderTreeEditType.RemoveFrame, edit.Type);
-                        Assert.Equal(1, edit.SiblingIndex);
-                    },
-                    edit =>
-                    {
-                        Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
-                        Assert.Equal(1, edit.SiblingIndex);
-                        AssertFrame.Component<OtherNestedLayout>(
-                            batch.ReferenceFrames[edit.ReferenceFrameIndex],
-                            sequence: 0);
-                    });
+                // RootLayout rerendered, changing child
+                Assert.Collection(diff.Edits,
+                edit =>
+                {
+                    Assert.Equal(RenderTreeEditType.RemoveFrame, edit.Type);
+                    Assert.Equal(1, edit.SiblingIndex);
+                },
+                edit =>
+                {
+                    Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
+                    Assert.Equal(1, edit.SiblingIndex);
+                    AssertFrame.Component<OtherNestedLayout>(
+                        batch.ReferenceFrames[edit.ReferenceFrameIndex],
+                        sequence: 0);
+                });
             },
             diff =>
             {
-                    // Inserts new OtherNestedLayout
-                    Assert.Collection(diff.Edits,
-                    edit =>
-                    {
-                        Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
-                        Assert.Equal(0, edit.SiblingIndex);
-                        AssertFrame.Text(
-                            batch.ReferenceFrames[edit.ReferenceFrameIndex],
-                            "OtherNestedLayout starts here");
-                    },
-                    edit =>
-                    {
-                        Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
-                        Assert.Equal(1, edit.SiblingIndex);
-                        AssertFrame.Text(
-                            batch.ReferenceFrames[edit.ReferenceFrameIndex],
-                            "Some content");
-                    },
-                    edit =>
-                    {
-                        Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
-                        Assert.Equal(2, edit.SiblingIndex);
-                        AssertFrame.Text(
-                            batch.ReferenceFrames[edit.ReferenceFrameIndex],
-                            "OtherNestedLayout ends here");
-                    });
+                // Inserts new OtherNestedLayout
+                Assert.Collection(diff.Edits,
+                edit =>
+                {
+                    Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
+                    Assert.Equal(0, edit.SiblingIndex);
+                    AssertFrame.Text(
+                        batch.ReferenceFrames[edit.ReferenceFrameIndex],
+                        "OtherNestedLayout starts here");
+                },
+                edit =>
+                {
+                    Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
+                    Assert.Equal(1, edit.SiblingIndex);
+                    AssertFrame.Text(
+                        batch.ReferenceFrames[edit.ReferenceFrameIndex],
+                        "Some content");
+                },
+                edit =>
+                {
+                    Assert.Equal(RenderTreeEditType.PrependFrame, edit.Type);
+                    Assert.Equal(2, edit.SiblingIndex);
+                    AssertFrame.Text(
+                        batch.ReferenceFrames[edit.ReferenceFrameIndex],
+                        "OtherNestedLayout ends here");
+                });
             });
     }
 

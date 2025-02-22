@@ -3,10 +3,8 @@
 
 #nullable enable
 
-using System;
 using System.Diagnostics;
 using System.Globalization;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +24,7 @@ public class HeaderModelBinder : IModelBinder
     /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
     public HeaderModelBinder(ILoggerFactory loggerFactory)
     {
-        _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
+        _logger = loggerFactory.CreateLogger(typeof(HeaderModelBinder));
     }
 
     /// <summary>
@@ -37,17 +35,10 @@ public class HeaderModelBinder : IModelBinder
     /// binding of values.</param>
     public HeaderModelBinder(ILoggerFactory loggerFactory, IModelBinder innerModelBinder)
     {
-        if (loggerFactory == null)
-        {
-            throw new ArgumentNullException(nameof(loggerFactory));
-        }
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(innerModelBinder);
 
-        if (innerModelBinder == null)
-        {
-            throw new ArgumentNullException(nameof(innerModelBinder));
-        }
-
-        _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
+        _logger = loggerFactory.CreateLogger(typeof(HeaderModelBinder));
         InnerModelBinder = innerModelBinder;
     }
 
@@ -57,10 +48,7 @@ public class HeaderModelBinder : IModelBinder
     /// <inheritdoc />
     public async Task BindModelAsync(ModelBindingContext bindingContext)
     {
-        if (bindingContext == null)
-        {
-            throw new ArgumentNullException(nameof(bindingContext));
-        }
+        ArgumentNullException.ThrowIfNull(bindingContext);
 
         _logger.AttemptingToBindModel(bindingContext);
 
@@ -109,14 +97,14 @@ public class HeaderModelBinder : IModelBinder
         _logger.DoneAttemptingToBindModel(bindingContext);
     }
 
-    private HeaderValueProvider GetHeaderValueProvider(string headerName, ModelBindingContext bindingContext)
+    private static HeaderValueProvider GetHeaderValueProvider(string headerName, ModelBindingContext bindingContext)
     {
         var request = bindingContext.HttpContext.Request;
 
         // Prevent breaking existing users in scenarios where they are binding to a 'string' property
         // and expect the whole comma separated string, if any, as a single string and not as a string array.
         var values = Array.Empty<string>();
-        if (request.Headers.ContainsKey(headerName))
+        if (request.Headers.TryGetValue(headerName, out var header))
         {
             if (bindingContext.ModelMetadata.IsEnumerableType)
             {
@@ -124,7 +112,7 @@ public class HeaderModelBinder : IModelBinder
             }
             else
             {
-                values = new[] { request.Headers[headerName].ToString() };
+                values = new[] { header.ToString() };
             }
         }
 
@@ -197,7 +185,7 @@ public class HeaderModelBinder : IModelBinder
         return collection;
     }
 
-    private class HeaderValueProvider : IValueProvider
+    private sealed class HeaderValueProvider : IValueProvider
     {
         private readonly string[] _values;
 

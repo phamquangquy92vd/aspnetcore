@@ -3,8 +3,8 @@
 
 #nullable disable
 
-using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.AspNetCore.Routing.Matching;
 
+[RequiresDynamicCode("ILEmitTrieFactory uses runtime IL generation.")]
 internal static class ILEmitTrieFactory
 {
     // The algorthm we use only works for ASCII text. If we find non-ASCII text in the input
@@ -33,10 +34,10 @@ internal static class ILEmitTrieFactory
             typeof(int),
             new[] { typeof(string), typeof(int), typeof(int), });
 
-        GenerateMethodBody(method.GetILGenerator(), defaultDestination, exitDestination, entries, vectorize);
+        GenerateMethodBody(method.GetILGenerator(), defaultDestination, entries, vectorize);
 
 #if IL_EMIT_SAVE_ASSEMBLY
-            SaveAssembly(method.GetILGenerator(), defaultDestination, exitDestination, entries, vectorize);
+            SaveAssembly(method.GetILGenerator(), defaultDestination, entries, vectorize);
 #endif
 
         return (Func<string, int, int, int>)method.CreateDelegate(typeof(Func<string, int, int, int>));
@@ -60,11 +61,9 @@ internal static class ILEmitTrieFactory
     private static void GenerateMethodBody(
         ILGenerator il,
         int defaultDestination,
-        int exitDestination,
         (string text, int destination)[] entries,
         bool? vectorize)
     {
-
         vectorize = vectorize ?? ShouldVectorize(entries);
 
         // See comments on Locals for details
@@ -103,24 +102,16 @@ internal static class ILEmitTrieFactory
         // ref byte p = ...
         il.Emit(OpCodes.Stloc_0, locals.P);
 
+        const int binarySearchThreshold = 4; // The number of items above which it makes sense to binary search
         var groups = entries.GroupBy(e => e.text.Length).ToArray();
-        for (var i = 0; i < groups.Length; i++)
+
+        if (groups.Length >= binarySearchThreshold)
         {
-            var group = groups[i];
-
-            // Similar to 'if (length != X) { ... }
-            var inside = il.DefineLabel();
-            var next = il.DefineLabel();
-            il.Emit(OpCodes.Ldarg_2);
-            il.Emit(OpCodes.Ldc_I4, group.Key);
-            il.Emit(OpCodes.Beq, inside);
-            il.Emit(OpCodes.Br, next);
-
-            // Process the group
-            il.MarkLabel(inside);
-            EmitTable(il, group.ToArray(), 0, group.Key, locals, labels, methods);
-            il.MarkLabel(next);
+            // Only sort if binary search will be used.
+            Array.Sort(groups, static (a, b) => a.Key.CompareTo(b.Key));
         }
+
+        EmitIfLadder(groups);
 
         // Exit point - we end up here when the text doesn't match
         il.MarkLabel(labels.ReturnDefault);
@@ -131,6 +122,54 @@ internal static class ILEmitTrieFactory
         il.MarkLabel(labels.ReturnNotAscii);
         il.Emit(OpCodes.Ldc_I4, NotAscii);
         il.Emit(OpCodes.Ret);
+
+        void EmitIfLadder(Span<IGrouping<int, (string text, int destination)>> groups)
+        {
+            if (groups.Length < binarySearchThreshold)
+            {
+                // Use sequential if statements, starting from the most common length
+                groups.Sort(static (a, b) => b.Count().CompareTo(a.Count()));
+                for (var i = 0; i < groups.Length; i++)
+                {
+                    var group = groups[i];
+
+                    // Similar to 'if (length != X) { ... }
+                    var inside = il.DefineLabel();
+                    var next = il.DefineLabel();
+                    il.Emit(OpCodes.Ldarg_2);
+                    il.Emit(OpCodes.Ldc_I4, group.Key);
+                    il.Emit(OpCodes.Beq, inside);
+                    il.Emit(OpCodes.Br, next);
+
+                    // Process the group
+                    il.MarkLabel(inside);
+                    EmitTable(il, group.ToArray(), 0, group.Key, locals, labels, methods);
+                    il.MarkLabel(next);
+                }
+            }
+            else
+            {
+                // Use binary search tree
+                var mid = groups.Length / 2;
+
+                var rightBranch = il.DefineLabel();
+                var next = il.DefineLabel();
+
+                // if (length < X) { ... }
+                il.Emit(OpCodes.Ldarg_2);
+                il.Emit(OpCodes.Ldc_I4, groups[mid].Key);
+                il.Emit(OpCodes.Bge, rightBranch);
+
+                EmitIfLadder(groups[..mid]);
+                il.Emit(OpCodes.Br, next);
+
+                // else { ... }
+                il.MarkLabel(rightBranch);
+                EmitIfLadder(groups[mid..]);
+
+                il.MarkLabel(next);
+            }
+        }
     }
 
     private static void EmitTable(
@@ -231,60 +270,121 @@ internal static class ILEmitTrieFactory
         il.Emit(OpCodes.And);
         il.Emit(OpCodes.Brtrue, labels.ReturnNotAscii);
 
-        // uint64Value + (0x0080008000800080UL - 0x0041004100410041UL)
-        il.Emit(OpCodes.Ldloc, locals.UInt64Value);
-        il.Emit(OpCodes.Ldc_I8, unchecked((long)(0x0080008000800080UL - 0x0041004100410041UL)));
-        il.Emit(OpCodes.Add);
-
-        // uint64LowerIndicator = ...
-        il.Emit(OpCodes.Stloc, locals.UInt64LowerIndicator);
-
-        // value + (0x0080008000800080UL - 0x005B005B005B005BUL)
-        il.Emit(OpCodes.Ldloc, locals.UInt64Value);
-        il.Emit(OpCodes.Ldc_I8, unchecked((long)(0x0080008000800080UL - 0x005B005B005B005BUL)));
-        il.Emit(OpCodes.Add);
-
-        // uint64UpperIndicator = ...
-        il.Emit(OpCodes.Stloc, locals.UInt64UpperIndicator);
-
-        // ulongLowerIndicator ^ ulongUpperIndicator
-        il.Emit(OpCodes.Ldloc, locals.UInt64LowerIndicator);
-        il.Emit(OpCodes.Ldloc, locals.UInt64UpperIndicator);
-        il.Emit(OpCodes.Xor);
-
-        // ... & 0x0080008000800080UL
-        il.Emit(OpCodes.Ldc_I8, unchecked((long)0x0080008000800080UL));
-        il.Emit(OpCodes.And);
-
-        // ... >> 2;
-        il.Emit(OpCodes.Ldc_I4, 2);
-        il.Emit(OpCodes.Shr_Un);
-
-        // ...  ^ uint64Value
-        il.Emit(OpCodes.Ldloc, locals.UInt64Value);
-        il.Emit(OpCodes.Xor);
-
-        // uint64Value = ...
-        il.Emit(OpCodes.Stloc, locals.UInt64Value);
-
-        // Now we generate an 'if' ladder with an entry for each of the unique 64 bit sections
-        // of the text.
-        var groups = entries.GroupBy(e => GetUInt64Key(e.text, index));
-        foreach (var group in groups)
+        if (entries.All(e => IsUInt64KeyAsciiLettersOnly(e.text, index)))
         {
-            // if (uint64Value == 0x.....) { ... }
-            var next = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc, locals.UInt64Value);
-            il.Emit(OpCodes.Ldc_I8, unchecked((long)group.Key));
-            il.Emit(OpCodes.Bne_Un, next);
+            // Here we know that all characters in our keys will all be in the set [a-z]
+            // If we set all the 0x20 bit in the input text, then it does not matter
+            // if we are incorrectly changing e.g. @ to `, as it won't match our letters
+            // anyway. In fact, since we know that the target set is [a-z] then the only
+            // characters to match our target set after having their 0x20 bit set are...
+            // [A-Z] which is exactly what we want to achieve.
 
-            // Process the group
-            EmitTable(il, group.ToArray(), index + 4, length, locals, labels, methods);
-            il.MarkLabel(next);
+            // uint64Value | 0x0020002000200020UL
+            il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+            il.Emit(OpCodes.Ldc_I8, unchecked((long)0x0020002000200020UL));
+            il.Emit(OpCodes.Or);
+
+            // uint64Value = ...
+            il.Emit(OpCodes.Stloc, locals.UInt64Value);
         }
+        else
+        {
+            // uint64Value + (0x0080008000800080UL - 0x0041004100410041UL)
+            il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+            il.Emit(OpCodes.Ldc_I8, unchecked((long)(0x0080008000800080UL - 0x0041004100410041UL)));
+            il.Emit(OpCodes.Add);
+
+            // uint64LowerIndicator = ...
+            il.Emit(OpCodes.Stloc, locals.UInt64LowerIndicator);
+
+            // value + (0x0080008000800080UL - 0x005B005B005B005BUL)
+            il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+            il.Emit(OpCodes.Ldc_I8, unchecked((long)(0x0080008000800080UL - 0x005B005B005B005BUL)));
+            il.Emit(OpCodes.Add);
+
+            // uint64UpperIndicator = ...
+            il.Emit(OpCodes.Stloc, locals.UInt64UpperIndicator);
+
+            // uint64LowerIndicator ^ uint64UpperIndicator
+            il.Emit(OpCodes.Ldloc, locals.UInt64LowerIndicator);
+            il.Emit(OpCodes.Ldloc, locals.UInt64UpperIndicator);
+            il.Emit(OpCodes.Xor);
+
+            // ... & 0x0080008000800080UL
+            il.Emit(OpCodes.Ldc_I8, unchecked((long)0x0080008000800080UL));
+            il.Emit(OpCodes.And);
+
+            // ... >> 2;
+            il.Emit(OpCodes.Ldc_I4, 2);
+            il.Emit(OpCodes.Shr_Un);
+
+            // ...  ^ uint64Value
+            il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+            il.Emit(OpCodes.Xor);
+
+            // uint64Value = ...
+            il.Emit(OpCodes.Stloc, locals.UInt64Value);
+        }
+
+        const int binarySearchThreshold = 4; // The number of items above which it makes sense to binary search
+
+        var groups = entries.GroupBy(e => GetUInt64Key(e.text, index)).ToArray();
+
+        if (groups.Length >= binarySearchThreshold)
+        {
+            // Only sort if binary search will be used.
+            Array.Sort(groups, static (a, b) => unchecked((long)a.Key).CompareTo(unchecked((long)b.Key)));
+        }
+
+        EmitIfLadder(groups);
 
         // goto: defaultDestination
         il.Emit(OpCodes.Br, labels.ReturnDefault);
+
+        void EmitIfLadder(Span<IGrouping<ulong, (string test, int destination)>> groups)
+        {
+            // Generate an 'if' ladder with an entry for each of the unique 64 bit sections of the text.
+
+            if (groups.Length < binarySearchThreshold)
+            {
+                // Use sequential if statements, starting from the most common segment
+                groups.Sort(static (a, b) => b.Count().CompareTo(a.Count()));
+                foreach (var group in groups)
+                {
+                    // if (uint64Value == 0x.....) { ... }
+                    var next = il.DefineLabel();
+                    il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+                    il.Emit(OpCodes.Ldc_I8, unchecked((long)group.Key));
+                    il.Emit(OpCodes.Bne_Un, next);
+
+                    // Process the group
+                    EmitTable(il, group.ToArray(), index + 4, length, locals, labels, methods);
+                    il.MarkLabel(next);
+                }
+            }
+            else
+            {
+                // Use binary search tree
+                var mid = groups.Length / 2;
+
+                var rightBranch = il.DefineLabel();
+                var nextGroup = il.DefineLabel();
+
+                // if (uint64Value < 0x.....) { ... }
+                il.Emit(OpCodes.Ldloc, locals.UInt64Value);
+                il.Emit(OpCodes.Ldc_I8, unchecked((long)groups[mid].Key));
+                il.Emit(OpCodes.Bge_Un, rightBranch);
+
+                EmitIfLadder(groups[..mid]);
+                il.Emit(OpCodes.Br, nextGroup);
+
+                // else { ... }
+                il.MarkLabel(rightBranch);
+                EmitIfLadder(groups[mid..]);
+
+                il.MarkLabel(nextGroup);
+            }
+        }
     }
 
     private static void EmitSingleCharacterTable(
@@ -325,7 +425,7 @@ internal static class ILEmitTrieFactory
         // p = ref ...
         il.Emit(OpCodes.Stloc, locals.P);
 
-        // if ((uInt16Value & ~0x007FUL) == 0)
+        // if ((uint16Value & ~0x007FUL) == 0)
         // {
         //     goto: NotAscii;
         // }
@@ -334,40 +434,89 @@ internal static class ILEmitTrieFactory
         il.Emit(OpCodes.And);
         il.Emit(OpCodes.Brtrue, labels.ReturnNotAscii);
 
-        // Since we're handling a single character at a time, it's easier to just
-        // generate an 'if' with two comparisons instead of doing complicated conversion
-        // logic.
+        // uint16Value | 0x20
+        il.Emit(OpCodes.Ldloc, locals.UInt16Value);
+        il.Emit(OpCodes.Ldc_I4, 0x20);
+        il.Emit(OpCodes.Or);
+
+        // uint16ValueLowerCase = ...
+        il.Emit(OpCodes.Stloc, locals.UInt16ValueLowerCase);
+
+        const int binarySearchThreshold = 4; // The number of items above which it makes sense to binary search
 
         // Now we generate an 'if' ladder with an entry for each of the unique
         // characters in the group.
-        var groups = entries.GroupBy(e => GetUInt16Key(e.text, index));
-        foreach (var group in groups)
+        var groups = entries.GroupBy(e => GetUInt16Key(e.text, index)).ToArray();
+
+        // We can still apply binary search in most cases. Specifically when besides letters,
+        // there are no two keys which are equal aside from the 0x20 bit. Reasoning is that
+        // if that's the case we can binary search on the (|0x20) version anyway and finally
+        // compare equality with the correct version.
+        var disableBinarySearch = groups.Any(group => groups.Any(otherGroup => otherGroup.Key != group.Key && (otherGroup.Key | 0x20) == (group.Key | 0x20)));
+
+        if (!disableBinarySearch && groups.Length >= binarySearchThreshold)
         {
-            // if (uInt16Value == 'A' || uint16Value == 'a') { ... }
-            var next = il.DefineLabel();
-            var inside = il.DefineLabel();
-            il.Emit(OpCodes.Ldloc, locals.UInt16Value);
-            il.Emit(OpCodes.Ldc_I4, unchecked((int)((uint)group.Key)));
-            il.Emit(OpCodes.Beq, inside);
-
-            var upper = (ushort)char.ToUpperInvariant((char)group.Key);
-            if (upper != group.Key)
-            {
-                il.Emit(OpCodes.Ldloc, locals.UInt16Value);
-                il.Emit(OpCodes.Ldc_I4, unchecked((int)((uint)upper)));
-                il.Emit(OpCodes.Beq, inside);
-            }
-
-            il.Emit(OpCodes.Br, next);
-
-            // Process the group
-            il.MarkLabel(inside);
-            EmitTable(il, group.ToArray(), index + 1, length, locals, labels, methods);
-            il.MarkLabel(next);
+            // Only sort if binary search will be used. Sort by the "lower" value - even if not a letter
+            // as with disableBinarySearch we have confirmed that no two keys will conflict.
+            Array.Sort(groups, static (a, b) => (a.Key | 0x20).CompareTo(b.Key | 0x20));
         }
+
+        EmitIfLadder(groups);
 
         // goto: defaultDestination
         il.Emit(OpCodes.Br, labels.ReturnDefault);
+
+        void EmitIfLadder(Span<IGrouping<ushort, (string test, int destination)>> groups)
+        {
+            // Generate an 'if' ladder with an entry for each of the unique 64 bit sections of the text.
+
+            if (disableBinarySearch || groups.Length < binarySearchThreshold)
+            {
+                // Use sequential if statements, starting from the most common segment
+                groups.Sort(static (a, b) => b.Count().CompareTo(a.Count()));
+
+                foreach (var group in groups)
+                {
+                    // Choose which variable against which to compare.
+                    var comparisonLocal = group.Key >= 'a' && group.Key <= 'z'
+                        ? locals.UInt16ValueLowerCase
+                        : locals.UInt16Value;
+
+                    // if (uint16Value/uint16ValueLowerCase == 'a') { ... }
+                    var next = il.DefineLabel();
+                    il.Emit(OpCodes.Ldloc, comparisonLocal);
+                    il.Emit(OpCodes.Ldc_I4, unchecked((int)(uint)group.Key));
+                    il.Emit(OpCodes.Ceq);
+                    il.Emit(OpCodes.Brfalse, next);
+
+                    // Process the group
+                    EmitTable(il, group.ToArray(), index + 1, length, locals, labels, methods);
+                    il.MarkLabel(next);
+                }
+            }
+            else
+            {
+                // Use binary search tree
+                var mid = groups.Length / 2;
+
+                var rightBranch = il.DefineLabel();
+                var nextGroup = il.DefineLabel();
+
+                // if (uint16ValueLowerVase < 0x.....) { ... }
+                il.Emit(OpCodes.Ldloc, locals.UInt16ValueLowerCase);
+                il.Emit(OpCodes.Ldc_I4, unchecked(((int)(uint)groups[mid].Key | 0x20)));
+                il.Emit(OpCodes.Bge_Un, rightBranch);
+
+                EmitIfLadder(groups[..mid]);
+                il.Emit(OpCodes.Br, nextGroup);
+
+                // else { ... }
+                il.MarkLabel(rightBranch);
+                EmitIfLadder(groups[mid..]);
+
+                il.MarkLabel(nextGroup);
+            }
+        }
     }
 
     public static void EmitReturnDestination(ILGenerator il, (string text, int destination)[] entries)
@@ -375,6 +524,19 @@ internal static class ILEmitTrieFactory
         Debug.Assert(entries.Length == 1, "We should have a single entry");
         il.Emit(OpCodes.Ldc_I4, entries[0].destination);
         il.Emit(OpCodes.Ret);
+    }
+
+    /// <summary>
+    /// Returns true if the key will only contains ascii letters
+    /// </summary>
+    private static bool IsUInt64KeyAsciiLettersOnly(string text, int index)
+    {
+        Debug.Assert(index + 4 <= text.Length);
+        var span = text.AsSpan(index, 4);
+        return char.IsAsciiLetter(span[0])
+            && char.IsAsciiLetter(span[1])
+            && char.IsAsciiLetter(span[2])
+            && char.IsAsciiLetter(span[3]);
     }
 
     private static ulong GetUInt64Key(string text, int index)
@@ -419,7 +581,7 @@ internal static class ILEmitTrieFactory
         }
 #endif
 
-    private class Locals
+    private sealed class Locals
     {
         public Locals(ILGenerator il, bool vectorize)
         {
@@ -427,6 +589,7 @@ internal static class ILEmitTrieFactory
             Span = il.DeclareLocal(typeof(ReadOnlySpan<char>));
 
             UInt16Value = il.DeclareLocal(typeof(ushort));
+            UInt16ValueLowerCase = il.DeclareLocal(typeof(ushort));
 
             if (vectorize)
             {
@@ -440,6 +603,12 @@ internal static class ILEmitTrieFactory
         /// Holds current character when processing a character at a time.
         /// </summary>
         public LocalBuilder UInt16Value { get; }
+
+        /// <summary>
+        /// Holds current character | 0x20 when processing a character at a time
+        /// in binary search mode.
+        /// </summary>
+        public LocalBuilder UInt16ValueLowerCase { get; }
 
         /// <summary>
         /// Holds current character when processing 4 characters at a time.
@@ -467,7 +636,7 @@ internal static class ILEmitTrieFactory
         public LocalBuilder Span { get; }
     }
 
-    private class Labels
+    private sealed class Labels
     {
         /// <summary>
         /// Label to goto that will return the default destination (not a match).
@@ -480,7 +649,8 @@ internal static class ILEmitTrieFactory
         public Label ReturnNotAscii { get; set; }
     }
 
-    private class Methods
+    [RequiresDynamicCode("ILEmitTrieFactory uses runtime IL generation.")]
+    private sealed class Methods
     {
         // Caching because the methods won't change, if we're being called once we're likely to
         // be called again.
@@ -488,28 +658,30 @@ internal static class ILEmitTrieFactory
 
         private Methods()
         {
-            // Can't use GetMethod because the parameter is a generic method parameters.
-            Add = typeof(Unsafe)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.Name == nameof(Unsafe.Add))
-                .Where(m => m.GetGenericArguments().Length == 1)
-                .Where(m => m.GetParameters().Length == 2)
-                .FirstOrDefault()
+            Add = typeof(Unsafe).GetMethod(
+                nameof(Unsafe.Add),
+                genericParameterCount: 1,
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: new[] { Type.MakeGenericMethodParameter(0).MakeByRefType(), typeof(int), },
+                modifiers: null)
                 ?.MakeGenericMethod(typeof(byte));
-            if (Add == null)
+
+            if (Add is null)
             {
                 throw new InvalidOperationException("Failed to find Unsafe.Add{T}(ref T, int)");
             }
 
-            // Can't use GetMethod because the parameter is a generic method parameters.
-            As = typeof(Unsafe)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.Name == nameof(Unsafe.As))
-                .Where(m => m.GetGenericArguments().Length == 2)
-                .Where(m => m.GetParameters().Length == 1)
-                .FirstOrDefault()
-                ?.MakeGenericMethod(typeof(char), typeof(byte));
-            if (Add == null)
+            As = typeof(Unsafe).GetMethod(
+               nameof(Unsafe.As),
+               genericParameterCount: 2,
+               BindingFlags.Public | BindingFlags.Static,
+               binder: null,
+               types: new[] { Type.MakeGenericMethodParameter(0).MakeByRefType(), },
+               modifiers: null)
+               ?.MakeGenericMethod(typeof(char), typeof(byte));
+
+            if (As is null)
             {
                 throw new InvalidOperationException("Failed to find Unsafe.As{TFrom, TTo}(ref TFrom)");
             }
@@ -525,16 +697,15 @@ internal static class ILEmitTrieFactory
                 throw new InvalidOperationException("Failed to find MemoryExtensions.AsSpan(string, int, int)");
             }
 
-            // Can't use GetMethod because the parameter is a generic method parameters.
-            GetReference = typeof(MemoryMarshal)
-                .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                .Where(m => m.Name == nameof(MemoryMarshal.GetReference))
-                .Where(m => m.GetGenericArguments().Length == 1)
-                .Where(m => m.GetParameters().Length == 1)
-                // Disambiguate between ReadOnlySpan<> and Span<> - this method is overloaded.
-                .Where(m => m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(ReadOnlySpan<>))
-                .FirstOrDefault()
+            GetReference = typeof(MemoryMarshal).GetMethod(
+                nameof(MemoryMarshal.GetReference),
+                genericParameterCount: 1,
+                BindingFlags.Public | BindingFlags.Static,
+                binder: null,
+                types: new[] { typeof(ReadOnlySpan<>).MakeGenericType(Type.MakeGenericMethodParameter(0)), },
+                modifiers: null)
                 ?.MakeGenericMethod(typeof(char));
+
             if (GetReference == null)
             {
                 throw new InvalidOperationException("Failed to find MemoryMarshal.GetReference{T}(ReadOnlySpan{T})");
@@ -586,12 +757,12 @@ internal static class ILEmitTrieFactory
         public MethodInfo GetReference { get; }
 
         /// <summary>
-        /// <see cref="Unsafe.ReadUnaligned{T}(ref byte)"/> - ReadUnaligned[ulong]
+        /// <see cref="Unsafe.ReadUnaligned{T}(ref readonly byte)"/> - ReadUnaligned[ulong]
         /// </summary>
         public MethodInfo ReadUnalignedUInt64 { get; }
 
         /// <summary>
-        /// <see cref="Unsafe.ReadUnaligned{T}(ref byte)"/> - ReadUnaligned[ushort]
+        /// <see cref="Unsafe.ReadUnaligned{T}(ref readonly byte)"/> - ReadUnaligned[ushort]
         /// </summary>
         public MethodInfo ReadUnalignedUInt16 { get; }
     }

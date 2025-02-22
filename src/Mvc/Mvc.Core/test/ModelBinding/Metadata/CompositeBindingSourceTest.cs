@@ -1,8 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
@@ -22,7 +21,6 @@ public class CompositeBindingSourceTest
 
         var expected = "The provided binding source 'Test Source2' is a composite. " +
             $"'{nameof(composite1.CanAcceptDataFrom)}' requires that the source must represent a single type of input.";
-
 
         // Act & Assert
         ExceptionAssert.ThrowsArgument(

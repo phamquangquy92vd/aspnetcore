@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Net.Http.Headers;
 
 namespace Microsoft.AspNetCore.Http;
 
@@ -20,7 +15,7 @@ internal sealed class DefaultHttpRequest : HttpRequest
     // Lambdas hoisted to static readonly fields to improve inlining https://github.com/dotnet/roslyn/issues/13624
     private static readonly Func<IFeatureCollection, IHttpRequestFeature?> _nullRequestFeature = f => null;
     private static readonly Func<IFeatureCollection, IQueryFeature?> _newQueryFeature = f => new QueryFeature(f);
-    private static readonly Func<DefaultHttpRequest, IFormFeature> _newFormFeature = r => new FormFeature(r, r._context.FormOptions ?? FormOptions.Default);
+    private static readonly Func<DefaultHttpRequest, IFormFeature> _newFormFeature = r => new FormFeature(r, r._context.FormOptions ?? FormOptions.Default, r._context.GetEndpoint());
     private static readonly Func<IFeatureCollection, IRequestCookiesFeature> _newRequestCookiesFeature = f => new RequestCookiesFeature(f);
     private static readonly Func<IFeatureCollection, IRouteValuesFeature> _newRouteValuesFeature = f => new RouteValuesFeature();
     private static readonly Func<HttpContext, IRequestBodyPipeFeature> _newRequestBodyPipeFeature = context => new RequestBodyPipeFeature(context);

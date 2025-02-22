@@ -1,3 +1,6 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 import '../Platform/Platform';
 import '../Environment';
 import { RenderBatch } from './RenderBatch/RenderBatch';
@@ -14,13 +17,14 @@ let shouldResetScrollAfterNextBatch = false;
 export function attachRootComponentToLogicalElement(browserRendererId: number, logicalElement: LogicalElement, componentId: number, appendContent: boolean): void {
   let browserRenderer = browserRenderers[browserRendererId];
   if (!browserRenderer) {
-    browserRenderer = browserRenderers[browserRendererId] = new BrowserRenderer(browserRendererId);
+    browserRenderer = new BrowserRenderer(browserRendererId);
+    browserRenderers[browserRendererId] = browserRenderer;
   }
 
   browserRenderer.attachRootComponentToLogicalElement(componentId, logicalElement, appendContent);
 }
 
-export function attachRootComponentToElement(elementSelector: string, componentId: number, browserRendererId?: number): void {
+export function attachRootComponentToElement(elementSelector: string, componentId: number, browserRendererId: number): void {
   const afterElementSelector = '::after';
   const beforeElementSelector = '::before';
   let appendContent = false;
@@ -40,10 +44,10 @@ export function attachRootComponentToElement(elementSelector: string, componentI
 
   // 'allowExistingContents' to keep any prerendered content until we do the first client-side render
   // Only client-side Blazor supplies a browser renderer ID
-  attachRootComponentToLogicalElement(browserRendererId || 0, toLogicalElement(element, /* allow existing contents */ true), componentId, appendContent);
+  attachRootComponentToLogicalElement(browserRendererId, toLogicalElement(element, /* allow existing contents */ true), componentId, appendContent);
 }
 
-export function getRendererer(browserRendererId: number) {
+export function getRendererer(browserRendererId: number): BrowserRenderer | undefined {
   return browserRenderers[browserRendererId];
 }
 
@@ -87,7 +91,7 @@ export function renderBatch(browserRendererId: number, batch: RenderBatch): void
   resetScrollIfNeeded();
 }
 
-export function resetScrollAfterNextBatch() {
+export function resetScrollAfterNextBatch(): void {
   shouldResetScrollAfterNextBatch = true;
 }
 

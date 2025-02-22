@@ -3,12 +3,8 @@
 
 #nullable enable
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using Microsoft.AspNetCore.Hosting.Builder;
@@ -95,10 +91,7 @@ public class WebHostBuilder : IWebHostBuilder
     /// <returns>The <see cref="IWebHostBuilder"/>.</returns>
     public IWebHostBuilder ConfigureServices(Action<IServiceCollection> configureServices)
     {
-        if (configureServices == null)
-        {
-            throw new ArgumentNullException(nameof(configureServices));
-        }
+        ArgumentNullException.ThrowIfNull(configureServices);
 
         return ConfigureServices((_, services) => configureServices(services));
     }
@@ -186,7 +179,7 @@ public class WebHostBuilder : IWebHostBuilder
             var assemblyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var assemblyName in _options.GetFinalHostingStartupAssemblies())
             {
-                if (!assemblyNames.Add(assemblyName))
+                if (!assemblyNames.Add(assemblyName) && logger.IsEnabled(LogLevel.Warning))
                 {
                     logger.LogWarning($"The assembly {assemblyName} was specified multiple times. Hosting startup assemblies should only be specified once.");
                 }
@@ -202,12 +195,12 @@ public class WebHostBuilder : IWebHostBuilder
             throw;
         }
 
-        IServiceProvider GetProviderFromFactory(IServiceCollection collection)
+        static IServiceProvider GetProviderFromFactory(IServiceCollection collection)
         {
             var provider = collection.BuildServiceProvider();
             var factory = provider.GetService<IServiceProviderFactory<IServiceCollection>>();
 
-            if (factory != null && !(factory is DefaultServiceProviderFactory))
+            if (factory != null && factory is not DefaultServiceProviderFactory)
             {
                 using (provider)
                 {
@@ -224,7 +217,7 @@ public class WebHostBuilder : IWebHostBuilder
     {
         hostingStartupErrors = null;
 
-        _options = new WebHostOptions(_config, Assembly.GetEntryAssembly()?.GetName().Name ?? string.Empty);
+        _options = new WebHostOptions(_config);
 
         if (!_options.PreventHostingStartup)
         {
@@ -301,42 +294,55 @@ public class WebHostBuilder : IWebHostBuilder
         services.AddOptions();
         services.AddLogging();
 
+        services.AddMetrics();
+        services.TryAddSingleton<HostingMetrics>();
+
         services.AddTransient<IServiceProviderFactory<IServiceCollection>, DefaultServiceProviderFactory>();
 
         if (!string.IsNullOrEmpty(_options.StartupAssembly))
         {
-            try
-            {
-                var startupType = StartupLoader.FindStartupType(_options.StartupAssembly, _hostingEnvironment.EnvironmentName);
-
-                if (typeof(IStartup).IsAssignableFrom(startupType))
-                {
-                    services.AddSingleton(typeof(IStartup), startupType);
-                }
-                else
-                {
-                    services.AddSingleton(typeof(IStartup), sp =>
-                    {
-                        var hostingEnvironment = sp.GetRequiredService<IHostEnvironment>();
-                        var methods = StartupLoader.LoadMethods(sp, startupType, hostingEnvironment.EnvironmentName);
-                        return new ConventionBasedStartup(methods);
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                var capture = ExceptionDispatchInfo.Capture(ex);
-                services.AddSingleton<IStartup>(_ =>
-                {
-                    capture.Throw();
-                    return null;
-                });
-            }
+            ScanAssemblyAndRegisterStartup(services, _options.StartupAssembly);
         }
 
         _configureServices?.Invoke(_context, services);
 
         return services;
+    }
+
+    [UnconditionalSuppressMessage("Trimmer", "IL2077", Justification = "Finding startup type in assembly requires unreferenced code. Surfaced to user in UseStartup(startupAssemblyName).")]
+    [UnconditionalSuppressMessage("Trimmer", "IL2072", Justification = "Finding startup type in assembly requires unreferenced code. Surfaced to user in UseStartup(startupAssemblyName).")]
+    private void ScanAssemblyAndRegisterStartup(ServiceCollection services, string startupAssemblyName)
+    {
+        try
+        {
+            var startupType = StartupLoader.FindStartupType(startupAssemblyName, _hostingEnvironment.EnvironmentName);
+
+            if (typeof(IStartup).IsAssignableFrom(startupType))
+            {
+                services.AddSingleton(typeof(IStartup), startupType);
+            }
+            else
+            {
+                services.AddSingleton(typeof(IStartup), RegisterStartup);
+
+                [UnconditionalSuppressMessage("Trimmer", "IL2077", Justification = "Finding startup type in assembly requires unreferenced code. Surfaced to user in UseStartup(startupAssemblyName).")]
+                object RegisterStartup(IServiceProvider serviceProvider)
+                {
+                    var hostingEnvironment = serviceProvider.GetRequiredService<IHostEnvironment>();
+                    var methods = StartupLoader.LoadMethods(serviceProvider, startupType, hostingEnvironment.EnvironmentName);
+                    return new ConventionBasedStartup(methods);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            var capture = ExceptionDispatchInfo.Capture(ex);
+            services.AddSingleton<IStartup>(_ =>
+            {
+                capture.Throw();
+                return null;
+            });
+        }
     }
 
     private static void AddApplicationServices(IServiceCollection services, IServiceProvider hostingServiceProvider)

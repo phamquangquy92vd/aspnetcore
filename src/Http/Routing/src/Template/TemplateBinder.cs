@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -70,20 +68,9 @@ public class TemplateBinder
         IEnumerable<string>? requiredKeys,
         IEnumerable<(string parameterName, IParameterPolicy policy)>? parameterPolicies)
     {
-        if (urlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(urlEncoder));
-        }
-
-        if (pool == null)
-        {
-            throw new ArgumentNullException(nameof(pool));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
+        ArgumentNullException.ThrowIfNull(urlEncoder);
+        ArgumentNullException.ThrowIfNull(pool);
+        ArgumentNullException.ThrowIfNull(pattern);
 
         _urlEncoder = urlEncoder;
         _pool = pool;
@@ -100,14 +87,7 @@ public class TemplateBinder
         }
         _filters = filters.ToArray();
 
-        _constraints = parameterPolicies
-            ?.Where(p => p.policy is IRouteConstraint)
-            .Select(p => (p.parameterName, (IRouteConstraint)p.policy))
-            .ToArray() ?? Array.Empty<(string, IRouteConstraint)>();
-        _parameterTransformers = parameterPolicies
-            ?.Where(p => p.policy is IOutboundParameterTransformer)
-            .Select(p => (p.parameterName, (IOutboundParameterTransformer)p.policy))
-            .ToArray() ?? Array.Empty<(string, IOutboundParameterTransformer)>();
+        Initialize(parameterPolicies, out _constraints, out _parameterTransformers);
 
         _slots = AssignSlots(_pattern, _filters);
     }
@@ -118,20 +98,9 @@ public class TemplateBinder
         RoutePattern pattern,
         IEnumerable<(string parameterName, IParameterPolicy policy)> parameterPolicies)
     {
-        if (urlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(urlEncoder));
-        }
-
-        if (pool == null)
-        {
-            throw new ArgumentNullException(nameof(pool));
-        }
-
-        if (pattern == null)
-        {
-            throw new ArgumentNullException(nameof(pattern));
-        }
+        ArgumentNullException.ThrowIfNull(urlEncoder);
+        ArgumentNullException.ThrowIfNull(pool);
+        ArgumentNullException.ThrowIfNull(pattern);
 
         // Parameter policies can be null.
 
@@ -150,16 +119,36 @@ public class TemplateBinder
         }
         _filters = filters.ToArray();
 
-        _constraints = parameterPolicies
-            ?.Where(p => p.policy is IRouteConstraint)
-            .Select(p => (p.parameterName, (IRouteConstraint)p.policy))
-            .ToArray() ?? Array.Empty<(string, IRouteConstraint)>();
-        _parameterTransformers = parameterPolicies
-            ?.Where(p => p.policy is IOutboundParameterTransformer)
-            .Select(p => (p.parameterName, (IOutboundParameterTransformer)p.policy))
-            .ToArray() ?? Array.Empty<(string, IOutboundParameterTransformer)>();
+        Initialize(parameterPolicies, out _constraints, out _parameterTransformers);
 
         _slots = AssignSlots(_pattern, _filters);
+    }
+
+    private static void Initialize(
+        IEnumerable<(string parameterName, IParameterPolicy policy)>? parameterPolicies,
+        out (string parameterName, IRouteConstraint constraint)[] constraints,
+        out (string parameterName, IOutboundParameterTransformer transformer)[] parameterTransformers)
+    {
+        List<(string parameterName, IRouteConstraint constraint)>? constraintList = null;
+        List<(string parameterName, IOutboundParameterTransformer transformer)>? parameterTransformerList = null;
+
+        if (parameterPolicies is not null)
+        {
+            foreach (var p in parameterPolicies)
+            {
+                if (p.policy is IRouteConstraint routeConstraint)
+                {
+                    (constraintList ??= new()).Add((p.parameterName, routeConstraint));
+                }
+                if (p.policy is IOutboundParameterTransformer transformer)
+                {
+                    (parameterTransformerList ??= new()).Add((p.parameterName, transformer));
+                }
+            }
+        }
+
+        constraints = constraintList?.ToArray() ?? Array.Empty<(string, IRouteConstraint)>();
+        parameterTransformers = parameterTransformerList?.ToArray() ?? Array.Empty<(string, IOutboundParameterTransformer)>();
     }
 
     /// <summary>
@@ -349,7 +338,6 @@ public class TemplateBinder
             }
             else if (_defaults != null && _defaults.TryGetValue(parameter.Name, out var defaultValue))
             {
-
                 // Add the default value only if there isn't already a new value for it and
                 // only if it actually has a default value.
                 slots[i] = new KeyValuePair<string, object?>(key, defaultValue);
@@ -372,8 +360,8 @@ public class TemplateBinder
 
             // We use a sentinel value here so we can track the different between omission and explicit null.
             // 'real null' means that the value was omitted.
-            var hasExplictValue = value != null;
-            if (hasExplictValue)
+            var hasExplicitValue = value != null;
+            if (hasExplicitValue)
             {
                 // If there is a non-parameterized value in the route and there is a
                 // new value for it and it doesn't match, this route won't match.
@@ -585,11 +573,9 @@ public class TemplateBinder
                         // for format, so we remove '.' and generate 5.
                         if (!context.Accept(converted, parameterPart.EncodeSlashes))
                         {
-                            RoutePatternSeparatorPart? nullablePart;
-                            if (j != 0 && parameterPart.IsOptional && (nullablePart = parts[j - 1] as RoutePatternSeparatorPart) != null)
+                            if (j != 0 && parameterPart.IsOptional && parts[j - 1] is RoutePatternSeparatorPart)
                             {
-                                separatorPart = nullablePart;
-                                context.Remove(separatorPart.Content);
+                                context.Remove();
                             }
                             else
                             {
@@ -750,7 +736,7 @@ public class TemplateBinder
 
     // This represents an 'explicit null' in the slots array.
     [DebuggerDisplay("explicit null")]
-    private class SentinullValue
+    private sealed class SentinullValue
     {
         public static object Instance = new SentinullValue();
 

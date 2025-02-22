@@ -1,15 +1,15 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-
-using System;
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.AspNetCore.Mvc.Routing;
 
+#pragma warning disable CA1852 // Seal internal types
 internal class DynamicControllerEndpointSelectorCache
+#pragma warning restore CA1852 // Seal internal types
 {
     private readonly ConcurrentDictionary<int, EndpointDataSource> _dataSourceCache = new();
     private readonly ConcurrentDictionary<int, DynamicControllerEndpointSelector> _endpointSelectorCache = new();
@@ -26,7 +26,7 @@ internal class DynamicControllerEndpointSelectorCache
     public DynamicControllerEndpointSelector GetEndpointSelector(Endpoint endpoint)
     {
         var dataSourceId = endpoint.Metadata.GetMetadata<ControllerEndpointDataSourceIdMetadata>()!;
-        return _endpointSelectorCache.GetOrAdd(dataSourceId.Id, key => EnsureDataSource(key));
+        return _endpointSelectorCache.GetOrAdd(dataSourceId.Id, EnsureDataSource);
     }
 
     private DynamicControllerEndpointSelector EnsureDataSource(int key)

@@ -11,12 +11,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Server.HttpSys;
 
-public class ResponseTests
+public class ResponseTests : LoggedTest
 {
     [ConditionalFact]
     public async Task Response_ServerSendsDefaultResponse_ServerProvidesStatusCodeAndReasonPhrase()
@@ -27,7 +28,7 @@ public class ResponseTests
             Assert.Equal(200, httpContext.Response.StatusCode);
             Assert.False(httpContext.Response.HasStarted);
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(200, (int)response.StatusCode);
@@ -44,9 +45,9 @@ public class ResponseTests
         using (Utilities.CreateHttpServer(out address, httpContext =>
         {
             httpContext.Response.StatusCode = 201;
-                // TODO: httpContext["owin.ResponseProtocol"] = "HTTP/1.0"; // Http.Sys ignores this value
-                return Task.FromResult(0);
-        }))
+            // TODO: httpContext["owin.ResponseProtocol"] = "HTTP/1.0"; // Http.Sys ignores this value
+            return Task.FromResult(0);
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(201, (int)response.StatusCode);
@@ -65,8 +66,8 @@ public class ResponseTests
             httpContext.Response.StatusCode = 201;
             httpContext.Features.Get<IHttpResponseFeature>().ReasonPhrase = "CustomReasonPhrase"; // TODO?
                                                                                                   // TODO: httpContext["owin.ResponseProtocol"] = "HTTP/1.0"; // Http.Sys ignores this value
-                return Task.FromResult(0);
-        }))
+            return Task.FromResult(0);
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(201, (int)response.StatusCode);
@@ -84,7 +85,7 @@ public class ResponseTests
         {
             httpContext.Response.StatusCode = 901;
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(901, (int)response.StatusCode);
@@ -101,7 +102,7 @@ public class ResponseTests
         {
             httpContext.Response.StatusCode = 100;
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(500, (int)response.StatusCode);
@@ -116,7 +117,7 @@ public class ResponseTests
         {
             httpContext.Response.StatusCode = 0;
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -126,25 +127,25 @@ public class ResponseTests
     [ConditionalFact]
     public async Task Response_Empty_CallsOnStartingAndOnCompleted()
     {
-        var onStartingCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var onCompletedCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onStartingCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
         using (Utilities.CreateHttpServer(out var address, httpContext =>
         {
             httpContext.Response.OnStarting(state =>
             {
                 Assert.Same(state, httpContext);
-                onStartingCalled.SetResult(0);
-                return Task.FromResult(0);
+                onStartingCalled.SetResult();
+                return Task.CompletedTask;
             }, httpContext);
             httpContext.Response.OnCompleted(state =>
             {
                 Assert.Same(state, httpContext);
-                onCompletedCalled.SetResult(0);
-                return Task.FromResult(0);
+                onCompletedCalled.SetResult();
+                return Task.CompletedTask;
             }, httpContext);
-            return Task.FromResult(0);
-        }))
+            return Task.CompletedTask;
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -157,23 +158,23 @@ public class ResponseTests
     [ConditionalFact]
     public async Task Response_OnStartingThrows_StillCallsOnCompleted()
     {
-        var onStartingCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var onCompletedCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onStartingCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (Utilities.CreateHttpServer(out var address, httpContext =>
         {
             httpContext.Response.OnStarting(state =>
             {
-                onStartingCalled.SetResult(0);
+                onStartingCalled.SetResult();
                 throw new Exception("Failed OnStarting");
             }, httpContext);
             httpContext.Response.OnCompleted(state =>
             {
                 Assert.Same(state, httpContext);
-                onCompletedCalled.SetResult(0);
-                return Task.FromResult(0);
+                onCompletedCalled.SetResult();
+                return Task.CompletedTask;
             }, httpContext);
-            return Task.FromResult(0);
-        }))
+            return Task.CompletedTask;
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
@@ -186,24 +187,24 @@ public class ResponseTests
     [ConditionalFact]
     public async Task Response_OnStartingThrowsAfterWrite_WriteThrowsAndStillCallsOnCompleted()
     {
-        var onStartingCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var onCompletedCalled = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onStartingCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var onCompletedCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (Utilities.CreateHttpServer(out var address, httpContext =>
         {
             httpContext.Response.OnStarting(state =>
             {
-                onStartingCalled.SetResult(0);
+                onStartingCalled.SetResult();
                 throw new InvalidTimeZoneException("Failed OnStarting");
             }, httpContext);
             httpContext.Response.OnCompleted(state =>
             {
                 Assert.Same(state, httpContext);
-                onCompletedCalled.SetResult(0);
-                return Task.FromResult(0);
+                onCompletedCalled.SetResult();
+                return Task.CompletedTask;
             }, httpContext);
             Assert.Throws<InvalidTimeZoneException>(() => httpContext.Response.Body.Write(new byte[10], 0, 10));
-            return Task.FromResult(0);
-        }))
+            return Task.CompletedTask;
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -234,9 +235,9 @@ public class ResponseTests
 
             try
             {
-                    // https://github.com/dotnet/aspnetcore/issues/12194
-                    // Modifying the response after the client has disconnected must be allowed.
-                    Assert.False(httpContext.Response.HasStarted);
+                // https://github.com/dotnet/aspnetcore/issues/12194
+                // Modifying the response after the client has disconnected must be allowed.
+                Assert.False(httpContext.Response.HasStarted);
                 httpContext.Response.StatusCode = 400;
                 httpContext.Response.ContentType = "text/plain";
                 await httpContext.Response.WriteAsync("Body");
@@ -248,7 +249,7 @@ public class ResponseTests
             }
 
             readCompleted.SetResult();
-        });
+        }, LoggerFactory);
 
         // Send a request without the body.
         var uri = new Uri(address);

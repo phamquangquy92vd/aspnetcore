@@ -4,6 +4,7 @@
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Shared;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.AspNetCore.Identity;
@@ -24,13 +25,11 @@ public class UserClaimsPrincipalFactory<TUser> : IUserClaimsPrincipalFactory<TUs
         UserManager<TUser> userManager,
         IOptions<IdentityOptions> optionsAccessor)
     {
-        if (userManager == null)
-        {
-            throw new ArgumentNullException(nameof(userManager));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(userManager);
         if (optionsAccessor == null || optionsAccessor.Value == null)
         {
-            throw new ArgumentNullException(nameof(optionsAccessor));
+            ArgumentNullThrowHelper.ThrowIfNull(optionsAccessor);
+            throw new ArgumentException($"{nameof(optionsAccessor)} cannot wrap a null value.", nameof(optionsAccessor));
         }
         UserManager = userManager;
         Options = optionsAccessor.Value;
@@ -59,11 +58,8 @@ public class UserClaimsPrincipalFactory<TUser> : IUserClaimsPrincipalFactory<TUs
     /// <returns>The <see cref="Task"/> that represents the asynchronous creation operation, containing the created <see cref="ClaimsPrincipal"/>.</returns>
     public virtual async Task<ClaimsPrincipal> CreateAsync(TUser user)
     {
-        if (user == null)
-        {
-            throw new ArgumentNullException(nameof(user));
-        }
-        var id = await GenerateClaimsAsync(user);
+        ArgumentNullThrowHelper.ThrowIfNull(user);
+        var id = await GenerateClaimsAsync(user).ConfigureAwait(false);
         return new ClaimsPrincipal(id);
     }
 
@@ -74,16 +70,16 @@ public class UserClaimsPrincipalFactory<TUser> : IUserClaimsPrincipalFactory<TUs
     /// <returns>The <see cref="Task"/> that represents the asynchronous creation operation, containing the created <see cref="ClaimsIdentity"/>.</returns>
     protected virtual async Task<ClaimsIdentity> GenerateClaimsAsync(TUser user)
     {
-        var userId = await UserManager.GetUserIdAsync(user);
-        var userName = await UserManager.GetUserNameAsync(user);
+        var userId = await UserManager.GetUserIdAsync(user).ConfigureAwait(false);
+        var userName = await UserManager.GetUserNameAsync(user).ConfigureAwait(false);
         var id = new ClaimsIdentity("Identity.Application", // REVIEW: Used to match Application scheme
             Options.ClaimsIdentity.UserNameClaimType,
             Options.ClaimsIdentity.RoleClaimType);
         id.AddClaim(new Claim(Options.ClaimsIdentity.UserIdClaimType, userId));
-        id.AddClaim(new Claim(Options.ClaimsIdentity.UserNameClaimType, userName));
+        id.AddClaim(new Claim(Options.ClaimsIdentity.UserNameClaimType, userName!));
         if (UserManager.SupportsUserEmail)
         {
-            var email = await UserManager.GetEmailAsync(user);
+            var email = await UserManager.GetEmailAsync(user).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(email))
             {
                 id.AddClaim(new Claim(Options.ClaimsIdentity.EmailClaimType, email));
@@ -92,11 +88,11 @@ public class UserClaimsPrincipalFactory<TUser> : IUserClaimsPrincipalFactory<TUs
         if (UserManager.SupportsUserSecurityStamp)
         {
             id.AddClaim(new Claim(Options.ClaimsIdentity.SecurityStampClaimType,
-                await UserManager.GetSecurityStampAsync(user)));
+                await UserManager.GetSecurityStampAsync(user).ConfigureAwait(false)));
         }
         if (UserManager.SupportsUserClaim)
         {
-            id.AddClaims(await UserManager.GetClaimsAsync(user));
+            id.AddClaims(await UserManager.GetClaimsAsync(user).ConfigureAwait(false));
         }
         return id;
     }
@@ -120,10 +116,7 @@ public class UserClaimsPrincipalFactory<TUser, TRole> : UserClaimsPrincipalFacto
     public UserClaimsPrincipalFactory(UserManager<TUser> userManager, RoleManager<TRole> roleManager, IOptions<IdentityOptions> options)
         : base(userManager, options)
     {
-        if (roleManager == null)
-        {
-            throw new ArgumentNullException(nameof(roleManager));
-        }
+        ArgumentNullThrowHelper.ThrowIfNull(roleManager);
         RoleManager = roleManager;
     }
 
@@ -142,19 +135,19 @@ public class UserClaimsPrincipalFactory<TUser, TRole> : UserClaimsPrincipalFacto
     /// <returns>The <see cref="Task"/> that represents the asynchronous creation operation, containing the created <see cref="ClaimsIdentity"/>.</returns>
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(TUser user)
     {
-        var id = await base.GenerateClaimsAsync(user);
+        var id = await base.GenerateClaimsAsync(user).ConfigureAwait(false);
         if (UserManager.SupportsUserRole)
         {
-            var roles = await UserManager.GetRolesAsync(user);
+            var roles = await UserManager.GetRolesAsync(user).ConfigureAwait(false);
             foreach (var roleName in roles)
             {
                 id.AddClaim(new Claim(Options.ClaimsIdentity.RoleClaimType, roleName));
                 if (RoleManager.SupportsRoleClaims)
                 {
-                    var role = await RoleManager.FindByNameAsync(roleName);
+                    var role = await RoleManager.FindByNameAsync(roleName).ConfigureAwait(false);
                     if (role != null)
                     {
-                        id.AddClaims(await RoleManager.GetClaimsAsync(role));
+                        id.AddClaims(await RoleManager.GetClaimsAsync(role).ConfigureAwait(false));
                     }
                 }
             }

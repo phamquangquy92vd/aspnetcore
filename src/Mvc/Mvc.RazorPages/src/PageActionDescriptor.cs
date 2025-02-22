@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
 
 namespace Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -28,10 +25,7 @@ public class PageActionDescriptor : ActionDescriptor
     /// <param name="other">The <see cref="PageActionDescriptor"/> to copy from.</param>
     public PageActionDescriptor(PageActionDescriptor other)
     {
-        if (other == null)
-        {
-            throw new ArgumentNullException(nameof(other));
-        }
+        ArgumentNullException.ThrowIfNull(other);
 
         RelativePath = other.RelativePath;
         ViewEnginePath = other.ViewEnginePath;
@@ -82,10 +76,7 @@ public class PageActionDescriptor : ActionDescriptor
 
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             base.DisplayName = value;
         }

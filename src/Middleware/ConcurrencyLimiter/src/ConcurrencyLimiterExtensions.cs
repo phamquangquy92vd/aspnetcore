@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.ConcurrencyLimiter;
 
 namespace Microsoft.AspNetCore.Builder;
@@ -16,12 +15,10 @@ public static class ConcurrencyLimiterExtensions
     /// </summary>
     /// <param name="app">The <see cref="IApplicationBuilder"/>.</param>
     /// <returns>The <see cref="IApplicationBuilder"/>.</returns>
+    [Obsolete("Concurrency Limiter middleware has been deprecated and will be removed in a future release. Update the app to use concurrency features in rate limiting middleware. For more information, see https://aka.ms/aspnet/rate-limiting")]
     public static IApplicationBuilder UseConcurrencyLimiter(this IApplicationBuilder app)
     {
-        if (app == null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         return app.UseMiddleware<ConcurrencyLimiterMiddleware>();
     }

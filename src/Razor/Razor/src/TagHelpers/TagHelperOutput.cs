@@ -1,10 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 
 namespace Microsoft.AspNetCore.Razor.TagHelpers;
@@ -45,15 +42,8 @@ public class TagHelperOutput : IHtmlContentContainer
         TagHelperAttributeList attributes,
         Func<bool, HtmlEncoder, Task<TagHelperContent>> getChildContentAsync)
     {
-        if (getChildContentAsync == null)
-        {
-            throw new ArgumentNullException(nameof(getChildContentAsync));
-        }
-
-        if (attributes == null)
-        {
-            throw new ArgumentNullException(nameof(attributes));
-        }
+        ArgumentNullException.ThrowIfNull(getChildContentAsync);
+        ArgumentNullException.ThrowIfNull(attributes);
 
         TagName = tagName;
         _getChildContentAsync = getChildContentAsync;
@@ -120,10 +110,7 @@ public class TagHelperOutput : IHtmlContentContainer
         }
         set
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
+            ArgumentNullException.ThrowIfNull(value);
 
             _content = value;
         }
@@ -291,10 +278,7 @@ public class TagHelperOutput : IHtmlContentContainer
 
     void IHtmlContentContainer.CopyTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         _preElement?.CopyTo(destination);
 
@@ -343,10 +327,7 @@ public class TagHelperOutput : IHtmlContentContainer
 
     void IHtmlContentContainer.MoveTo(IHtmlContentBuilder destination)
     {
-        if (destination == null)
-        {
-            throw new ArgumentNullException(nameof(destination));
-        }
+        ArgumentNullException.ThrowIfNull(destination);
 
         _preElement?.MoveTo(destination);
 
@@ -397,17 +378,11 @@ public class TagHelperOutput : IHtmlContentContainer
         Attributes.Clear();
     }
 
+    /// <inheritdoc />
     public void WriteTo(TextWriter writer, HtmlEncoder encoder)
     {
-        if (writer == null)
-        {
-            throw new ArgumentNullException(nameof(writer));
-        }
-
-        if (encoder == null)
-        {
-            throw new ArgumentNullException(nameof(encoder));
-        }
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(encoder);
 
         _preElement?.WriteTo(writer, encoder);
 

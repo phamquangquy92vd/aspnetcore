@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -34,6 +32,11 @@ public class ApiResponseType
     /// to specify a response type.
     /// </remarks>
     public Type? Type { get; set; }
+
+    /// <summary>
+    /// Gets or sets the description of the response.
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// Gets or sets the HTTP response status code.

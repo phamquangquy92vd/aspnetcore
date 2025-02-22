@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Globalization;
 using System.Net.Http;
 using System.Security.Claims;
@@ -37,15 +36,8 @@ public class OAuthCreatingTicketContext : ResultContext<OAuthOptions>
         JsonElement user)
         : base(context, scheme, options)
     {
-        if (backchannel == null)
-        {
-            throw new ArgumentNullException(nameof(backchannel));
-        }
-
-        if (tokens == null)
-        {
-            throw new ArgumentNullException(nameof(tokens));
-        }
+        ArgumentNullException.ThrowIfNull(backchannel);
+        ArgumentNullException.ThrowIfNull(tokens);
 
         TokenResponse = tokens;
         Backchannel = backchannel;

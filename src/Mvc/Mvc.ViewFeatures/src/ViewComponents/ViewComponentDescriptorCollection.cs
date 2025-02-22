@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-
 namespace Microsoft.AspNetCore.Mvc.ViewComponents;
 
 /// <summary>
@@ -18,10 +15,7 @@ public class ViewComponentDescriptorCollection
     /// <param name="version">The unique version of discovered view components.</param>
     public ViewComponentDescriptorCollection(IEnumerable<ViewComponentDescriptor> items, int version)
     {
-        if (items == null)
-        {
-            throw new ArgumentNullException(nameof(items));
-        }
+        ArgumentNullException.ThrowIfNull(items);
 
         Items = new List<ViewComponentDescriptor>(items);
         Version = version;

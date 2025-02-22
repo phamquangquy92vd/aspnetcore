@@ -1,11 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
 using System.Net;
-using System.Threading.Tasks;
 using StackExchange.Redis;
+using StackExchange.Redis.Configuration;
 
 namespace Microsoft.AspNetCore.SignalR.StackExchangeRedis;
 
@@ -40,6 +38,10 @@ public class RedisOptions
                 Configuration.EndPoints.Add(IPAddress.Loopback, 0);
                 Configuration.SetDefaultPorts();
             }
+
+            // suffix SignalR onto the declared library name
+            var provider = DefaultOptionsProvider.GetProvider(Configuration.EndPoints);
+            Configuration.LibraryName = $"{provider.LibraryName} SignalR";
 
             return await ConnectionMultiplexer.ConnectAsync(Configuration, log);
         }

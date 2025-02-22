@@ -1,11 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.AspNetCore.Authentication.OAuth.Claims;
-using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.AspNetCore.Authentication.OAuth;
 
@@ -29,25 +26,10 @@ public class OAuthOptions : RemoteAuthenticationOptions
     {
         base.Validate();
 
-        if (string.IsNullOrEmpty(ClientId))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(ClientId)), nameof(ClientId));
-        }
-
-        if (string.IsNullOrEmpty(ClientSecret))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(ClientSecret)), nameof(ClientSecret));
-        }
-
-        if (string.IsNullOrEmpty(AuthorizationEndpoint))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(AuthorizationEndpoint)), nameof(AuthorizationEndpoint));
-        }
-
-        if (string.IsNullOrEmpty(TokenEndpoint))
-        {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, Resources.Exception_OptionMustBeProvided, nameof(TokenEndpoint)), nameof(TokenEndpoint));
-        }
+        ArgumentException.ThrowIfNullOrEmpty(ClientId);
+        ArgumentException.ThrowIfNullOrEmpty(ClientSecret);
+        ArgumentException.ThrowIfNullOrEmpty(AuthorizationEndpoint);
+        ArgumentException.ThrowIfNullOrEmpty(TokenEndpoint);
 
         if (!CallbackPath.HasValue)
         {
@@ -102,12 +84,22 @@ public class OAuthOptions : RemoteAuthenticationOptions
     public ICollection<string> Scope { get; } = new HashSet<string>();
 
     /// <summary>
+    /// Gets the additional parameters that will be included in the authorization request.
+    /// </summary>
+    /// <remarks>
+    /// The additional parameters can be used to customize the authorization request,
+    /// providing extra information or fulfilling specific requirements of the OAuth provider.
+    /// These parameters are typically, but not always, appended to the query string.
+    /// </remarks>
+    public IDictionary<string, string> AdditionalAuthorizationParameters { get; } = new Dictionary<string, string>();
+
+    /// <summary>
     /// Gets or sets the type used to secure data handled by the middleware.
     /// </summary>
     public ISecureDataFormat<AuthenticationProperties> StateDataFormat { get; set; } = default!;
 
     /// <summary>
-    /// Enables or disables the use of the Proof Key for Code Exchange (PKCE) standard. See https://tools.ietf.org/html/rfc7636.
+    /// Enables or disables the use of the Proof Key for Code Exchange (PKCE) standard. See <see href="https://tools.ietf.org/html/rfc7636"/>.
     /// The default value is `false` but derived handlers should enable this if their provider supports it.
     /// </summary>
     public bool UsePkce { get; set; }

@@ -3,9 +3,7 @@
 
 #nullable enable
 
-using System;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Logging;
@@ -15,7 +13,7 @@ namespace Microsoft.AspNetCore.Mvc.Infrastructure;
 /// <summary>
 /// A <see cref="IActionResultExecutor{ContentResult}"/> that is responsible for <see cref="ContentResult"/>
 /// </summary>
-public class ContentResultExecutor : IActionResultExecutor<ContentResult>
+public partial class ContentResultExecutor : IActionResultExecutor<ContentResult>
 {
     private const string DefaultContentType = "text/plain; charset=utf-8";
     private readonly ILogger<ContentResultExecutor> _logger;
@@ -35,15 +33,8 @@ public class ContentResultExecutor : IActionResultExecutor<ContentResult>
     /// <inheritdoc />
     public virtual async Task ExecuteAsync(ActionContext context, ContentResult result)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
-
-        if (result == null)
-        {
-            throw new ArgumentNullException(nameof(result));
-        }
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(result);
 
         var response = context.HttpContext.Response;
 
@@ -62,7 +53,7 @@ public class ContentResultExecutor : IActionResultExecutor<ContentResult>
             response.StatusCode = result.StatusCode.Value;
         }
 
-        _logger.ContentResultExecuting(resolvedContentType);
+        Log.ContentResultExecuting(_logger, resolvedContentType);
 
         if (result.Content != null)
         {
@@ -79,5 +70,11 @@ public class ContentResultExecutor : IActionResultExecutor<ContentResult>
                 await textWriter.FlushAsync();
             }
         }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(1, LogLevel.Information, "Executing ContentResult with HTTP Response ContentType of {ContentType}", EventName = "ContentResultExecuting")]
+        public static partial void ContentResultExecuting(ILogger logger, string contentType);
     }
 }

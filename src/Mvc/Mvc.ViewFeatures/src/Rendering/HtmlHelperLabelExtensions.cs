@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Html;
 
@@ -20,10 +19,7 @@ public static class HtmlHelperLabelExtensions
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;label&gt; element.</returns>
     public static IHtmlContent Label(this IHtmlHelper htmlHelper, string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression, labelText: null, htmlAttributes: null);
     }
@@ -37,10 +33,7 @@ public static class HtmlHelperLabelExtensions
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;label&gt; element.</returns>
     public static IHtmlContent Label(this IHtmlHelper htmlHelper, string expression, string labelText)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression, labelText, htmlAttributes: null);
     }
@@ -57,15 +50,8 @@ public static class HtmlHelperLabelExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.LabelFor(expression, labelText: null, htmlAttributes: null);
     }
@@ -84,15 +70,8 @@ public static class HtmlHelperLabelExtensions
         Expression<Func<TModel, TResult>> expression,
         string labelText)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.LabelFor<TResult>(expression, labelText, htmlAttributes: null);
     }
@@ -115,15 +94,8 @@ public static class HtmlHelperLabelExtensions
         Expression<Func<TModel, TResult>> expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.LabelFor<TResult>(expression, labelText: null, htmlAttributes: htmlAttributes);
     }
@@ -135,10 +107,7 @@ public static class HtmlHelperLabelExtensions
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;label&gt; element.</returns>
     public static IHtmlContent LabelForModel(this IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression: null, labelText: null, htmlAttributes: null);
     }
@@ -151,10 +120,7 @@ public static class HtmlHelperLabelExtensions
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;label&gt; element.</returns>
     public static IHtmlContent LabelForModel(this IHtmlHelper htmlHelper, string labelText)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression: null, labelText: labelText, htmlAttributes: null);
     }
@@ -171,10 +137,7 @@ public static class HtmlHelperLabelExtensions
     /// <returns>A new <see cref="IHtmlContent"/> containing the &lt;label&gt; element.</returns>
     public static IHtmlContent LabelForModel(this IHtmlHelper htmlHelper, object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression: null, labelText: null, htmlAttributes: htmlAttributes);
     }
@@ -195,10 +158,7 @@ public static class HtmlHelperLabelExtensions
         string labelText,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.Label(expression: null, labelText: labelText, htmlAttributes: htmlAttributes);
     }

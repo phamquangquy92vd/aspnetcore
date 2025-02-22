@@ -1,11 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.AspNetCore.Testing;
-using Xunit;
+using Microsoft.AspNetCore.InternalTesting;
 
 namespace Microsoft.AspNetCore.Routing.Tests;
 
@@ -29,7 +25,7 @@ public class RouteValueDictionaryTests
     {
         // Arrange
         // Act
-        var dict = new RouteValueDictionary(null);
+        var dict = new RouteValueDictionary(values: (object?)null);
 
         // Assert
         Assert.Empty(dict);
@@ -174,11 +170,11 @@ public class RouteValueDictionaryTests
     public void CreateFromIEnumerableStringValuePair_ThrowsExceptionForDuplicateKey()
     {
         // Arrange
-        var values = new List<KeyValuePair<string, string>>()
-            {
-                new KeyValuePair<string, string>("name", "Billy"),
-                new KeyValuePair<string, string>("Name", "Joey"),
-            };
+        var values = new List<KeyValuePair<string, string?>>()
+        {
+            new("name", "Billy"),
+            new("Name", "Joey"),
+        };
 
         // Act & Assert
         ExceptionAssert.ThrowsArgument(
@@ -360,6 +356,57 @@ public class RouteValueDictionaryTests
 
         // Ignoring case to make sure we're not testing reflection's ordering.
         Assert.Equal(message, exception.Message, ignoreCase: true);
+    }
+
+    [Fact]
+    public void CreateFromObject_Struct_ReadValues()
+    {
+        // Arrange
+        var obj = new StructAddress() { City = "Singapore" };
+
+        // Act
+        var dict = new RouteValueDictionary(obj);
+
+        // Assert
+        Assert.NotNull(dict._propertyStorage);
+        AssertEmptyArrayStorage(dict);
+        Assert.Collection(
+            dict.OrderBy(kvp => kvp.Key),
+            kvp => { Assert.Equal("City", kvp.Key); Assert.Equal("Singapore", kvp.Value); },
+            kvp => { Assert.Equal("State", kvp.Key); Assert.Null(kvp.Value); });
+    }
+
+    [Fact]
+    public void CreateFromObject_NullableStruct_ReadValues()
+    {
+        // Arrange
+        StructAddress? obj = new StructAddress() { City = "Singapore" };
+
+        // Act
+        var dict = new RouteValueDictionary(obj);
+
+        // Assert
+        Assert.NotNull(dict._propertyStorage);
+        AssertEmptyArrayStorage(dict);
+        Assert.Collection(
+            dict.OrderBy(kvp => kvp.Key),
+            kvp => { Assert.Equal("City", kvp.Key); Assert.Equal("Singapore", kvp.Value); },
+            kvp => { Assert.Equal("State", kvp.Key); Assert.Null(kvp.Value); });
+    }
+
+    [Fact]
+    public void CreateFromObject_NullStruct_ReadValues()
+    {
+        // Arrange
+        StructAddress? obj = null;
+
+        // Act
+        var dict = new RouteValueDictionary(obj);
+
+        // Assert
+        Assert.Null(dict._propertyStorage);
+        AssertEmptyArrayStorage(dict);
+        Assert.Empty(dict);
     }
 
     // Our comparer is hardcoded to be OrdinalIgnoreCase no matter what.
@@ -1488,7 +1535,6 @@ public class RouteValueDictionaryTests
         Assert.IsType<KeyValuePair<string, object?>[]>(dict._arrayStorage);
     }
 
-
     [Fact]
     public void Remove_KeyAndOutValue_EmptyStorage()
     {
@@ -2164,6 +2210,13 @@ public class RouteValueDictionaryTests
     }
 
     private class Address
+    {
+        public string? City { get; set; }
+
+        public string? State { get; set; }
+    }
+
+    private struct StructAddress
     {
         public string? City { get; set; }
 

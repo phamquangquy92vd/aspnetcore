@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -45,10 +44,7 @@ public class SpaOptions
         get => _defaultPage;
         set
         {
-            if (string.IsNullOrEmpty(value.Value))
-            {
-                throw new ArgumentException($"The value for {nameof(DefaultPage)} cannot be null or empty.");
-            }
+            ArgumentException.ThrowIfNullOrEmpty(value.Value);
 
             _defaultPage = value;
         }
@@ -87,10 +83,7 @@ public class SpaOptions
         get => _packageManagerCommand;
         set
         {
-            if (string.IsNullOrEmpty(value))
-            {
-                throw new ArgumentException($"The value for {nameof(PackageManagerCommand)} cannot be null or empty.");
-            }
+            ArgumentException.ThrowIfNullOrEmpty(value);
 
             _packageManagerCommand = value;
         }

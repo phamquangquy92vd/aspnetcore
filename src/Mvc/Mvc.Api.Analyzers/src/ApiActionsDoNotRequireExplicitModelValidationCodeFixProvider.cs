@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Threading;
@@ -31,16 +30,11 @@ public class ApiActionsDoNotRequireExplicitModelValidationCheckCodeFixProvider :
         }
 
         var diagnostic = context.Diagnostics[0];
-        if (diagnostic.Id != ApiDiagnosticDescriptors.API1003_ApiActionsDoNotRequireExplicitModelValidationCheck.Id)
-        {
-            return Task.CompletedTask;
-        }
-
         context.RegisterCodeFix(new MyCodeAction(context.Document, context.Span), diagnostic);
         return Task.CompletedTask;
     }
 
-    private class MyCodeAction : CodeAction
+    private sealed class MyCodeAction : CodeAction
     {
         private readonly Document _document;
         private readonly TextSpan _ifBlockSpan;

@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Html;
 
@@ -31,10 +30,7 @@ public static class HtmlHelperValidationExtensions
         this IHtmlHelper htmlHelper,
         string expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationMessage(expression, message: null, htmlAttributes: null, tag: null);
     }
@@ -60,10 +56,7 @@ public static class HtmlHelperValidationExtensions
         string expression,
         string message)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationMessage(expression, message, htmlAttributes: null, tag: null);
     }
@@ -94,10 +87,7 @@ public static class HtmlHelperValidationExtensions
         string expression,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationMessage(expression, message: null, htmlAttributes: htmlAttributes, tag: null);
     }
@@ -128,10 +118,7 @@ public static class HtmlHelperValidationExtensions
         string message,
         string tag)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationMessage(expression, message, htmlAttributes: null, tag: tag);
     }
@@ -164,10 +151,7 @@ public static class HtmlHelperValidationExtensions
         string message,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationMessage(expression, message, htmlAttributes, tag: null);
     }
@@ -193,15 +177,8 @@ public static class HtmlHelperValidationExtensions
         this IHtmlHelper<TModel> htmlHelper,
         Expression<Func<TModel, TResult>> expression)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ValidationMessageFor(expression, message: null, htmlAttributes: null, tag: null);
     }
@@ -229,15 +206,8 @@ public static class HtmlHelperValidationExtensions
         Expression<Func<TModel, TResult>> expression,
         string message)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ValidationMessageFor(expression, message, htmlAttributes: null, tag: null);
     }
@@ -272,15 +242,8 @@ public static class HtmlHelperValidationExtensions
         string message,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ValidationMessageFor(expression, message, htmlAttributes, tag: null);
     }
@@ -313,15 +276,8 @@ public static class HtmlHelperValidationExtensions
         string message,
         string tag)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
-
-        if (expression == null)
-        {
-            throw new ArgumentNullException(nameof(expression));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
+        ArgumentNullException.ThrowIfNull(expression);
 
         return htmlHelper.ValidationMessageFor(expression, message, htmlAttributes: null, tag: tag);
     }
@@ -337,10 +293,7 @@ public static class HtmlHelperValidationExtensions
     /// </returns>
     public static IHtmlContent ValidationSummary(this IHtmlHelper htmlHelper)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors: false,
@@ -363,10 +316,7 @@ public static class HtmlHelperValidationExtensions
     /// </returns>
     public static IHtmlContent ValidationSummary(this IHtmlHelper htmlHelper, bool excludePropertyErrors)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors,
@@ -389,10 +339,7 @@ public static class HtmlHelperValidationExtensions
     /// </returns>
     public static IHtmlContent ValidationSummary(this IHtmlHelper htmlHelper, string message)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors: false,
@@ -418,10 +365,7 @@ public static class HtmlHelperValidationExtensions
     /// </returns>
     public static IHtmlContent ValidationSummary(this IHtmlHelper htmlHelper, string message, string tag)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors: false,
@@ -450,10 +394,7 @@ public static class HtmlHelperValidationExtensions
         bool excludePropertyErrors,
         string message)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors,
@@ -484,10 +425,7 @@ public static class HtmlHelperValidationExtensions
         string message,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors: false,
@@ -522,10 +460,7 @@ public static class HtmlHelperValidationExtensions
         object htmlAttributes,
         string tag)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors: false,
@@ -558,10 +493,7 @@ public static class HtmlHelperValidationExtensions
         string message,
         string tag)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(
             excludePropertyErrors,
@@ -596,10 +528,7 @@ public static class HtmlHelperValidationExtensions
         string message,
         object htmlAttributes)
     {
-        if (htmlHelper == null)
-        {
-            throw new ArgumentNullException(nameof(htmlHelper));
-        }
+        ArgumentNullException.ThrowIfNull(htmlHelper);
 
         return htmlHelper.ValidationSummary(excludePropertyErrors, message, htmlAttributes, tag: null);
     }

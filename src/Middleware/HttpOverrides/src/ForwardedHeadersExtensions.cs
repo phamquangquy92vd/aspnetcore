@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 
@@ -25,10 +24,7 @@ public static class ForwardedHeadersExtensions
     /// <returns>A reference to <paramref name="builder" /> after the operation has completed.</returns>
     public static IApplicationBuilder UseForwardedHeaders(this IApplicationBuilder builder)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         // Don't add more than one instance of this middleware to the pipeline using the options from the DI container.
         // Doing so could cause a request to be processed multiple times and the ForwardLimit to be exceeded.
@@ -53,14 +49,8 @@ public static class ForwardedHeadersExtensions
     /// <returns>A reference to <paramref name="builder" /> after the operation has completed.</returns>
     public static IApplicationBuilder UseForwardedHeaders(this IApplicationBuilder builder, ForwardedHeadersOptions options)
     {
-        if (builder == null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
-        if (options == null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(options);
 
         return builder.UseMiddleware<ForwardedHeadersMiddleware>(Options.Create(options));
     }

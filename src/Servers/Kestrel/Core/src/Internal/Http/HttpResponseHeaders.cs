@@ -1,13 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Pipelines;
-using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Extensions.Primitives;
@@ -18,8 +15,8 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 internal sealed partial class HttpResponseHeaders : HttpHeaders
 {
     // This uses C# compiler's ability to refer to static data directly. For more information see https://vcsjones.dev/2019/02/01/csharp-readonly-span-bytes-static
-    private static ReadOnlySpan<byte> CrLf => new[] { (byte)'\r', (byte)'\n' };
-    private static ReadOnlySpan<byte> ColonSpace => new[] { (byte)':', (byte)' ' };
+    private static ReadOnlySpan<byte> CrLf => "\r\n"u8;
+    private static ReadOnlySpan<byte> ColonSpace => ": "u8;
 
     public Func<string, Encoding?> EncodingSelector { get; set; }
 
@@ -154,7 +151,7 @@ internal sealed partial class HttpResponseHeaders : HttpHeaders
         {
             _collection = collection;
             _currentBits = collection._bits;
-            _next = _currentBits != 0 ? BitOperations.TrailingZeroCount(_currentBits) : -1;
+            _next = GetNext(_currentBits, collection.ContentLength.HasValue);
             _current = default;
             _currentKnownType = default;
             _hasUnknown = collection.MaybeUnknown != null;
@@ -163,21 +160,20 @@ internal sealed partial class HttpResponseHeaders : HttpHeaders
                 : default;
         }
 
-        public KeyValuePair<string, StringValues> Current => _current;
+        public readonly KeyValuePair<string, StringValues> Current => _current;
 
-        internal KnownHeaderType CurrentKnownType => _currentKnownType;
+        internal readonly KnownHeaderType CurrentKnownType => _currentKnownType;
 
-        object IEnumerator.Current => _current;
+        readonly object IEnumerator.Current => _current;
 
-        public void Dispose()
+        public readonly void Dispose()
         {
         }
 
         public void Reset()
         {
             _currentBits = _collection._bits;
-            _next = _currentBits != 0 ? BitOperations.TrailingZeroCount(_currentBits) : -1;
+            _next = GetNext(_currentBits, _collection.ContentLength.HasValue);
         }
     }
-
 }

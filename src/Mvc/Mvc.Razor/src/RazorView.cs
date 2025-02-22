@@ -1,12 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures.Buffers;
@@ -18,6 +15,7 @@ namespace Microsoft.AspNetCore.Mvc.Razor;
 /// Default implementation for <see cref="IView"/> that executes one or more <see cref="IRazorPage"/>
 /// as parts of its execution.
 /// </summary>
+[DebuggerDisplay("{Path,nq}")]
 public class RazorView : IView
 {
     private readonly IRazorViewEngine _viewEngine;
@@ -44,35 +42,12 @@ public class RazorView : IView
         HtmlEncoder htmlEncoder,
         DiagnosticListener diagnosticListener)
     {
-        if (viewEngine == null)
-        {
-            throw new ArgumentNullException(nameof(viewEngine));
-        }
-
-        if (pageActivator == null)
-        {
-            throw new ArgumentNullException(nameof(pageActivator));
-        }
-
-        if (viewStartPages == null)
-        {
-            throw new ArgumentNullException(nameof(viewStartPages));
-        }
-
-        if (razorPage == null)
-        {
-            throw new ArgumentNullException(nameof(razorPage));
-        }
-
-        if (htmlEncoder == null)
-        {
-            throw new ArgumentNullException(nameof(htmlEncoder));
-        }
-
-        if (diagnosticListener == null)
-        {
-            throw new ArgumentNullException(nameof(diagnosticListener));
-        }
+        ArgumentNullException.ThrowIfNull(viewEngine);
+        ArgumentNullException.ThrowIfNull(pageActivator);
+        ArgumentNullException.ThrowIfNull(viewStartPages);
+        ArgumentNullException.ThrowIfNull(razorPage);
+        ArgumentNullException.ThrowIfNull(htmlEncoder);
+        ArgumentNullException.ThrowIfNull(diagnosticListener);
 
         _viewEngine = viewEngine;
         _pageActivator = pageActivator;
@@ -100,10 +75,7 @@ public class RazorView : IView
     /// <inheritdoc />
     public virtual async Task RenderAsync(ViewContext context)
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         // This GetRequiredService call is by design. ViewBufferScope is a scoped service, RazorViewEngine
         // is the component responsible for creating RazorViews and it is a Singleton service. It doesn't

@@ -3,9 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -122,7 +119,6 @@ public static class WebHostExtensions
                 Console.WriteLine($"Hosting environment: {hostingEnvironment?.EnvironmentName}");
                 Console.WriteLine($"Content root path: {hostingEnvironment?.ContentRootPath}");
 
-
                 var serverAddresses = host.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses;
                 if (serverAddresses != null)
                 {
@@ -163,14 +159,8 @@ public static class WebHostExtensions
         },
         applicationLifetime);
 
-        var waitForStop = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        applicationLifetime.ApplicationStopping.Register(obj =>
-        {
-            var tcs = (TaskCompletionSource)obj!;
-            tcs.TrySetResult();
-        }, waitForStop);
-
-        await waitForStop.Task;
+        await Task.Delay(Timeout.Infinite, applicationLifetime.ApplicationStopping)
+            .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
 
         // WebHost will use its default ShutdownTimeout if none is specified.
 #pragma warning disable CA2016 // Forward the 'CancellationToken' parameter to methods. StopAsync should not be canceled by the token to RunAsync.

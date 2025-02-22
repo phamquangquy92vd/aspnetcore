@@ -3,7 +3,6 @@
 
 #nullable enable
 
-using System;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Mvc.Core;
 
@@ -51,10 +50,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     /// <param name="originalProvider">The <see cref="DefaultModelBindingMessageProvider"/> to duplicate.</param>
     public DefaultModelBindingMessageProvider(DefaultModelBindingMessageProvider originalProvider)
     {
-        if (originalProvider == null)
-        {
-            throw new ArgumentNullException(nameof(originalProvider));
-        }
+        ArgumentNullException.ThrowIfNull(originalProvider);
 
         SetMissingBindRequiredValueAccessor(originalProvider.MissingBindRequiredValueAccessor);
         SetMissingKeyOrValueAccessor(originalProvider.MissingKeyOrValueAccessor);
@@ -79,10 +75,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_missingBindRequiredValueAccessor))]
     public void SetMissingBindRequiredValueAccessor(Func<string, string> missingBindRequiredValueAccessor)
     {
-        if (missingBindRequiredValueAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(missingBindRequiredValueAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(missingBindRequiredValueAccessor);
 
         _missingBindRequiredValueAccessor = missingBindRequiredValueAccessor;
     }
@@ -97,10 +90,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_missingKeyOrValueAccessor))]
     public void SetMissingKeyOrValueAccessor(Func<string> missingKeyOrValueAccessor)
     {
-        if (missingKeyOrValueAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(missingKeyOrValueAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(missingKeyOrValueAccessor);
 
         _missingKeyOrValueAccessor = missingKeyOrValueAccessor;
     }
@@ -115,10 +105,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_missingRequestBodyRequiredValueAccessor))]
     public void SetMissingRequestBodyRequiredValueAccessor(Func<string> missingRequestBodyRequiredValueAccessor)
     {
-        if (missingRequestBodyRequiredValueAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(missingRequestBodyRequiredValueAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(missingRequestBodyRequiredValueAccessor);
 
         _missingRequestBodyRequiredValueAccessor = missingRequestBodyRequiredValueAccessor;
     }
@@ -133,10 +120,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_valueMustNotBeNullAccessor))]
     public void SetValueMustNotBeNullAccessor(Func<string, string> valueMustNotBeNullAccessor)
     {
-        if (valueMustNotBeNullAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(valueMustNotBeNullAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(valueMustNotBeNullAccessor);
 
         _valueMustNotBeNullAccessor = valueMustNotBeNullAccessor;
     }
@@ -151,10 +135,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_attemptedValueIsInvalidAccessor))]
     public void SetAttemptedValueIsInvalidAccessor(Func<string, string, string> attemptedValueIsInvalidAccessor)
     {
-        if (attemptedValueIsInvalidAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(attemptedValueIsInvalidAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(attemptedValueIsInvalidAccessor);
 
         _attemptedValueIsInvalidAccessor = attemptedValueIsInvalidAccessor;
     }
@@ -170,10 +151,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     public void SetNonPropertyAttemptedValueIsInvalidAccessor(
         Func<string, string> nonPropertyAttemptedValueIsInvalidAccessor)
     {
-        if (nonPropertyAttemptedValueIsInvalidAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(nonPropertyAttemptedValueIsInvalidAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(nonPropertyAttemptedValueIsInvalidAccessor);
 
         _nonPropertyAttemptedValueIsInvalidAccessor = nonPropertyAttemptedValueIsInvalidAccessor;
     }
@@ -188,10 +166,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_unknownValueIsInvalidAccessor))]
     public void SetUnknownValueIsInvalidAccessor(Func<string, string> unknownValueIsInvalidAccessor)
     {
-        if (unknownValueIsInvalidAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(unknownValueIsInvalidAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(unknownValueIsInvalidAccessor);
 
         _unknownValueIsInvalidAccessor = unknownValueIsInvalidAccessor;
     }
@@ -206,10 +181,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_nonPropertyUnknownValueIsInvalidAccessor))]
     public void SetNonPropertyUnknownValueIsInvalidAccessor(Func<string> nonPropertyUnknownValueIsInvalidAccessor)
     {
-        if (nonPropertyUnknownValueIsInvalidAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(nonPropertyUnknownValueIsInvalidAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(nonPropertyUnknownValueIsInvalidAccessor);
 
         _nonPropertyUnknownValueIsInvalidAccessor = nonPropertyUnknownValueIsInvalidAccessor;
     }
@@ -224,10 +196,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_valueIsInvalidAccessor))]
     public void SetValueIsInvalidAccessor(Func<string, string> valueIsInvalidAccessor)
     {
-        if (valueIsInvalidAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(valueIsInvalidAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(valueIsInvalidAccessor);
 
         _valueIsInvalidAccessor = valueIsInvalidAccessor;
     }
@@ -242,10 +211,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_valueMustBeANumberAccessor))]
     public void SetValueMustBeANumberAccessor(Func<string, string> valueMustBeANumberAccessor)
     {
-        if (valueMustBeANumberAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(valueMustBeANumberAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(valueMustBeANumberAccessor);
 
         _valueMustBeANumberAccessor = valueMustBeANumberAccessor;
     }
@@ -260,10 +226,7 @@ public class DefaultModelBindingMessageProvider : ModelBindingMessageProvider
     [MemberNotNull(nameof(_nonPropertyValueMustBeANumberAccessor))]
     public void SetNonPropertyValueMustBeANumberAccessor(Func<string> nonPropertyValueMustBeANumberAccessor)
     {
-        if (nonPropertyValueMustBeANumberAccessor == null)
-        {
-            throw new ArgumentNullException(nameof(nonPropertyValueMustBeANumberAccessor));
-        }
+        ArgumentNullException.ThrowIfNull(nonPropertyValueMustBeANumberAccessor);
 
         _nonPropertyValueMustBeANumberAccessor = nonPropertyValueMustBeANumberAccessor;
     }

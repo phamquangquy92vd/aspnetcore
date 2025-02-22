@@ -8,13 +8,16 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Shared;
 
 namespace Microsoft.AspNetCore.Internal;
 
 /// <summary>
 /// An <see cref="IDictionary{String, Object}"/> type to hold a small amount of items (10 or less in the common case).
 /// </summary>
-internal class AdaptiveCapacityDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue> where TKey : notnull
+[DebuggerDisplay("Count = {Count}")]
+[DebuggerTypeProxy(typeof(DictionaryDebugView<,>))]
+internal sealed class AdaptiveCapacityDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue> where TKey : notnull
 {
     // Threshold for size of array to use.
     private const int DefaultArrayThreshold = 10;
@@ -244,10 +247,7 @@ internal class AdaptiveCapacityDictionary<TKey, TValue> : IDictionary<TKey, TVal
     /// <inheritdoc />
     public void Clear()
     {
-        if (_dictionaryStorage != null)
-        {
-            _dictionaryStorage.Clear();
-        }
+        _dictionaryStorage?.Clear();
 
         if (_count == 0)
         {
@@ -292,10 +292,7 @@ internal class AdaptiveCapacityDictionary<TKey, TValue> : IDictionary<TKey, TVal
         KeyValuePair<TKey, TValue>[] array,
         int arrayIndex)
     {
-        if (array == null)
-        {
-            throw new ArgumentNullException(nameof(array));
-        }
+        ArgumentNullException.ThrowIfNull(array);
 
         if ((uint)arrayIndex > array.Length || array.Length - arrayIndex < this.Count)
         {
@@ -612,10 +609,7 @@ internal class AdaptiveCapacityDictionary<TKey, TValue> : IDictionary<TKey, TVal
         /// <param name="dictionary">A <see cref="AdaptiveCapacityDictionary{TKey, TValue}"/>.</param>
         public Enumerator(AdaptiveCapacityDictionary<TKey, TValue> dictionary)
         {
-            if (dictionary == null)
-            {
-                throw new ArgumentNullException(nameof(dictionary));
-            }
+            ArgumentNullException.ThrowIfNull(dictionary);
 
             _dictionary = dictionary;
 

@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-#if NETCOREAPP2_1
+#if NETCOREAPP
 using System.Runtime.Loader;
 #endif
 using Microsoft.Extensions.CommandLineUtils;
@@ -13,10 +13,13 @@ using Microsoft.Extensions.Tools.Internal;
 
 namespace Microsoft.Extensions.ApiDescription.Tool.Commands;
 
-internal class GetDocumentCommand : ProjectCommandBase
+internal sealed class GetDocumentCommand : ProjectCommandBase
 {
     private CommandOption _fileListPath;
     private CommandOption _output;
+    private CommandOption _openApiVersion;
+    private CommandOption _documentName;
+    private CommandOption _fileName;
 
     public GetDocumentCommand(IConsole console) : base(console)
     {
@@ -28,6 +31,9 @@ internal class GetDocumentCommand : ProjectCommandBase
 
         _fileListPath = command.Option("--file-list <Path>", Resources.FileListDescription);
         _output = command.Option("--output <Directory>", Resources.OutputDescription);
+        _openApiVersion = command.Option("--openapi-version <Version>", Resources.OpenApiVersionDescription);
+        _documentName = command.Option("--document-name <Name>", Resources.DocumentNameDescription);
+        _fileName = command.Option("--file-name <Name>", Resources.FileNameDescription);
     }
 
     protected override void Validate()
@@ -43,6 +49,12 @@ internal class GetDocumentCommand : ProjectCommandBase
         {
             throw new CommandException(Resources.FormatMissingOption(_output.LongName));
         }
+
+        // No need to validate --openapi-version, we'll fallback to whatever is configured by
+        // the runtime in the event that none is provided.
+
+        // No need to validate --document-name, we'll fallback to generating OpenAPI files for
+        // documents registered in the application in the event that none is provided.
     }
 
     protected override int Execute()
@@ -52,8 +64,8 @@ internal class GetDocumentCommand : ProjectCommandBase
         var toolsDirectory = ToolsDirectory.Value();
         var packagedAssemblies = Directory
             .EnumerateFiles(toolsDirectory, "*.dll")
-            .Except(new[] { Path.GetFullPath(thisAssembly.Location) })
-            .ToDictionary(path => Path.GetFileNameWithoutExtension(path), path => new AssemblyInfo(path));
+            .Except([Path.GetFullPath(thisAssembly.Location)])
+            .ToDictionary(Path.GetFileNameWithoutExtension, path => new AssemblyInfo(path));
 
         // Explicitly load all assemblies we need first to preserve target project as much as possible. This
         // executable is always run in the target project's context (either through location or .deps.json file).
@@ -69,7 +81,7 @@ internal class GetDocumentCommand : ProjectCommandBase
             }
         }
 
-#if NETCOREAPP2_1
+#if NETCOREAPP
         AssemblyLoadContext.Default.Resolving += (loadContext, assemblyName) =>
         {
             var name = assemblyName.Name;
@@ -128,8 +140,11 @@ internal class GetDocumentCommand : ProjectCommandBase
                 AssemblyName = Path.GetFileNameWithoutExtension(assemblyPath),
                 FileListPath = _fileListPath.Value(),
                 OutputDirectory = _output.Value(),
+                OpenApiVersion = _openApiVersion.Value(),
+                DocumentName = _documentName.Value(),
                 ProjectName = ProjectName.Value(),
                 Reporter = Reporter,
+                FileName = _fileName.Value()
             };
 
             return new GetDocumentCommandWorker(context).Process();
@@ -141,7 +156,7 @@ internal class GetDocumentCommand : ProjectCommandBase
         }
     }
 
-    private class AssemblyInfo
+    private sealed class AssemblyInfo
     {
         public AssemblyInfo(string path)
         {

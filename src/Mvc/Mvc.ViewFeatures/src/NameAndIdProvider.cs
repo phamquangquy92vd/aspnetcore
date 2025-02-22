@@ -1,7 +1,6 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -32,15 +31,8 @@ internal static class NameAndIdProvider
     /// </remarks>
     public static string CreateSanitizedId(ViewContext viewContext, string fullName, string invalidCharReplacement)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (invalidCharReplacement == null)
-        {
-            throw new ArgumentNullException(nameof(invalidCharReplacement));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(invalidCharReplacement);
 
         if (string.IsNullOrEmpty(fullName))
         {
@@ -102,20 +94,9 @@ internal static class NameAndIdProvider
         string fullName,
         string invalidCharReplacement)
     {
-        if (viewContext == null)
-        {
-            throw new ArgumentNullException(nameof(viewContext));
-        }
-
-        if (tagBuilder == null)
-        {
-            throw new ArgumentNullException(nameof(tagBuilder));
-        }
-
-        if (invalidCharReplacement == null)
-        {
-            throw new ArgumentNullException(nameof(invalidCharReplacement));
-        }
+        ArgumentNullException.ThrowIfNull(viewContext);
+        ArgumentNullException.ThrowIfNull(tagBuilder);
+        ArgumentNullException.ThrowIfNull(invalidCharReplacement);
 
         if (string.IsNullOrEmpty(fullName))
         {
@@ -177,7 +158,7 @@ internal static class NameAndIdProvider
 
         previousNameAndId.HtmlFieldPrefix = htmlFieldPrefix;
         previousNameAndId.Expression = expression;
-        if (expression.StartsWith("[", StringComparison.Ordinal))
+        if (expression.StartsWith('['))
         {
             // The expression might represent an indexer access, in which case  with a 'dot' would be invalid.
             previousNameAndId.OutputFullName = htmlFieldPrefix + expression;
@@ -190,7 +171,7 @@ internal static class NameAndIdProvider
         return previousNameAndId.OutputFullName;
     }
 
-    private class PreviousNameAndId
+    private sealed class PreviousNameAndId
     {
         // Cached ambient input for NameAndIdProvider.GetFullHtmlFieldName(). TemplateInfo.HtmlFieldPrefix may
         // change during the lifetime of a ViewContext.

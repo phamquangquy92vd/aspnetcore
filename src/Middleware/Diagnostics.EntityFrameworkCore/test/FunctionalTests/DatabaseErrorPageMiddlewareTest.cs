@@ -1,25 +1,21 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore.FunctionalTests.Helpers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Xunit;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore.Tests;
 
@@ -344,13 +340,13 @@ public class DatabaseErrorPageMiddlewareTest
                 .Configure(app =>
                 {
 #pragma warning disable CS0618 // Type or member is obsolete
-                        app.UseDatabaseErrorPage(new DatabaseErrorPageOptions
+                    app.UseDatabaseErrorPage(new DatabaseErrorPageOptions
                     {
                         MigrationsEndPointPath = new PathString(migrationsEndpoint)
                     });
 #pragma warning restore CS0618 // Type or member is obsolete
 
-                        app.UseMiddleware<PendingMigrationsMiddleware>();
+                    app.UseMiddleware<PendingMigrationsMiddleware>();
                 })
                 .ConfigureServices(services =>
                 {
@@ -387,17 +383,16 @@ public class DatabaseErrorPageMiddlewareTest
                 .Configure(app =>
                 {
 #pragma warning disable CS0618 // Type or member is obsolete
-                        app.UseDatabaseErrorPage();
+                    app.UseDatabaseErrorPage();
 #pragma warning restore CS0618 // Type or member is obsolete
-                        app.UseMiddleware<ContextNotRegisteredInServicesMiddleware>();
+                    app.UseMiddleware<ContextNotRegisteredInServicesMiddleware>();
 #pragma warning disable CS0618 // Type or member is obsolete
-                        app.ApplicationServices.GetService<ILoggerFactory>().AddProvider(logProvider);
+                    app.ApplicationServices.GetService<ILoggerFactory>().AddProvider(logProvider);
 #pragma warning restore CS0618 // Type or member is obsolete
-                    });
+                });
             }).Build();
 
         await host.StartAsync();
-
 
         try
         {
@@ -530,21 +525,23 @@ public class DatabaseErrorPageMiddlewareTest
                 .Configure(app =>
                 {
 #pragma warning disable CS0618 // Type or member is obsolete
-                        app.UseDatabaseErrorPage();
+                    app.UseDatabaseErrorPage();
 #pragma warning restore CS0618 // Type or member is obsolete
 
-                        app.UseMiddleware<TMiddleware>();
+                    app.UseMiddleware<TMiddleware>();
 
                     if (logProvider != null)
                     {
 #pragma warning disable CS0618 // Type or member is obsolete
-                            app.ApplicationServices.GetService<ILoggerFactory>().AddProvider(logProvider);
+                        app.ApplicationServices.GetService<ILoggerFactory>().AddProvider(logProvider);
 #pragma warning restore CS0618 // Type or member is obsolete
-                        }
+                    }
                 })
                 .ConfigureServices(services =>
                 {
-                    services.AddDbContext<TContext>(optionsBuilder => optionsBuilder.UseSqlite(database.ConnectionString));
+                    services.AddDbContext<TContext>(optionsBuilder => optionsBuilder
+                        .UseSqlite(database.ConnectionString)
+                        .ConfigureWarnings(w => w.Log(RelationalEventId.PendingModelChangesWarning)));
                 });
             }).Build();
 

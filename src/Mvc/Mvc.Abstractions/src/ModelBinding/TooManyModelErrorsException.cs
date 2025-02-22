@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-
 namespace Microsoft.AspNetCore.Mvc.ModelBinding;
 
 /// <summary>
@@ -18,9 +16,6 @@ public class TooManyModelErrorsException : Exception
     public TooManyModelErrorsException(string message)
         : base(message)
     {
-        if (message == null)
-        {
-            throw new ArgumentNullException(nameof(message));
-        }
+        ArgumentNullException.ThrowIfNull(message);
     }
 }

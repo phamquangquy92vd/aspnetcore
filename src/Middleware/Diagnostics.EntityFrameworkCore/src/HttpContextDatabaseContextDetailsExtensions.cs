@@ -1,15 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +15,7 @@ namespace Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
 
 internal static class HttpContextDatabaseContextDetailsExtensions
 {
+    [RequiresDynamicCode("DbContext migrations operations are not supported with NativeAOT")]
     public static async ValueTask<DatabaseContextDetails?> GetContextDetailsAsync(this HttpContext httpContext, Type dbcontextType, ILogger logger)
     {
         var context = (DbContext?)httpContext.RequestServices.GetService(dbcontextType);
@@ -47,11 +44,6 @@ internal static class HttpContextDatabaseContextDetailsExtensions
         var modelDiffer = context.GetService<IMigrationsModelDiffer>();
 
         var snapshotModel = migrationsAssembly.ModelSnapshot?.Model;
-
-        if (snapshotModel is IMutableModel mutableModel)
-        {
-            snapshotModel = mutableModel.FinalizeModel();
-        }
 
         if (snapshotModel != null)
         {

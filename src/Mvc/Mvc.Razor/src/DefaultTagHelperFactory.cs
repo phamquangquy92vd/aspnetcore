@@ -1,9 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
@@ -31,10 +29,7 @@ internal sealed class DefaultTagHelperFactory : ITagHelperFactory
     /// </param>
     public DefaultTagHelperFactory(ITagHelperActivator activator)
     {
-        if (activator == null)
-        {
-            throw new ArgumentNullException(nameof(activator));
-        }
+        ArgumentNullException.ThrowIfNull(activator);
 
         _activator = activator;
         _injectActions = new ConcurrentDictionary<Type, PropertyActivator<ViewContext>[]>();
@@ -54,10 +49,7 @@ internal sealed class DefaultTagHelperFactory : ITagHelperFactory
     public TTagHelper CreateTagHelper<TTagHelper>(ViewContext context)
         where TTagHelper : ITagHelper
     {
-        if (context == null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         var tagHelper = _activator.Create<TTagHelper>(context);
 

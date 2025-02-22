@@ -10,14 +10,14 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpSys.Internal;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Server.HttpSys;
 
-public class ResponseTrailersTests
+public class ResponseTrailersTests : LoggedTest
 {
     [ConditionalFact]
     public async Task ResponseTrailers_HTTP11_TrailersNotAvailable()
@@ -27,7 +27,7 @@ public class ResponseTrailersTests
             Assert.Equal("HTTP/1.1", httpContext.Request.Protocol);
             Assert.False(httpContext.Response.SupportsTrailers());
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address, http2: false);
             response.EnsureSuccessStatusCode();
@@ -45,7 +45,7 @@ public class ResponseTrailersTests
             Assert.Equal("HTTP/2", httpContext.Request.Protocol);
             Assert.True(httpContext.Response.SupportsTrailers());
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -66,7 +66,7 @@ public class ResponseTrailersTests
                 Assert.Throws<InvalidOperationException>(() => httpContext.Response.AppendTrailer(header, "value"));
             }
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -84,7 +84,7 @@ public class ResponseTrailersTests
             httpContext.Response.DeclareTrailer("trailername");
             httpContext.Response.AppendTrailer("trailername", "TrailerValue");
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -102,7 +102,7 @@ public class ResponseTrailersTests
         {
             await httpContext.Response.WriteAsync("Hello World");
             httpContext.Response.AppendTrailer("TrailerName", "Trailer Value");
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -118,7 +118,7 @@ public class ResponseTrailersTests
     public async Task ResponseTrailers_WithContentLengthBody_TrailersNotSent()
     {
         var body = "Hello World";
-        var responseFinished = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (Utilities.CreateDynamicHttpsServer(out var address, async httpContext =>
         {
             httpContext.Response.ContentLength = body.Length;
@@ -126,13 +126,13 @@ public class ResponseTrailersTests
             try
             {
                 Assert.Throws<InvalidOperationException>(() => httpContext.Response.AppendTrailer("TrailerName", "Trailer Value"));
-                responseFinished.SetResult(0);
+                responseFinished.SetResult();
             }
             catch (Exception ex)
             {
                 responseFinished.SetException(ex);
             }
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -155,7 +155,7 @@ public class ResponseTrailersTests
             await httpContext.Response.WriteAsync(body);
             httpContext.Response.AppendTrailer("TrailerName", "Trailer Value");
             await httpContext.Response.WriteAsync(body);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -180,7 +180,7 @@ public class ResponseTrailersTests
             httpContext.Response.DeclareTrailer("TrailerName");
             await httpContext.Response.WriteAsync(body);
             httpContext.Response.AppendTrailer("TrailerName", "Trailer Value");
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -205,8 +205,8 @@ public class ResponseTrailersTests
             httpContext.Response.ContentLength = body.Length;
             httpContext.Response.DeclareTrailer("TrailerName");
             await httpContext.Response.WriteAsync(body);
-                // If we declare trailers but don't send any make sure it completes anyways.
-            }))
+            // If we declare trailers but don't send any make sure it completes anyways.
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -224,20 +224,20 @@ public class ResponseTrailersTests
     [MinimumOSVersion(OperatingSystems.Windows, "10.0.19529", SkipReason = "Requires HTTP/2 Trailers support.")]
     public async Task ResponseTrailers_CompleteAsyncNoBody_TrailersSent()
     {
-        var trailersReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var trailersReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (Utilities.CreateDynamicHttpsServer(out var address, async httpContext =>
         {
             httpContext.Response.AppendTrailer("trailername", "TrailerValue");
             await httpContext.Response.CompleteAsync();
             await trailersReceived.Task.DefaultTimeout();
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
             Assert.Equal(HttpVersion.Version20, response.Version);
             Assert.NotEmpty(response.TrailingHeaders);
             Assert.Equal("TrailerValue", response.TrailingHeaders.GetValues("TrailerName").Single());
-            trailersReceived.SetResult(0);
+            trailersReceived.SetResult();
         }
     }
 
@@ -245,14 +245,14 @@ public class ResponseTrailersTests
     [MinimumOSVersion(OperatingSystems.Windows, "10.0.19529", SkipReason = "Requires HTTP/2 Trailers support.")]
     public async Task ResponseTrailers_CompleteAsyncWithBody_TrailersSent()
     {
-        var trailersReceived = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var trailersReceived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using (Utilities.CreateDynamicHttpsServer(out var address, async httpContext =>
         {
             await httpContext.Response.WriteAsync("Hello World");
             httpContext.Response.AppendTrailer("TrailerName", "Trailer Value");
             await httpContext.Response.CompleteAsync();
             await trailersReceived.Task.DefaultTimeout();
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -260,7 +260,7 @@ public class ResponseTrailersTests
             Assert.Equal("Hello World", await response.Content.ReadAsStringAsync());
             Assert.NotEmpty(response.TrailingHeaders);
             Assert.Equal("Trailer Value", response.TrailingHeaders.GetValues("TrailerName").Single());
-            trailersReceived.SetResult(0);
+            trailersReceived.SetResult();
         }
     }
 
@@ -272,7 +272,7 @@ public class ResponseTrailersTests
         {
             httpContext.Response.AppendTrailer("trailername", new StringValues(new[] { "TrailerValue0", "TrailerValue1" }));
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -300,7 +300,7 @@ public class ResponseTrailersTests
         {
             httpContext.Response.AppendTrailer("ThisIsALongerHeaderNameThatStillWorksForReals", new StringValues(values));
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             var response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();
@@ -320,7 +320,7 @@ public class ResponseTrailersTests
         {
             httpContext.Response.AppendTrailer(headerName, headerValue);
             return Task.FromResult(0);
-        }))
+        }, LoggerFactory))
         {
             HttpResponseMessage response = await SendRequestAsync(address);
             response.EnsureSuccessStatusCode();

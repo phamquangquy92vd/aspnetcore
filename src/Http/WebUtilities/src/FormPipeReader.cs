@@ -1,17 +1,13 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
+using System.Globalization;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Internal;
 using Microsoft.Extensions.Primitives;
 
@@ -30,8 +26,8 @@ public class FormPipeReader
 
     // Used for UTF8/ASCII (precalculated for fast path)
     // This uses C# compiler's ability to refer to static data directly. For more information see https://vcsjones.dev/2019/02/01/csharp-readonly-span-bytes-static
-    private static ReadOnlySpan<byte> UTF8EqualEncoded => new byte[] { (byte)'=' };
-    private static ReadOnlySpan<byte> UTF8AndEncoded => new byte[] { (byte)'&' };
+    private static ReadOnlySpan<byte> UTF8EqualEncoded => "="u8;
+    private static ReadOnlySpan<byte> UTF8AndEncoded => "&"u8;
 
     // Used for other encodings
     private readonly byte[]? _otherEqualEncoding;
@@ -56,7 +52,7 @@ public class FormPipeReader
     /// <param name="encoding">The <see cref="Encoding"/>.</param>
     public FormPipeReader(PipeReader pipeReader, Encoding encoding)
     {
-        // https://docs.microsoft.com/en-us/dotnet/core/compatibility/syslib-warnings/syslib0001
+        // https://learn.microsoft.com/dotnet/core/compatibility/syslib-warnings/syslib0001
         if (encoding is Encoding { CodePage: 65000 })
         {
             throw new ArgumentException("UTF7 is unsupported and insecure. Please select a different encoding.");
@@ -254,8 +250,8 @@ public class FormPipeReader
             {
                 if (!isFinalBlock)
                 {
-                    // Don't buffer indefinitely
-                    if ((uint)(sequenceReader.Consumed - consumedBytes) > (uint)KeyLengthLimit + (uint)ValueLengthLimit)
+                    // +2 to account for '&' and '='
+                    if ((sequenceReader.Length - consumedBytes) > (long)KeyLengthLimit + (long)ValueLengthLimit + 2)
                     {
                         ThrowKeyOrValueTooLargeException();
                     }
@@ -319,17 +315,30 @@ public class FormPipeReader
 
     private void ThrowKeyOrValueTooLargeException()
     {
-        throw new InvalidDataException($"Form key length limit {KeyLengthLimit} or value length limit {ValueLengthLimit} exceeded.");
+        throw new InvalidDataException(
+            string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.FormPipeReader_KeyOrValueTooLarge,
+                KeyLengthLimit,
+                ValueLengthLimit));
     }
 
     private void ThrowKeyTooLargeException()
     {
-        throw new InvalidDataException($"Form key length limit {KeyLengthLimit} exceeded.");
+        throw new InvalidDataException(
+            string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.FormPipeReader_KeyTooLarge,
+                KeyLengthLimit));
     }
 
     private void ThrowValueTooLargeException()
     {
-        throw new InvalidDataException($"Form value length limit {ValueLengthLimit} exceeded.");
+        throw new InvalidDataException(
+            string.Format(
+                CultureInfo.CurrentCulture,
+                Resources.FormPipeReader_ValueTooLarge,
+                ValueLengthLimit));
     }
 
     [SkipLocalsInit]
@@ -386,7 +395,7 @@ public class FormPipeReader
 
             // We need to create a Span from a ReadOnlySpan. This cast is safe because the memory is still held by the pipe
             // We will also create a string from it by the end of the function.
-            var span = MemoryMarshal.CreateSpan(ref Unsafe.AsRef(readOnlySpan[0]), readOnlySpan.Length);
+            var span = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(readOnlySpan), readOnlySpan.Length);
 
             try
             {

@@ -1,15 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
@@ -19,7 +15,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Net.Http.Headers;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Authentication.Twitter;
 
@@ -91,7 +86,7 @@ public class TwitterTests : RemoteAuthenticationTests<TwitterOptions>
         });
 
         using var server = host.GetTestServer();
-        await Assert.ThrowsAsync<ArgumentException>("ConsumerKey", async () => await server.SendAsync("http://example.com/challenge"));
+        await Assert.ThrowsAsync<ArgumentNullException>("ConsumerKey", async () => await server.SendAsync("http://example.com/challenge"));
     }
 
     /// <summary>
@@ -107,7 +102,7 @@ public class TwitterTests : RemoteAuthenticationTests<TwitterOptions>
         });
 
         using var server = host.GetTestServer();
-        await Assert.ThrowsAsync<ArgumentException>("ConsumerSecret", async () => await server.SendAsync("http://example.com/challenge"));
+        await Assert.ThrowsAsync<ArgumentNullException>("ConsumerSecret", async () => await server.SendAsync("http://example.com/challenge"));
     }
 
     [Fact]

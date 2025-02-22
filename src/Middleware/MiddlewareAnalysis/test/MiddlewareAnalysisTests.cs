@@ -1,15 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Xunit;
 
 namespace Microsoft.AspNetCore.MiddlewareAnalysis;
 
@@ -52,10 +49,10 @@ public class MiddlewareAnalysisTests
         Assert.Equal(2, listener.MiddlewareStarting.Count);
         Assert.Equal("Microsoft.AspNetCore.MiddlewareAnalysis.MiddlewareAnalysisTests+<>c", listener.MiddlewareStarting[1]);
         // reversed "RunInlineMiddleware"
-        Assert.Equal(1, listener.MiddlewareException.Count);
+        Assert.Single(listener.MiddlewareException);
         Assert.Equal("Microsoft.AspNetCore.MiddlewareAnalysis.MiddlewareAnalysisTests+<>c", listener.MiddlewareException[0]);
         // reversed "Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware"
-        Assert.Equal(1, listener.MiddlewareFinished.Count);
+        Assert.Single(listener.MiddlewareFinished);
         Assert.Equal("Microsoft.AspNetCore.Diagnostics.DeveloperExceptionPageMiddleware", listener.MiddlewareFinished[0]);
     }
 }

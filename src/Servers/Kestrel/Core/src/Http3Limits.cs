@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Text.Json;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -11,10 +10,8 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Core;
 /// </summary>
 public class Http3Limits
 {
-    internal const int DefaultMaxRequestHeaderFieldSize = 16 * 1024;
-
     private int _headerTableSize;
-    private int _maxRequestHeaderFieldSize = DefaultMaxRequestHeaderFieldSize;
+    private int _maxRequestHeaderFieldSize = 32 * 1024; // Matches MaxRequestHeadersTotalSize
 
     /// <summary>
     /// Limits the size of the header compression table, in octets, the QPACK decoder on the server can use.

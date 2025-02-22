@@ -1,14 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Globalization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing.Constraints;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Routing;
 
@@ -280,7 +277,7 @@ public class DefaultParameterPolicyFactoryTest
     {
         // Arrange
         var options = new RouteOptions();
-        options.ConstraintMap.Add("customConstraintPolicy", typeof(CustomParameterPolicyWithMultpleCtors));
+        options.ConstraintMap.Add("customConstraintPolicy", typeof(CustomParameterPolicyWithMultipleCtors));
 
         var services = new ServiceCollection();
         services.AddTransient<ITestService, TestService>();
@@ -291,8 +288,30 @@ public class DefaultParameterPolicyFactoryTest
         var parameterPolicy = factory.Create(RoutePatternFactory.ParameterPart("id"), "customConstraintPolicy(1)");
 
         // Assert
-        var constraint = Assert.IsType<CustomParameterPolicyWithMultpleCtors>(parameterPolicy);
+        var constraint = Assert.IsType<CustomParameterPolicyWithMultipleCtors>(parameterPolicy);
         Assert.NotNull(constraint.TestService);
+        Assert.Equal(1, constraint.Count);
+    }
+
+    [Fact]
+    public void Create_CreatesParameterPolicy_FromConstraintText_AndParameterPolicyWithMultipleMatchingCtorsInAscendingOrder()
+    {
+        // Arrange
+        var options = new RouteOptions();
+        options.ConstraintMap.Add("customConstraintPolicy", typeof(CustomParameterPolicyWithMultipleCtorsInAscendingOrder));
+
+        var services = new ServiceCollection();
+        services.AddTransient<ITestService, TestService>();
+
+        var factory = GetParameterPolicyFactory(options, services);
+
+        // Act
+        var parameterPolicy = factory.Create(RoutePatternFactory.ParameterPart("id"), "customConstraintPolicy(1)");
+
+        // Assert
+        var constraint = Assert.IsType<CustomParameterPolicyWithMultipleCtorsInAscendingOrder>(parameterPolicy);
+        Assert.NotNull(constraint.TestService1);
+        Assert.NotNull(constraint.TestService2);
         Assert.Equal(1, constraint.Count);
     }
 
@@ -301,7 +320,7 @@ public class DefaultParameterPolicyFactoryTest
     {
         // Arrange
         var options = new RouteOptions();
-        options.ConstraintMap.Add("customConstraintPolicy", typeof(CustomParameterPolicyWithAmbigiousMultpleCtors));
+        options.ConstraintMap.Add("customConstraintPolicy", typeof(CustomParameterPolicyWithAmbiguousMultipleCtors));
 
         var services = new ServiceCollection();
         services.AddTransient<ITestService, TestService>();
@@ -313,7 +332,7 @@ public class DefaultParameterPolicyFactoryTest
             () => factory.Create(RoutePatternFactory.ParameterPart("id"), "customConstraintPolicy(1)"));
 
         // Assert
-        Assert.Equal($"The constructor to use for activating the constraint type '{nameof(CustomParameterPolicyWithAmbigiousMultpleCtors)}' is ambiguous. "
+        Assert.Equal($"The constructor to use for activating the constraint type '{nameof(CustomParameterPolicyWithAmbiguousMultipleCtors)}' is ambiguous. "
             + "Multiple constructors were found with the following number of parameters: 2.", exception.Message);
     }
 
@@ -444,15 +463,15 @@ public class CustomParameterPolicyWithArguments : IParameterPolicy
     public int Count { get; }
 }
 
-public class CustomParameterPolicyWithMultpleCtors : IParameterPolicy
+public class CustomParameterPolicyWithMultipleCtors : IParameterPolicy
 {
-    public CustomParameterPolicyWithMultpleCtors(ITestService testService, int count)
+    public CustomParameterPolicyWithMultipleCtors(ITestService testService, int count)
     {
         TestService = testService;
         Count = count;
     }
 
-    public CustomParameterPolicyWithMultpleCtors(int count)
+    public CustomParameterPolicyWithMultipleCtors(int count)
         : this(testService: null, count)
     {
     }
@@ -461,20 +480,45 @@ public class CustomParameterPolicyWithMultpleCtors : IParameterPolicy
     public int Count { get; }
 }
 
-public class CustomParameterPolicyWithAmbigiousMultpleCtors : IParameterPolicy
+public class CustomParameterPolicyWithMultipleCtorsInAscendingOrder : IParameterPolicy
 {
-    public CustomParameterPolicyWithAmbigiousMultpleCtors(ITestService testService, int count)
+    public CustomParameterPolicyWithMultipleCtorsInAscendingOrder(int count)
+        : this(testService1: null, count)
+    {
+    }
+
+    public CustomParameterPolicyWithMultipleCtorsInAscendingOrder(ITestService testService1, int count)
+    {
+        TestService1 = testService1;
+        Count = count;
+    }
+
+    public CustomParameterPolicyWithMultipleCtorsInAscendingOrder(ITestService testService1, ITestService testService2, int count)
+    {
+        TestService1 = testService1;
+        TestService2 = testService2;
+        Count = count;
+    }
+
+    public ITestService TestService1 { get; }
+    public ITestService TestService2 { get; }
+    public int Count { get; }
+}
+
+public class CustomParameterPolicyWithAmbiguousMultipleCtors : IParameterPolicy
+{
+    public CustomParameterPolicyWithAmbiguousMultipleCtors(ITestService testService, int count)
     {
         TestService = testService;
         Count = count;
     }
 
-    public CustomParameterPolicyWithAmbigiousMultpleCtors(object testService, int count)
+    public CustomParameterPolicyWithAmbiguousMultipleCtors(object testService, int count)
         : this(testService: null, count)
     {
     }
 
-    public CustomParameterPolicyWithAmbigiousMultpleCtors(int count)
+    public CustomParameterPolicyWithAmbiguousMultipleCtors(int count)
         : this(testService: null, count)
     {
     }

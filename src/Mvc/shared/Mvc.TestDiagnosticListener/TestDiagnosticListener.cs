@@ -1,13 +1,58 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Collections.Generic;
 using Microsoft.Extensions.DiagnosticAdapter;
 
 namespace Microsoft.AspNetCore.Mvc;
 
 public class TestDiagnosticListener
 {
+    public class OnBeforeResourceEventData
+    {        
+        public IProxyActionDescriptor ActionDescriptor { get; set;  }        
+        public object ExecutingContext { get; set; }        
+        public object Filter { get; set; }
+    }
+
+    public OnBeforeResourceEventData BeforeResource { get; set; }
+
+    [DiagnosticName("Microsoft.AspNetCore.Mvc.BeforeOnResourceExecution")]
+    public virtual void OnBeforeResource(
+        IProxyActionDescriptor actionDescriptor,
+        object resourceExecutingContext,
+        object filter)
+    {        
+        BeforeResource = new OnBeforeResourceEventData()
+        {
+            ActionDescriptor = actionDescriptor,
+            ExecutingContext = resourceExecutingContext,
+            Filter = filter
+        };
+    }
+
+    public class OnAfterResourceEventData
+    {
+        public IProxyActionDescriptor ActionDescriptor { get; set; }
+        public object ExecutedContext { get; set; }
+        public object Filter { get; set; }
+    }
+
+    public OnAfterResourceEventData AfterResource { get; set; }
+
+    [DiagnosticName("Microsoft.AspNetCore.Mvc.AfterOnResourceExecution")]
+    public virtual void OnAfterResource(
+        IProxyActionDescriptor actionDescriptor,
+        object resourceExecutedContext,
+        object filter)
+    {
+        AfterResource = new OnAfterResourceEventData()
+        {
+            ActionDescriptor = actionDescriptor,
+            ExecutedContext = resourceExecutedContext,
+            Filter = filter
+        };
+    }    
+
     public class OnBeforeActionEventData
     {
         public IProxyActionDescriptor ActionDescriptor { get; set; }

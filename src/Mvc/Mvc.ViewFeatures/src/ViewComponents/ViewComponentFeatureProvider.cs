@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 
@@ -16,15 +14,8 @@ public class ViewComponentFeatureProvider : IApplicationFeatureProvider<ViewComp
     /// <inheritdoc />
     public void PopulateFeature(IEnumerable<ApplicationPart> parts, ViewComponentFeature feature)
     {
-        if (parts == null)
-        {
-            throw new ArgumentNullException(nameof(parts));
-        }
-
-        if (feature == null)
-        {
-            throw new ArgumentNullException(nameof(feature));
-        }
+        ArgumentNullException.ThrowIfNull(parts);
+        ArgumentNullException.ThrowIfNull(feature);
 
         foreach (var type in parts.OfType<IApplicationPartTypeProvider>().SelectMany(p => p.Types))
         {

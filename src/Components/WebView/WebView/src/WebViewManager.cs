@@ -1,22 +1,17 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Components.Web.Infrastructure;
 using Microsoft.AspNetCore.StaticWebAssets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.JSInterop;
 
 namespace Microsoft.AspNetCore.Components.WebView;
 
 /// <summary>
-/// Manages activities within a web view that hosts Blazor components. Platform authors
+/// Manages activities within a web view that hosts Razor components. Platform authors
 /// should subclass this to wire up the abstract and protected methods to the APIs of
 /// the platform's web view.
 /// </summary>
@@ -68,7 +63,7 @@ public abstract class WebViewManager : IAsyncDisposable
     /// client-side routing.
     /// </summary>
     /// <param name="url">The URL, which may be absolute or relative to the application root.</param>
-    public void Navigate(string url)
+    public void Navigate([StringSyntax(StringSyntaxAttribute.Uri)] string url)
         => NavigateCore(new Uri(_appBaseUri, url));
 
     /// <summary>
@@ -156,10 +151,10 @@ public abstract class WebViewManager : IAsyncDisposable
 
         _ = _dispatcher.InvokeAsync(async () =>
         {
-                // TODO: Verify this produces the correct exception-surfacing behaviors.
-                // For example, JS interop exceptions should flow back into JS, whereas
-                // renderer exceptions should be fatal.
-                try
+            // TODO: Verify this produces the correct exception-surfacing behaviors.
+            // For example, JS interop exceptions should flow back into JS, whereas
+            // renderer exceptions should be fatal.
+            try
             {
                 await _ipcReceiver.OnMessageReceivedAsync(_currentPageContext, message);
             }
@@ -168,6 +163,38 @@ public abstract class WebViewManager : IAsyncDisposable
                 _ipcSender.NotifyUnhandledException(ex);
                 throw;
             }
+        });
+    }
+
+    /// <summary>
+    /// Calls the specified <paramref name="workItem"/> asynchronously and passes in the scoped services available to Razor components.
+    /// This method will not throw any exceptions if it is unable to call the specified <paramref name="workItem"/>, but if it does call it, then exceptions may still be thrown by the <paramref name="workItem"/> itself.
+    /// </summary>
+    /// <param name="workItem">The action to call.</param>
+    /// <returns>Returns a <see cref="Task"/> representing <c>true</c> if the <paramref name="workItem"/> was called, or <c>false</c> if it was not called because Blazor is not currently running.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if <paramref name="workItem"/> is <c>null</c>.</exception>
+    public async Task<bool> TryDispatchAsync(Action<IServiceProvider> workItem)
+    {
+        ArgumentNullException.ThrowIfNull(workItem);
+
+        var capturedCurrentPageContext = _currentPageContext;
+
+        if (capturedCurrentPageContext is null)
+        {
+            return false;
+        }
+
+        return await capturedCurrentPageContext.Renderer.Dispatcher.InvokeAsync(() =>
+        {
+            if (capturedCurrentPageContext != _currentPageContext)
+            {
+                // If the captured context doesn't match the current context, that means that there was something like
+                // a navigation event that caused the original page to be detached and a new one attached. Thus, we
+                // cancel out of the operation and return failure.
+                return false;
+            }
+            workItem(_currentPageContext.ServiceProvider);
+            return true;
         });
     }
 
@@ -216,7 +243,7 @@ public abstract class WebViewManager : IAsyncDisposable
     private static Uri EnsureTrailingSlash(Uri uri)
         => uri.AbsoluteUri.EndsWith('/') ? uri : new Uri(uri.AbsoluteUri + '/');
 
-    private class RootComponent
+    private sealed class RootComponent
     {
         public Type ComponentType { get; init; }
         public ParameterView Parameters { get; init; }
@@ -247,7 +274,7 @@ public abstract class WebViewManager : IAsyncDisposable
         await DisposeAsyncCore();
     }
 
-    private class StaticWebAssetsLoader
+    private sealed class StaticWebAssetsLoader
     {
         internal static IFileProvider UseStaticWebAssets(IFileProvider fileProvider)
         {

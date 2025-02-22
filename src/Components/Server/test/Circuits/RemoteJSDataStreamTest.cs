@@ -1,24 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Components.Server.Circuits;
 
 public class RemoteJSDataStreamTest
 {
-    private static readonly TestRemoteJSRuntime _jsRuntime = new(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+    private static readonly TestRemoteJSRuntime _jsRuntime = new(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
 
     [Fact]
     public async Task CreateRemoteJSDataStreamAsync_CreatesStream()
@@ -51,7 +45,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_SuccessReadsBackStream()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var remoteJSDataStream = await CreateRemoteJSDataStreamAsync(jsRuntime);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
         var chunk = new byte[100];
@@ -60,8 +54,8 @@ public class RemoteJSDataStreamTest
 
         var sendDataTask = Task.Run(async () =>
         {
-                // Act 1
-                var success = await RemoteJSDataStream.ReceiveData(jsRuntime, streamId, chunkId: 0, chunk, error: null).DefaultTimeout();
+            // Act 1
+            var success = await RemoteJSDataStream.ReceiveData(jsRuntime, streamId, chunkId: 0, chunk, error: null).DefaultTimeout();
             return success;
         });
 
@@ -79,7 +73,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_SuccessReadsBackPipeReader()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var remoteJSDataStream = await CreateRemoteJSDataStreamAsync(jsRuntime);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
         var chunk = new byte[100];
@@ -88,8 +82,8 @@ public class RemoteJSDataStreamTest
 
         var sendDataTask = Task.Run(async () =>
         {
-                // Act 1
-                var success = await RemoteJSDataStream.ReceiveData(jsRuntime, streamId, chunkId: 0, chunk, error: null).DefaultTimeout();
+            // Act 1
+            var success = await RemoteJSDataStream.ReceiveData(jsRuntime, streamId, chunkId: 0, chunk, error: null).DefaultTimeout();
             return success;
         });
 
@@ -107,7 +101,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_WithError()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var remoteJSDataStream = await CreateRemoteJSDataStreamAsync(jsRuntime);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
 
@@ -125,7 +119,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_WithZeroLengthChunk()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var remoteJSDataStream = await CreateRemoteJSDataStreamAsync(jsRuntime);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
         var chunk = Array.Empty<byte>();
@@ -144,7 +138,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_WithLargerChunksThanPermitted()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var remoteJSDataStream = await CreateRemoteJSDataStreamAsync(jsRuntime);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
         var chunk = new byte[50_000]; // more than the 32k maximum chunk size
@@ -163,7 +157,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_ProvidedWithMoreBytesThanRemaining()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var jsStreamReference = Mock.Of<IJSStreamReference>();
         var remoteJSDataStream = await RemoteJSDataStream.CreateRemoteJSDataStreamAsync(jsRuntime, jsStreamReference, totalLength: 100, signalRMaximumIncomingBytes: 10_000, jsInteropDefaultCallTimeout: TimeSpan.FromMinutes(1), cancellationToken: CancellationToken.None);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
@@ -183,7 +177,7 @@ public class RemoteJSDataStreamTest
     public async Task ReceiveData_ProvidedWithOutOfOrderChunk_SimulatesSignalRDisconnect()
     {
         // Arrange
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         var jsStreamReference = Mock.Of<IJSStreamReference>();
         var remoteJSDataStream = await RemoteJSDataStream.CreateRemoteJSDataStreamAsync(jsRuntime, jsStreamReference, totalLength: 100, signalRMaximumIncomingBytes: 10_000, jsInteropDefaultCallTimeout: TimeSpan.FromMinutes(1), cancellationToken: CancellationToken.None);
         var streamId = GetStreamId(remoteJSDataStream, jsRuntime);
@@ -208,7 +202,7 @@ public class RemoteJSDataStreamTest
     {
         // Arrange
         var unhandledExceptionRaisedTask = new TaskCompletionSource<bool>();
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         jsRuntime.UnhandledException += (_, ex) =>
         {
             Assert.Equal("Did not receive any data in the allotted time.", ex.Message);
@@ -249,7 +243,7 @@ public class RemoteJSDataStreamTest
     {
         // Arrange
         var unhandledExceptionRaisedTask = new TaskCompletionSource<bool>();
-        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions()), Mock.Of<ILogger<RemoteJSRuntime>>());
+        var jsRuntime = new TestRemoteJSRuntime(Options.Create(new CircuitOptions()), Options.Create(new HubOptions<ComponentHub>()), Mock.Of<ILogger<RemoteJSRuntime>>());
         jsRuntime.UnhandledException += (_, ex) =>
         {
             Assert.Equal("Did not receive any data in the allotted time.", ex.Message);
@@ -293,6 +287,61 @@ public class RemoteJSDataStreamTest
         Assert.False(success);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ValueLinkedCts_Works_WhenOneTokenCannotBeCanceled(bool isToken1Cancelable)
+    {
+        var cts = new CancellationTokenSource();
+        var token1 = isToken1Cancelable ? cts.Token : CancellationToken.None;
+        var token2 = isToken1Cancelable ? CancellationToken.None : cts.Token;
+
+        using var linkedCts = RemoteJSDataStream.ValueLinkedCancellationTokenSource.Create(token1, token2);
+
+        Assert.False(linkedCts.HasLinkedCancellationTokenSource);
+        Assert.False(linkedCts.Token.IsCancellationRequested);
+
+        cts.Cancel();
+
+        Assert.True(linkedCts.Token.IsCancellationRequested);
+    }
+
+    [Fact]
+    public void ValueLinkedCts_Works_WhenBothTokensCannotBeCanceled()
+    {
+        using var linkedCts = RemoteJSDataStream.ValueLinkedCancellationTokenSource.Create(
+            CancellationToken.None,
+            CancellationToken.None);
+
+        Assert.False(linkedCts.HasLinkedCancellationTokenSource);
+        Assert.False(linkedCts.Token.IsCancellationRequested);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ValueLinkedCts_Works_WhenBothTokensCanBeCanceled(bool shouldCancelToken1, bool shouldCancelToken2)
+    {
+        var cts1 = new CancellationTokenSource();
+        var cts2 = new CancellationTokenSource();
+        using var linkedCts = RemoteJSDataStream.ValueLinkedCancellationTokenSource.Create(cts1.Token, cts2.Token);
+
+        Assert.True(linkedCts.HasLinkedCancellationTokenSource);
+        Assert.False(linkedCts.Token.IsCancellationRequested);
+
+        if (shouldCancelToken1)
+        {
+            cts1.Cancel();
+        }
+        if (shouldCancelToken2)
+        {
+            cts2.Cancel();
+        }
+
+        Assert.True(linkedCts.Token.IsCancellationRequested);
+    }
+
     private static async Task<RemoteJSDataStream> CreateRemoteJSDataStreamAsync(TestRemoteJSRuntime jsRuntime = null)
     {
         var jsStreamReference = Mock.Of<IJSStreamReference>();
@@ -305,7 +354,7 @@ public class RemoteJSDataStreamTest
 
     class TestRemoteJSRuntime : RemoteJSRuntime, IJSRuntime
     {
-        public TestRemoteJSRuntime(IOptions<CircuitOptions> circuitOptions, IOptions<HubOptions> hubOptions, ILogger<RemoteJSRuntime> logger) : base(circuitOptions, hubOptions, logger)
+        public TestRemoteJSRuntime(IOptions<CircuitOptions> circuitOptions, IOptions<HubOptions<ComponentHub>> hubOptions, ILogger<RemoteJSRuntime> logger) : base(circuitOptions, hubOptions, logger)
         {
         }
 

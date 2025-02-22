@@ -9,9 +9,10 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Moq;
 using Xunit;
+using Microsoft.AspNetCore.Connections.Features;
 
 namespace Microsoft.AspNetCore.Server.Kestrel.Core.Tests;
 
@@ -55,23 +56,85 @@ public class Http1OutputProducerTests : IDisposable
     }
 
     [Fact]
+    public async Task FlushAsync_OnDisposedSocket_ReturnsResultWithIsCompletedTrue()
+    {
+        var pipeOptions = new PipeOptions
+        (
+            pool: _memoryPool,
+            readerScheduler: Mock.Of<PipeScheduler>(),
+            writerScheduler: PipeScheduler.Inline,
+            useSynchronizationContext: false
+        );
+
+        var socketOutput = CreateOutputProducer(pipeOptions);
+
+        await socketOutput.WriteDataAsync(new byte[] { 1, 2, 3, 4 }, default);
+        var successResult = await socketOutput.FlushAsync();
+        Assert.False(successResult.IsCompleted);
+
+        // Close
+        socketOutput.Dispose();
+
+        await socketOutput.WriteDataAsync(new byte[] { 1, 2, 3, 4 }, default);
+        var completedResult = await socketOutput.FlushAsync();
+        Assert.True(completedResult.IsCompleted);
+
+        socketOutput.Pipe.Writer.Complete();
+        socketOutput.Pipe.Reader.Complete();
+    }
+
+    [Fact]
+    public async Task FlushAsync_OnSocketWithCanceledPendingFlush_ReturnsResultWithIsCanceledTrue()
+    {
+        var pipeOptions = new PipeOptions
+        (
+            pool: _memoryPool,
+            readerScheduler: Mock.Of<PipeScheduler>(),
+            writerScheduler: PipeScheduler.Inline,
+            useSynchronizationContext: false
+        );
+
+        var socketOutput = CreateOutputProducer(pipeOptions);
+
+        await socketOutput.WriteDataAsync(new byte[] { 1, 2, 3, 4 }, default);
+        var successResult = await socketOutput.FlushAsync();
+        Assert.False(successResult.IsCanceled);
+
+        // Close
+        socketOutput.CancelPendingFlush();
+
+        var cancelResult = await socketOutput.WriteDataToPipeAsync(new byte[] { 1, 2, 3, 4 }, default);
+        Assert.True(cancelResult.IsCanceled);
+
+        // only one flush should be cancelled
+        var goodResult = await socketOutput.WriteDataToPipeAsync(new byte[] { 1, 2, 3, 4 }, default);
+        Assert.False(goodResult.IsCanceled);
+
+        socketOutput.Pipe.Writer.Complete();
+        socketOutput.Pipe.Reader.Complete();
+    }
+
+    [Fact]
     public void AbortsTransportEvenAfterDispose()
     {
         var mockConnectionContext = new Mock<ConnectionContext>();
+        var metricsContext = new ConnectionMetricsContext { ConnectionContext = mockConnectionContext.Object };
 
-        var outputProducer = CreateOutputProducer(connectionContext: mockConnectionContext.Object);
+        var outputProducer = CreateOutputProducer(connectionContext: mockConnectionContext.Object, metricsContext: metricsContext);
 
         outputProducer.Dispose();
 
         mockConnectionContext.Verify(f => f.Abort(It.IsAny<ConnectionAbortedException>()), Times.Never());
 
-        outputProducer.Abort(null);
+        outputProducer.Abort(null, ConnectionEndReason.AbortedByApp);
 
         mockConnectionContext.Verify(f => f.Abort(null), Times.Once());
 
-        outputProducer.Abort(null);
+        outputProducer.Abort(null, ConnectionEndReason.AbortedByApp);
 
         mockConnectionContext.Verify(f => f.Abort(null), Times.Once());
+
+        Assert.Equal(ConnectionEndReason.AbortedByApp, metricsContext.ConnectionEndReason);
     }
 
     [Fact]
@@ -159,7 +222,8 @@ public class Http1OutputProducerTests : IDisposable
 
     private TestHttpOutputProducer CreateOutputProducer(
         PipeOptions pipeOptions = null,
-        ConnectionContext connectionContext = null)
+        ConnectionContext connectionContext = null,
+        ConnectionMetricsContext metricsContext = null)
     {
         pipeOptions = pipeOptions ?? new PipeOptions();
         connectionContext = connectionContext ?? Mock.Of<ConnectionContext>();
@@ -174,15 +238,21 @@ public class Http1OutputProducerTests : IDisposable
             serviceContext.Log,
             Mock.Of<ITimeoutControl>(),
             Mock.Of<IHttpMinResponseDataRateFeature>(),
+            metricsContext ?? new ConnectionMetricsContext { ConnectionContext = connectionContext },
             Mock.Of<IHttpOutputAborter>());
 
         return socketOutput;
     }
 
+    private sealed class TestConnectionMetricsContextFeature : IConnectionMetricsContextFeature
+    {
+        public ConnectionMetricsContext MetricsContext { get; }
+    }
+
     private class TestHttpOutputProducer : Http1OutputProducer
     {
-        public TestHttpOutputProducer(Pipe pipe, string connectionId, ConnectionContext connectionContext, MemoryPool<byte> memoryPool, KestrelTrace log, ITimeoutControl timeoutControl, IHttpMinResponseDataRateFeature minResponseDataRateFeature, IHttpOutputAborter outputAborter)
-            : base(pipe.Writer, connectionId, connectionContext, memoryPool, log, timeoutControl, minResponseDataRateFeature, outputAborter)
+        public TestHttpOutputProducer(Pipe pipe, string connectionId, ConnectionContext connectionContext, MemoryPool<byte> memoryPool, KestrelTrace log, ITimeoutControl timeoutControl, IHttpMinResponseDataRateFeature minResponseDataRateFeature, ConnectionMetricsContext metricsContext, IHttpOutputAborter outputAborter)
+            : base(pipe.Writer, connectionId, connectionContext, memoryPool, log, timeoutControl, minResponseDataRateFeature, metricsContext, outputAborter)
         {
             Pipe = pipe;
         }

@@ -3,8 +3,6 @@
 
 #nullable enable
 
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Html;
 
 namespace Microsoft.AspNetCore.Mvc.Rendering;
@@ -23,10 +21,7 @@ public static class ViewComponentHelperExtensions
     /// </returns>
     public static Task<IHtmlContent> InvokeAsync(this IViewComponentHelper helper, string name)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
 
         return helper.InvokeAsync(name, arguments: null);
     }
@@ -40,10 +35,7 @@ public static class ViewComponentHelperExtensions
     /// </returns>
     public static Task<IHtmlContent> InvokeAsync(this IViewComponentHelper helper, Type componentType)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
 
         return helper.InvokeAsync(componentType, arguments: null);
     }
@@ -58,10 +50,7 @@ public static class ViewComponentHelperExtensions
     /// </returns>
     public static Task<IHtmlContent> InvokeAsync<TComponent>(this IViewComponentHelper helper, object? arguments)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
 
         return helper.InvokeAsync(typeof(TComponent), arguments);
     }
@@ -75,10 +64,7 @@ public static class ViewComponentHelperExtensions
     /// </returns>
     public static Task<IHtmlContent> InvokeAsync<TComponent>(this IViewComponentHelper helper)
     {
-        if (helper == null)
-        {
-            throw new ArgumentNullException(nameof(helper));
-        }
+        ArgumentNullException.ThrowIfNull(helper);
 
         return helper.InvokeAsync(typeof(TComponent), arguments: null);
     }

@@ -1,20 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
 using System.Buffers;
 using System.Diagnostics;
-using System.IO;
 using System.IO.Pipelines;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.AspNetCore.TestHost;
 
 /// <summary>
 /// The client's view of the response body.
 /// </summary>
-internal class ResponseBodyReaderStream : Stream
+internal sealed class ResponseBodyReaderStream : Stream
 {
     private bool _readerComplete;
     private bool _aborted;
@@ -52,14 +48,19 @@ internal class ResponseBodyReaderStream : Stream
 
     public override void SetLength(long value) => throw new NotSupportedException();
 
-    public override void Flush() => throw new NotSupportedException();
+    public override void Flush()
+    {
+        // No-op
+    }
 
-    public override Task FlushAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+    public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     // Write with count 0 will still trigger OnFirstWrite
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
     public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken) => throw new NotSupportedException();
 
     #endregion NotSupported
 
@@ -68,9 +69,13 @@ internal class ResponseBodyReaderStream : Stream
         return ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
     {
-        VerifyBuffer(buffer, offset, count);
+        return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+    }
+
+    public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+    {
         CheckAborted();
 
         if (_readerComplete)
@@ -94,27 +99,11 @@ internal class ResponseBodyReaderStream : Stream
         }
 
         var readableBuffer = result.Buffer;
-        var actual = Math.Min(readableBuffer.Length, count);
+        var actual = Math.Min(readableBuffer.Length, buffer.Length);
         readableBuffer = readableBuffer.Slice(0, actual);
-        readableBuffer.CopyTo(new Span<byte>(buffer, offset, count));
+        readableBuffer.CopyTo(buffer.Span);
         _pipe.Reader.AdvanceTo(readableBuffer.End);
         return (int)actual;
-    }
-
-    private static void VerifyBuffer(byte[] buffer, int offset, int count)
-    {
-        if (buffer == null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
-        if (offset < 0 || offset > buffer.Length)
-        {
-            throw new ArgumentOutOfRangeException(nameof(offset), offset, string.Empty);
-        }
-        if (count <= 0 || count > buffer.Length - offset)
-        {
-            throw new ArgumentOutOfRangeException(nameof(count), count, string.Empty);
-        }
     }
 
     internal void Cancel()

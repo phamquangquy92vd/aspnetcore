@@ -1,16 +1,11 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using Microsoft.AspNetCore.Testing;
+using Microsoft.AspNetCore.InternalTesting;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.WebEncoders.Testing;
 using Moq;
-using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.Localization.Test;
 
@@ -155,7 +150,7 @@ public class HtmlLocalizerTest
 
         // Assert
         Assert.NotNull(exception);
-        Assert.Equal("Input string was not in a correct format.", exception.Message);
+        Assert.StartsWith("Input string was not in a correct format.", exception.Message);
     }
 
     [Fact]
